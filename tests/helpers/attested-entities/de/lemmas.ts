@@ -61,6 +61,15 @@ export const germanBVGLemma = {
 	pos: "PROPN",
 } satisfies Lemma<"German", "Lexeme", "PROPN">;
 
+// Attestation: "Ich komme [auf jeden Fall] morgen."
+export const germanAufJedenFallLemma = {
+	canonicalLemma: "auf jeden Fall",
+	language: "German",
+	lemmaKind: "Phraseme",
+	meaningInEmojis: "✅",
+	phrasemeKind: "DiscourseFormula",
+} satisfies Lemma<"German", "Phraseme", "DiscourseFormula">;
+
 // Attestation: "[Ab]fahrt nur am Gleis 3."
 export const germanAbPrefixLemma = {
 	canonicalLemma: "ab",

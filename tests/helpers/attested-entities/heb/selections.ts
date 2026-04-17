@@ -1,4 +1,4 @@
-import type { KnownSelection, Selection } from "dumling";
+import type { Selection } from "dumling";
 import {
 	hebrewKatvuUnresolvedInflectionSurface,
 	hebrewShanaResolvedLemmaSurface,
@@ -13,7 +13,7 @@ export const hebrewKatvuStandardFullSelection = {
 	spelledSelection: "כתבו",
 	spellingRelation: "Canonical",
 	surface: hebrewKatvuUnresolvedInflectionSurface,
-} satisfies KnownSelection<"Hebrew">;
+} satisfies Selection<"Hebrew", "Standard", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "עוד [שנה] עברה."
 export const hebrewShanaResolvedLemmaSelection = {
@@ -46,4 +46,4 @@ export const hebrewKatvuPointedVariantSelection = {
 		...hebrewKatvuUnresolvedInflectionSurface,
 		normalizedFullSurface: "כָּתְבוּ",
 	},
-} satisfies KnownSelection<"Hebrew">;
+} satisfies Selection<"Hebrew", "Standard", "Inflection", "Lexeme", "VERB">;

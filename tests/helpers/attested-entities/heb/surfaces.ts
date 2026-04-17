@@ -1,4 +1,4 @@
-import type { ResolvedSurface, UnresolvedSurface } from "dumling";
+import type { Surface } from "dumling";
 import {
 	hebrewKatavLemma,
 	hebrewShanaLemma,
@@ -7,10 +7,6 @@ import {
 
 // Attestation: "הם [כתבו] מכתב."
 export const hebrewKatvuResolvedInflectionSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "VERB",
-	},
 	inflectionalFeatures: {
 		number: "Plur",
 		person: "3",
@@ -20,20 +16,10 @@ export const hebrewKatvuResolvedInflectionSurface = {
 	normalizedFullSurface: "כתבו",
 	surfaceKind: "Inflection",
 	lemma: hebrewKatavLemma,
-} satisfies ResolvedSurface<
-	"Hebrew",
-	"Standard",
-	"Inflection",
-	"Lexeme",
-	"VERB"
->;
+} satisfies Surface<"Hebrew", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "הם [כתבו] מכתב."
 export const hebrewKatvuUnresolvedInflectionSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "VERB",
-	},
 	inflectionalFeatures: {
 		number: "Plur",
 		person: "3",
@@ -42,37 +28,21 @@ export const hebrewKatvuUnresolvedInflectionSurface = {
 	language: "Hebrew",
 	normalizedFullSurface: "כתבו",
 	surfaceKind: "Inflection",
-	lemma: {
-		canonicalLemma: "כתב",
-	},
-} satisfies UnresolvedSurface<
-	"Hebrew",
-	"Standard",
-	"Inflection",
-	"Lexeme",
-	"VERB"
->;
+	lemma: hebrewKatavLemma,
+} satisfies Surface<"Hebrew", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "עוד [שנה] עברה."
 export const hebrewShanaResolvedLemmaSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "NOUN",
-	},
 	language: "Hebrew",
 	normalizedFullSurface: "שנה",
 	surfaceKind: "Lemma",
 	lemma: hebrewShanaLemma,
-} satisfies ResolvedSurface<"Hebrew", "Standard", "Lemma", "Lexeme", "NOUN">;
+} satisfies Surface<"Hebrew", "Lemma", "Lexeme", "NOUN">;
 
 // Attestation: "[ארה״ב] הודיעה על צעד חדש."
 export const hebrewUsAbbreviationResolvedLemmaSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "PROPN",
-	},
 	language: "Hebrew",
 	normalizedFullSurface: "ארה״ב",
 	surfaceKind: "Lemma",
 	lemma: hebrewUsAbbreviationLemma,
-} satisfies ResolvedSurface<"Hebrew", "Standard", "Lemma", "Lexeme", "PROPN">;
+} satisfies Surface<"Hebrew", "Lemma", "Lexeme", "PROPN">;

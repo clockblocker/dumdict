@@ -149,7 +149,7 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 	}
 
 	getSurfaceEntry(
-		id: DumlingId<"ResolvedSurface", L>,
+		id: DumlingId<"Surface", L>,
 	): DumdictResult<SurfaceEntry<L>> {
 		const idResult = assertSurfaceIdMatchesDictionaryLanguage(
 			this.language,
@@ -174,7 +174,7 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 
 	getOwnedSurfaceEntries(
 		lemmaId: DumlingId<"Lemma", L>,
-	): DumdictResult<Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>> {
+	): DumdictResult<Record<DumlingId<"Surface", L>, SurfaceEntry<L>>> {
 		const lemmaIdResult = assertLemmaIdMatchesDictionaryLanguage(
 			this.language,
 			lemmaId,
@@ -427,7 +427,7 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 	}
 
 	patchSurfaceEntry(
-		id: DumlingId<"ResolvedSurface", L>,
+		id: DumlingId<"Surface", L>,
 		ops: SurfaceEntryPatchOp<L> | SurfaceEntryPatchOp<L>[],
 	): DumdictResult<SurfaceEntry<L>> {
 		const surfaceIdResult = assertSurfaceIdMatchesDictionaryLanguage(
@@ -673,7 +673,7 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 		return ok(undefined);
 	}
 
-	deleteSurfaceEntry(id: DumlingId<"ResolvedSurface", L>): DumdictResult<void> {
+	deleteSurfaceEntry(id: DumlingId<"Surface", L>): DumdictResult<void> {
 		const surfaceIdResult = assertSurfaceIdMatchesDictionaryLanguage(
 			this.language,
 			id,

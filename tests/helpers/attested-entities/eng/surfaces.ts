@@ -1,12 +1,8 @@
-import type { ResolvedSurface, Surface, UnresolvedSurface } from "dumling";
-import { englishWalkLemma } from "./lemmas";
+import type { Surface } from "dumling";
+import { englishGiveUpLemma, englishWalkLemma } from "./lemmas";
 
 // Attestation: "They [walk] home together."
 export const englishWalkResolvedInflectionSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "VERB",
-	},
 	inflectionalFeatures: {
 		tense: "Pres",
 		verbForm: "Fin",
@@ -15,20 +11,10 @@ export const englishWalkResolvedInflectionSurface = {
 	normalizedFullSurface: "walk",
 	surfaceKind: "Inflection",
 	lemma: englishWalkLemma,
-} satisfies ResolvedSurface<
-	"English",
-	"Standard",
-	"Inflection",
-	"Lexeme",
-	"VERB"
->;
+} satisfies Surface<"English", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkUnresolvedInflectionSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "VERB",
-	},
 	inflectionalFeatures: {
 		tense: "Pres",
 		verbForm: "Fin",
@@ -36,49 +22,27 @@ export const englishWalkUnresolvedInflectionSurface = {
 	language: "English",
 	normalizedFullSurface: "walk",
 	surfaceKind: "Inflection",
-	lemma: {
-		canonicalLemma: "walk",
-	},
-} satisfies UnresolvedSurface<
-	"English",
-	"Standard",
-	"Inflection",
-	"Lexeme",
-	"VERB"
->;
+	lemma: englishWalkLemma,
+} satisfies Surface<"English", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkResolvedLemmaSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "VERB",
-	},
 	language: "English",
 	normalizedFullSurface: "walk",
 	surfaceKind: "Lemma",
 	lemma: englishWalkLemma,
-} satisfies ResolvedSurface<"English", "Standard", "Lemma", "Lexeme", "VERB">;
+} satisfies Surface<"English", "Lemma", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkUnresolvedLemmaSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "VERB",
-	},
 	language: "English",
 	normalizedFullSurface: "walk",
 	surfaceKind: "Lemma",
-	lemma: {
-		canonicalLemma: "walk",
-	},
-} satisfies Surface<"English", "Standard", "Lemma", "Lexeme", "VERB">;
+	lemma: englishWalkLemma,
+} satisfies Surface<"English", "Lemma", "Lexeme", "VERB">;
 
 // Attestation: "Mark gvae [up] on it."
 export const englishGiveUpTypoUnresolvedInflectionSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "VERB",
-	},
 	inflectionalFeatures: {
 		tense: "Past",
 		verbForm: "Fin",
@@ -86,13 +50,5 @@ export const englishGiveUpTypoUnresolvedInflectionSurface = {
 	language: "English",
 	normalizedFullSurface: "gave up",
 	surfaceKind: "Inflection",
-	lemma: {
-		canonicalLemma: "give up",
-	},
-} satisfies UnresolvedSurface<
-	"English",
-	"Typo",
-	"Inflection",
-	"Lexeme",
-	"VERB"
->;
+	lemma: englishGiveUpLemma,
+} satisfies Surface<"English", "Inflection", "Lexeme", "VERB">;

@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/correctness/noUnusedVariables: README example file */
-import { dumling, type Lemma, type ResolvedSurface } from "dumling";
+import { dumling, type Lemma, type Surface } from "dumling";
 import {
 	type DumdictResult,
 	type LemmaEntry,
@@ -34,10 +34,6 @@ const runLemma = {
 } satisfies Lemma<"English", "Lexeme", "VERB">;
 
 const walkSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "VERB",
-	},
 	inflectionalFeatures: {
 		tense: "Pres",
 		verbForm: "Fin",
@@ -46,13 +42,7 @@ const walkSurface = {
 	normalizedFullSurface: "walk",
 	surfaceKind: "Inflection",
 	lemma: walkLemma,
-} satisfies ResolvedSurface<
-	"English",
-	"Standard",
-	"Inflection",
-	"Lexeme",
-	"VERB"
->;
+} satisfies Surface<"English", "Inflection", "Lexeme", "VERB">;
 
 // README_BLOCK:english-walk-lemma-entry:start
 const walkEntry = {

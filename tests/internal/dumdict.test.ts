@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { dumling, type Lemma, type ResolvedSurface } from "dumling";
+import { dumling, type Lemma, type Surface } from "dumling";
 import type {
 	AuthoritativeWriteSnapshot,
 	ChangePrecondition,
@@ -80,15 +80,11 @@ function makeSurfaceEntry(): SurfaceEntry<"English"> {
 }
 
 const englishRunResolvedLemmaSurface = {
-	discriminators: {
-		lemmaKind: "Lexeme",
-		lemmaSubKind: "VERB",
-	},
 	language: "English",
 	normalizedFullSurface: "run",
 	surfaceKind: "Lemma",
 	lemma: englishRunLemma,
-} satisfies ResolvedSurface<"English", "Standard", "Lemma", "Lexeme", "VERB">;
+} satisfies Surface<"English", "Lemma", "Lexeme", "VERB">;
 
 describe("dumdict", () => {
 	it("stores entries with deterministic collection ordering and lookup behavior", () => {

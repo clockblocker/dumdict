@@ -23,9 +23,9 @@ export function collectLemmaRecord<L extends SupportedLang>(
 
 export function collectSurfaceRecord<L extends SupportedLang>(
 	state: InternalState<L>,
-	surfaceIds: Iterable<DumlingId<"ResolvedSurface", L>>,
+	surfaceIds: Iterable<DumlingId<"Surface", L>>,
 ) {
-	const entries: [DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>][] = [];
+	const entries: [DumlingId<"Surface", L>, SurfaceEntry<L>][] = [];
 	for (const surfaceId of sortIds([...surfaceIds])) {
 		const entry = state.surfacesById.get(surfaceId);
 		if (!entry) {

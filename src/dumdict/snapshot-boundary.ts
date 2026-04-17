@@ -157,7 +157,7 @@ function validateSnapshotInternal<L extends SupportedLang>(
 		lemmasById.set(lemmaEntry.id, lemmaEntry);
 	}
 
-	const surfaceIds = new Set<DumlingId<"ResolvedSurface", L>>();
+	const surfaceIds = new Set<DumlingId<"Surface", L>>();
 	for (const surfaceEntry of snapshot.surfaces) {
 		const surfaceResult = validateSurfaceEntry(language as L, surfaceEntry);
 		if (surfaceResult.isErr()) {
@@ -928,7 +928,7 @@ export function plan<L extends SupportedLang>(
 			const surfaceId = dumling.idCodec
 				.forLanguage(language)
 				.makeDumlingIdFor(ownedSurface.surface) as DumlingId<
-				"ResolvedSurface",
+				"Surface",
 				L
 			>;
 
@@ -1033,7 +1033,7 @@ export function plan<L extends SupportedLang>(
 		const surfaceId = dumling.idCodec
 			.forLanguage(language)
 			.makeDumlingIdFor(intent.entry.surface) as DumlingId<
-			"ResolvedSurface",
+			"Surface",
 			L
 		>;
 		const existingSurface = snapshot.surfaces.find(

@@ -1,6 +1,6 @@
 import type {
 	Lemma,
-	ResolvedSurface,
+	Surface,
 	SupportedLang,
 	UniversalLemmaKind,
 	UniversalLemmaSubKind,
@@ -15,8 +15,7 @@ type LemmaRuntimeShape<L extends SupportedLang> = Lemma<L> & {
 	pos?: UniversalLemmaSubKind;
 };
 
-type ResolvedSurfaceRuntimeShape<L extends SupportedLang> =
-	ResolvedSurface<L> & {
+type SurfaceRuntimeShape<L extends SupportedLang> = Surface<L> & {
 		lemma: Lemma<L>;
 		language: L;
 		normalizedFullSurface: string;
@@ -26,10 +25,10 @@ function asLemmaRuntimeShape<L extends SupportedLang>(lemma: Lemma<L>) {
 	return lemma as LemmaRuntimeShape<L>;
 }
 
-function asResolvedSurfaceRuntimeShape<L extends SupportedLang>(
-	surface: ResolvedSurface<L>,
+function asSurfaceRuntimeShape<L extends SupportedLang>(
+	surface: Surface<L>,
 ) {
-	return surface as ResolvedSurfaceRuntimeShape<L>;
+	return surface as SurfaceRuntimeShape<L>;
 }
 
 function requireLemmaSubKind(
@@ -76,19 +75,19 @@ export function getLemmaKind<L extends SupportedLang>(lemma: Lemma<L>) {
 }
 
 export function getSurfaceLanguage<L extends SupportedLang>(
-	surface: ResolvedSurface<L>,
+	surface: Surface<L>,
 ) {
-	return asResolvedSurfaceRuntimeShape(surface).language;
+	return asSurfaceRuntimeShape(surface).language;
 }
 
 export function getSurfaceNormalizedFullSurface<L extends SupportedLang>(
-	surface: ResolvedSurface<L>,
+	surface: Surface<L>,
 ) {
-	return asResolvedSurfaceRuntimeShape(surface).normalizedFullSurface;
+	return asSurfaceRuntimeShape(surface).normalizedFullSurface;
 }
 
 export function getSurfaceLemma<L extends SupportedLang>(
-	surface: ResolvedSurface<L>,
+	surface: Surface<L>,
 ) {
-	return asResolvedSurfaceRuntimeShape(surface).lemma;
+	return asSurfaceRuntimeShape(surface).lemma;
 }

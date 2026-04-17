@@ -15,7 +15,7 @@ consumer-facing mutation intents.
 
 `dumling` provides:
 
-- linguistic DTOs such as `Lemma` and `ResolvedSurface`
+- linguistic DTOs such as `Lemma` and `Surface`
 - stable IDs for resolved entities
 - language-bound validation
 
@@ -117,8 +117,8 @@ type LemmaEntry<L extends SupportedLang> = {
 
 ```ts
 type SurfaceEntry<L extends SupportedLang> = {
-  id: DumlingId<"ResolvedSurface", L>;
-  surface: ResolvedSurface<L>;
+  id: DumlingId<"Surface", L>;
+  surface: Surface<L>;
   ownerLemmaId: DumlingId<"Lemma", L>;
   attestedTranslations: string[];
   attestations: string[];
@@ -237,7 +237,7 @@ Examples:
 
 ## Ownership And Surface Semantics
 
-- Every `SurfaceEntry` wraps a `ResolvedSurface<L>`.
+- Every `SurfaceEntry` wraps a `Surface<L>`.
 - Every `SurfaceEntry` has exactly one `ownerLemmaId`.
 - `ownerLemmaId` must match the lemma encoded inside `surface.lemma`.
 - `ownerLemmaId` is stored explicitly so `dumdict` can maintain owner-based indexes and reads without re-deriving ownership from `surface`
@@ -286,7 +286,7 @@ for all supported languages.
 ```ts
 type LookupResult<L extends SupportedLang> = {
   lemmas: Record<DumlingId<"Lemma", L>, LemmaEntry<L>>;
-  surfaces: Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>;
+  surfaces: Record<DumlingId<"Surface", L>, SurfaceEntry<L>>;
 };
 
 lookupBySurface(surface: string): DumdictResult<LookupResult<L>>;
@@ -338,13 +338,13 @@ getLemmaEntry(
 ): DumdictResult<LemmaEntry<L>>;
 
 getSurfaceEntry(
-  id: DumlingId<"ResolvedSurface", L>,
+  id: DumlingId<"Surface", L>,
 ): DumdictResult<SurfaceEntry<L>>;
 
 getOwnedSurfaceEntries(
   lemmaId: DumlingId<"Lemma", L>,
 ): DumdictResult<
-  Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>
+  Record<DumlingId<"Surface", L>, SurfaceEntry<L>>
 >;
 
 getPendingLemmaRef(
@@ -424,7 +424,7 @@ patchLemmaEntry(
 ): DumdictResult<LemmaEntry<L>>;
 
 patchSurfaceEntry(
-  id: DumlingId<"ResolvedSurface", L>,
+  id: DumlingId<"Surface", L>,
   ops: SurfaceEntryPatchOp<L> | SurfaceEntryPatchOp<L>[],
 ): DumdictResult<SurfaceEntry<L>>;
 ```
@@ -515,7 +515,7 @@ Rules:
 
 ```ts
 deleteLemmaEntry(id: DumlingId<"Lemma", L>): DumdictResult<void>;
-deleteSurfaceEntry(id: DumlingId<"ResolvedSurface", L>): DumdictResult<void>;
+deleteSurfaceEntry(id: DumlingId<"Surface", L>): DumdictResult<void>;
 ```
 
 Behavior:
@@ -692,7 +692,7 @@ type DumdictError = {
 `dumling` remains responsible for:
 
 - `Lemma`
-- `ResolvedSurface`
+- `Surface`
 - `DumlingId`
 - language-bound decoding and validation
 - universal lemma discriminator helper types
@@ -783,7 +783,7 @@ type NewLemmaPayload<L extends SupportedLang> = {
 };
 
 type OwnedSurfacePayload<L extends SupportedLang> = {
-  surface: ResolvedSurface<L>;
+  surface: Surface<L>;
   ownerLemmaId: DumlingId<"Lemma", L>;
   attestedTranslations: string[];
   attestations: string[];
@@ -841,8 +841,8 @@ type ChangePrecondition<L extends SupportedLang> =
   | { kind: "snapshotRevisionMatches"; revision: string }
   | { kind: "lemmaExists"; lemmaId: DumlingId<"Lemma", L> }
   | { kind: "lemmaMissing"; lemmaId: DumlingId<"Lemma", L> }
-  | { kind: "surfaceExists"; surfaceId: DumlingId<"ResolvedSurface", L> }
-  | { kind: "surfaceMissing"; surfaceId: DumlingId<"ResolvedSurface", L> }
+  | { kind: "surfaceExists"; surfaceId: DumlingId<"Surface", L> }
+  | { kind: "surfaceMissing"; surfaceId: DumlingId<"Surface", L> }
   | { kind: "pendingRefExists"; pendingId: PendingLemmaId<L> }
   | { kind: "pendingRefMissing"; pendingId: PendingLemmaId<L> };
 
@@ -870,13 +870,13 @@ type PlannedChangeOp<L extends SupportedLang> =
     }
   | {
       type: "patchSurface";
-      surfaceId: DumlingId<"ResolvedSurface", L>;
+      surfaceId: DumlingId<"Surface", L>;
       ops: SurfaceEntryPatchOp<L>[];
       preconditions?: ChangePrecondition<L>[];
     }
   | {
       type: "deleteSurface";
-      id: DumlingId<"ResolvedSurface", L>;
+      id: DumlingId<"Surface", L>;
       preconditions?: ChangePrecondition<L>[];
     }
   | {

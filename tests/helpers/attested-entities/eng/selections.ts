@@ -1,4 +1,4 @@
-import type { KnownSelection, Selection } from "dumling";
+import type { Selection } from "dumling";
 import {
 	englishGiveUpTypoUnresolvedInflectionSurface,
 	englishWalkResolvedLemmaSurface,
@@ -13,7 +13,7 @@ export const englishWalkStandardFullSelection = {
 	spelledSelection: "walk",
 	spellingRelation: "Canonical",
 	surface: englishWalkUnresolvedInflectionSurface,
-} satisfies KnownSelection<"English">;
+} satisfies Selection<"English", "Standard", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkResolvedLemmaSelection = {

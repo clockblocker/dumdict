@@ -46,7 +46,7 @@ export function inferSurfaceIdLanguage(surfaceId: string) {
 		if (
 			dumling.idCodec
 				.forLanguage(language)
-				.tryToDecodeAs("ResolvedSurface", surfaceId)
+				.tryToDecodeAs("Surface", surfaceId)
 				.isOk()
 		) {
 			return language;
@@ -112,13 +112,13 @@ export function assertLemmaIdMatchesDictionaryLanguage<L extends SupportedLang>(
 
 export function assertSurfaceIdMatchesDictionaryLanguage<
 	L extends SupportedLang,
->(language: L, id: DumlingId<"ResolvedSurface", L>): DumdictResult<void> {
+>(language: L, id: DumlingId<"Surface", L>): DumdictResult<void> {
 	const inferredLanguage = inferSurfaceIdLanguage(id);
 	if (!inferredLanguage) {
 		return err(
 			makeError(
 				"DecodeFailed",
-				`Could not decode surface ID ${id} as a supported dumling resolved-surface ID.`,
+				`Could not decode surface ID ${id} as a supported dumling surface ID.`,
 			),
 		);
 	}

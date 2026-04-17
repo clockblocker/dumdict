@@ -1,7 +1,7 @@
 import type {
 	DumlingId,
 	Lemma,
-	ResolvedSurface,
+	Surface,
 	SupportedLang,
 	UniversalLemmaKind,
 	UniversalLemmaSubKind,
@@ -40,8 +40,8 @@ export type LemmaEntry<L extends SupportedLang> = {
 };
 
 export type SurfaceEntry<L extends SupportedLang> = {
-	id: DumlingId<"ResolvedSurface", L>;
-	surface: ResolvedSurface<L>;
+	id: DumlingId<"Surface", L>;
+	surface: Surface<L>;
 	ownerLemmaId: DumlingId<"Lemma", L>;
 	attestedTranslations: string[];
 	attestations: string[];
@@ -71,7 +71,7 @@ export type PendingLemmaRelation<L extends SupportedLang> = {
 
 export type LookupResult<L extends SupportedLang> = {
 	lemmas: Record<DumlingId<"Lemma", L>, LemmaEntry<L>>;
-	surfaces: Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>;
+	surfaces: Record<DumlingId<"Surface", L>, SurfaceEntry<L>>;
 };
 
 export type DictionarySnapshotData<L extends SupportedLang> = {
@@ -103,8 +103,8 @@ export type ChangePrecondition<L extends SupportedLang> =
 	| { kind: "snapshotRevisionMatches"; revision: string }
 	| { kind: "lemmaExists"; lemmaId: DumlingId<"Lemma", L> }
 	| { kind: "lemmaMissing"; lemmaId: DumlingId<"Lemma", L> }
-	| { kind: "surfaceExists"; surfaceId: DumlingId<"ResolvedSurface", L> }
-	| { kind: "surfaceMissing"; surfaceId: DumlingId<"ResolvedSurface", L> }
+	| { kind: "surfaceExists"; surfaceId: DumlingId<"Surface", L> }
+	| { kind: "surfaceMissing"; surfaceId: DumlingId<"Surface", L> }
 	| { kind: "pendingRefExists"; pendingId: PendingLemmaId<L> }
 	| { kind: "pendingRefMissing"; pendingId: PendingLemmaId<L> };
 
@@ -132,13 +132,13 @@ export type PlannedChangeOp<L extends SupportedLang> =
 	  }
 	| {
 			type: "patchSurface";
-			surfaceId: DumlingId<"ResolvedSurface", L>;
+			surfaceId: DumlingId<"Surface", L>;
 			ops: SurfaceEntryPatchOp<L>[];
 			preconditions?: ChangePrecondition<L>[];
 	  }
 	| {
 			type: "deleteSurface";
-			id: DumlingId<"ResolvedSurface", L>;
+			id: DumlingId<"Surface", L>;
 			preconditions?: ChangePrecondition<L>[];
 	  }
 	| {
@@ -170,7 +170,7 @@ export type NewLemmaPayload<L extends SupportedLang> = {
 };
 
 export type OwnedSurfacePayload<L extends SupportedLang> = {
-	surface: ResolvedSurface<L>;
+	surface: Surface<L>;
 	ownerLemmaId: DumlingId<"Lemma", L>;
 	attestedTranslations: string[];
 	attestations: string[];
@@ -273,11 +273,11 @@ export type Dumdict<L extends SupportedLang> = {
 	): DumdictResult<Record<DumlingId<"Lemma", L>, LemmaEntry<L>>>;
 	getLemmaEntry(id: DumlingId<"Lemma", L>): DumdictResult<LemmaEntry<L>>;
 	getSurfaceEntry(
-		id: DumlingId<"ResolvedSurface", L>,
+		id: DumlingId<"Surface", L>,
 	): DumdictResult<SurfaceEntry<L>>;
 	getOwnedSurfaceEntries(
 		lemmaId: DumlingId<"Lemma", L>,
-	): DumdictResult<Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>>;
+	): DumdictResult<Record<DumlingId<"Surface", L>, SurfaceEntry<L>>>;
 	getPendingLemmaRef(
 		pendingId: PendingLemmaId<L>,
 	): DumdictResult<PendingLemmaRef<L>>;
@@ -294,7 +294,7 @@ export type Dumdict<L extends SupportedLang> = {
 		ops: LemmaEntryPatchOp<L> | LemmaEntryPatchOp<L>[],
 	): DumdictResult<LemmaEntry<L>>;
 	patchSurfaceEntry(
-		id: DumlingId<"ResolvedSurface", L>,
+		id: DumlingId<"Surface", L>,
 		ops: SurfaceEntryPatchOp<L> | SurfaceEntryPatchOp<L>[],
 	): DumdictResult<SurfaceEntry<L>>;
 	removePendingRelation(edge: PendingLemmaRelation<L>): DumdictResult<void>;
@@ -303,5 +303,5 @@ export type Dumdict<L extends SupportedLang> = {
 		lemmaId: DumlingId<"Lemma", L>,
 	): DumdictResult<LemmaEntry<L>>;
 	deleteLemmaEntry(id: DumlingId<"Lemma", L>): DumdictResult<void>;
-	deleteSurfaceEntry(id: DumlingId<"ResolvedSurface", L>): DumdictResult<void>;
+	deleteSurfaceEntry(id: DumlingId<"Surface", L>): DumdictResult<void>;
 };

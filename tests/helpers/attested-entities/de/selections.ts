@@ -1,9 +1,5 @@
-import type { Selection } from "dumling";
-import {
-	makeLexemeSurfaceReference,
-	makePhrasemeSurfaceReference,
-} from "../../functions/builders";
-import { germanBVGLemma } from "./lemmas";
+import { dumling, type Selection } from "dumling";
+import { germanAufJedenFallLemma, germanBVGLemma } from "./lemmas";
 
 // Attestation: "Ich komme [auf jeden Fall] morgen."
 export const germanAufJedenFallDiscourseFormulaSelection = {
@@ -12,12 +8,7 @@ export const germanAufJedenFallDiscourseFormulaSelection = {
 	selectionCoverage: "Full",
 	spelledSelection: "auf jeden Fall",
 	spellingRelation: "Canonical",
-	surface: {
-		...makePhrasemeSurfaceReference("DiscourseFormula", "auf jeden Fall"),
-		language: "German",
-		normalizedFullSurface: "auf jeden Fall",
-		surfaceKind: "Lemma",
-	},
+	surface: dumling.operation.convert.lemma.toSurface(germanAufJedenFallLemma),
 } satisfies Selection<
 	"German",
 	"Standard",
@@ -33,12 +24,7 @@ export const germanAufJedenFallPartialSelection = {
 	selectionCoverage: "Partial",
 	spelledSelection: "jeden Fall",
 	spellingRelation: "Canonical",
-	surface: {
-		...makePhrasemeSurfaceReference("DiscourseFormula", "auf jeden Fall"),
-		language: "German",
-		normalizedFullSurface: "auf jeden Fall",
-		surfaceKind: "Lemma",
-	},
+	surface: dumling.operation.convert.lemma.toSurface(germanAufJedenFallLemma),
 } satisfies Selection<
 	"German",
 	"Standard",
@@ -54,10 +40,5 @@ export const germanBVGAbbreviationSelection = {
 	selectionCoverage: "Full",
 	spelledSelection: "BVG",
 	spellingRelation: "Canonical",
-	surface: {
-		...makeLexemeSurfaceReference("PROPN", germanBVGLemma.canonicalLemma),
-		language: "German",
-		normalizedFullSurface: "BVG",
-		surfaceKind: "Lemma",
-	},
+	surface: dumling.operation.convert.lemma.toSurface(germanBVGLemma),
 } satisfies Selection<"German", "Standard", "Lemma", "Lexeme", "PROPN">;

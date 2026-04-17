@@ -4,7 +4,7 @@
     "": {
       "name": "dumdict",
       "dependencies": {
-        "dumling": "latest",
+        "dumling": "0.1.2",
         "neverthrow": "^8.2.0",
         "zod": "3.25.76",
       },
@@ -28,7 +28,7 @@
 
     "csstype": ["csstype@3.2.3", "", {}, "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="],
 
-    "dumling": ["dumling@0.1.1", "", { "dependencies": { "neverthrow": "^8.2.0", "zod": "3.25.76" } }, "sha512-lmEyVRiSZaj/6emjEYSNVkYB/Fqmos/+cZjdofKhXzzqbUxnXvpSl1RpNZGCMk3ytuPmfF2qC+DJqgCl4Niiww=="],
+    "dumling": ["dumling@0.1.2", "", { "dependencies": { "neverthrow": "^8.2.0", "zod": "3.25.76" } }, "sha512-uTsjU4pympW8c0cCKSrk8N6S3AktJ1JS27GK6RsSQvLbDloMe5XnU/ibEJ28s4J7TDVPo48R2U2wf5WUI3st4Q=="],
 
     "neverthrow": ["neverthrow@8.2.0", "", { "optionalDependencies": { "@rollup/rollup-linux-x64-gnu": "^4.24.0" } }, "sha512-kOCT/1MCPAxY5iUV3wytNFUMUolzuwd/VF/1KCx7kf6CutrOsTie+84zTGTpgQycjvfLdBBdvBvFLqFD2c0wkQ=="],
 

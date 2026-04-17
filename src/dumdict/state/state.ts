@@ -9,13 +9,13 @@ import type {
 
 export type InternalState<L extends SupportedLang> = {
 	lemmasById: Map<DumlingId<"Lemma", L>, LemmaEntry<L>>;
-	surfacesById: Map<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>;
+	surfacesById: Map<DumlingId<"Surface", L>, SurfaceEntry<L>>;
 	surfaceIdsByOwnerLemmaId: Map<
 		DumlingId<"Lemma", L>,
-		Set<DumlingId<"ResolvedSurface", L>>
+		Set<DumlingId<"Surface", L>>
 	>;
 	lemmaLookupIndex: Map<string, Set<DumlingId<"Lemma", L>>>;
-	surfaceLookupIndex: Map<string, Set<DumlingId<"ResolvedSurface", L>>>;
+	surfaceLookupIndex: Map<string, Set<DumlingId<"Surface", L>>>;
 	pendingLemmaRefsById: Map<PendingLemmaId<L>, PendingLemmaRef<L>>;
 	pendingRelationsBySourceLemmaId: Map<
 		DumlingId<"Lemma", L>,

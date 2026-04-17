@@ -44,7 +44,7 @@ export function replaceSurfaceEntryDirect<L extends SupportedLang>(
 
 export function deleteSurfaceEntryDirect<L extends SupportedLang>(
 	state: InternalState<L>,
-	surfaceId: DumlingId<"ResolvedSurface", L>,
+	surfaceId: DumlingId<"Surface", L>,
 ) {
 	const existing = state.surfacesById.get(surfaceId);
 	if (!existing) {
