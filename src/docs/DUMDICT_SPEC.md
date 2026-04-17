@@ -632,3 +632,206 @@ type DumdictError = {
 - lookup and normalization
 - relation types and inverse logic
 - pending unresolved targets
+
+## Boundary With External Hosts
+
+`dumdict` v1 is not a general storage adapter and does not read or write
+directly to files, databases, or remote services.
+
+The current exported v1 API is the mutable in-memory dictionary API described
+in the Read, Write, and Delete sections above.
+
+Instead, `dumdict` acts as the semantic engine that:
+
+- validates dictionary DTOs
+- maintains lookup indexes
+- maintains reciprocal resolved relations
+- creates and resolves pending targets
+
+An external host remains responsible for:
+
+- loading persisted dictionary data from its own storage
+- serializing and deserializing that storage format
+- committing writes to that storage format
+- conflict detection and revision management
+- sync with any remote or local authority outside `dumdict`
+
+This keeps `dumdict` implementation-independent while allowing multiple hosts
+to reuse the same dictionary semantics.
+
+### Authority Model
+
+V1 distinguishes between:
+
+- semantic authority: `dumdict`
+- persistence authority: the host
+
+`dumdict` is authoritative for:
+
+- whether a payload is a valid `LemmaEntry` or `SurfaceEntry`
+- what reciprocal relations must be added or removed
+- how pending refs are deduped
+- how pending refs resolve into real relations
+
+The host is authoritative for:
+
+- where data is stored
+- how revisions are tracked
+- what slice of data is loaded into memory
+- whether commits succeed or conflict
+
+`dumdict` should not invent fake lemma entries merely to represent unresolved
+related targets.
+
+When a related lemma does not yet exist, v1 should represent it as a
+`PendingLemmaRef` plus one or more `PendingLemmaRelation`s. A host may project
+that unresolved state into its UI as a "stub", but the stub is a host concern,
+not a `dumdict` entity kind.
+
+V1 is therefore specified as a mutating in-memory library, not as a
+change-planner that emits a separate public `ChangeSet` API.
+
+### Snapshot Safety
+
+The current in-memory implementation maintains reciprocal graph edges against
+whatever lemma set is already loaded in memory.
+
+That means partial state is unsafe for graph mutations.
+
+V1 therefore distinguishes between:
+
+- read slices: may be partial
+- write state: must be a complete authoritative snapshot
+
+For v1, the simplest safe rule is:
+
+- hosts may hydrate `dumdict` from partial slices for read-only flows
+- hosts must not perform lemma-graph mutations against an arbitrary partial slice
+- before any mutation, the host must load a full authoritative snapshot for the
+  language into memory
+
+Until `dumdict` grows a different mutation model, v1 write sessions require a
+full-language snapshot.
+
+### Canonical Host Profile
+
+This section describes adapter guidance for external persistence hosts.
+
+It is not a currently exported `dumdict` API surface. V1 does not yet export a
+standardized `ingest`, `dumpSnapshot`, or `plan` API.
+
+To interoperate cleanly with different storage backends, hosts should provide a
+small persistence contract to `dumdict`.
+
+Minimal shape:
+
+```ts
+type DictionarySnapshot<L extends SupportedLang> = {
+  revision: string;
+  lemmas: LemmaEntry<L>[];
+  surfaces: SurfaceEntry<L>[];
+  pendingRelations: PendingLemmaRelation<L>[];
+};
+
+interface DumdictHost<L extends SupportedLang> {
+  readonly language: L;
+  loadSnapshot(): Promise<DictionarySnapshot<L>>;
+  saveSnapshot(
+    snapshot: DictionarySnapshot<L>,
+    baseRevision: string,
+  ): Promise<
+    | { ok: true; revision: string }
+    | { ok: false; conflictAt: string; latest: DictionarySnapshot<L> }
+  >;
+}
+```
+
+Rules:
+
+- hosts may store richer local metadata, but the shared contract should stay
+  centered on dictionary DTOs plus pending relation state
+- `revision` is host-defined and opaque to `dumdict`
+- mutation sessions require a full authoritative snapshot in memory
+- partial loads are read-only
+- lookup ownership remains with `dumdict`
+- pending refs are not independently writable host state in this contract
+- pending ref lifecycle is derived from pending relations and must be recreated
+  by adapters during snapshot hydration
+- when hydrating a snapshot, adapters reconstruct readable pending refs from
+  `PendingLemmaId` values using the pending-ID wire format specified in the
+  Pending Unresolved Targets section
+- pending IDs must come from `dumdict` / `dumling`-compatible lemma identity,
+  not arbitrary raw LLM text
+- incremental sync is out of scope for v1; on conflict or uncertainty, full
+  reload is allowed and preferred
+- canonical multi-writer hosts must provide a real `revision`
+- weaker revision discipline is acceptable only in explicitly local-only,
+  single-writer modes
+- a `DumdictHost<L>` instance is language-bound
+- a multi-language service should expose one host instance per language rather
+  than multiplexing language through one unbound runtime contract
+- because `dumdict` does not yet export standardized snapshot hydration APIs,
+  adapters must translate between `DictionarySnapshot<L>` and the current
+  in-memory CRUD/patch surface themselves
+
+### Consumer Model
+
+V1 does not need three separate architectures for Obsidian, a research server,
+and an Electron app.
+
+Instead, v1 needs one semantic contract and multiple host adapters.
+
+Expected host roles:
+
+- Obsidian plugin: host adapter over markdown files
+- Node server: host adapter over SQLite and the canonical shared write
+  authority
+- Electron app: usually a client of another host authority plus an optional
+  local cache; it should only become a write authority if offline sync is an
+  explicit product requirement
+
+The distinction that matters is not "which app type is this?" but:
+
+- is this process a persistence authority?
+- or is this process a UI/orchestration shell over another authority?
+
+V1 host modes should be explicit:
+
+- the Node/SQLite service is the only shared write authority
+- Obsidian is either a local-only authority or a client-side adapter, but not
+  both in the same mode
+- Electron is a client/cache unless offline-first multi-writer sync is an
+  explicit product goal
+
+### Example User Flow
+
+For a user flow such as selecting a surface form and deciding whether to patch
+an existing lemma or insert a new one:
+
+1. the consumer asks a small LLM to derive the probable lemma identity and any
+   needed discriminators
+2. in the read phase, the consumer may use a cheap host-side read path or
+   storage index keyed by `dumdict`'s lookup normalization to fetch a narrow
+   candidate slice
+3. if the interaction remains read-only, no full authoritative snapshot is
+   required
+4. once the consumer decides it may mutate dictionary state, it loads the
+   current authoritative full snapshot into memory
+5. the consumer asks `dumdict` for authoritative candidate entries using the
+   normal in-memory lookup and read APIs
+6. the consumer narrows candidates using its own discriminator logic and LLM
+   assistance if needed
+7. if the attestation belongs to an existing lemma, the consumer mutates the
+   in-memory dictionary through the current patch/upsert APIs
+8. if the attestation implies a new lemma, the consumer mutates the in-memory
+   dictionary through the current insert plus relation APIs
+9. unresolved related targets remain represented as pending relations and
+   derived pending refs
+10. the adapter serializes the resulting authoritative in-memory state back into
+    `DictionarySnapshot<L>` form and asks the host to `saveSnapshot(...)`
+11. if the save conflicts, the host reloads the latest full authoritative
+   snapshot and the consumer retries from fresh state
+
+In this model, the LLM does not directly mutate storage and `dumdict` does not
+directly talk to storage. The host remains the bridge between semantic planning
+and persistence.
