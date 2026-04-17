@@ -5,7 +5,7 @@ import type {
 	SupportedLang,
 	UniversalLemmaKind,
 	UniversalLemmaSubKind,
-} from "dumling";
+} from "../dumling-compat";
 import type { DumdictResult } from "./errors";
 import type { LexicalRelation } from "./relations/lexical";
 import type { MorphologicalRelation } from "./relations/morphological";

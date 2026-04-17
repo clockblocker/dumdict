@@ -1,4 +1,4 @@
-import type { DumlingId, SupportedLang } from "dumling";
+import type { DumlingId, SupportedLang } from "../../dumling-compat";
 import { makeLookupKey } from "../domain/collections";
 import { getSurfaceNormalizedFullSurface } from "../domain/runtime-accessors";
 import type { SurfaceEntry } from "../public";

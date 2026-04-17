@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/correctness/noUnusedVariables: README example file */
-import { dumling, type Lemma, type Surface } from "dumling";
+import { dumling, type Lemma, type Surface } from "../../src/dumling-compat";
 import {
 	type DumdictResult,
 	type LemmaEntry,

@@ -1,4 +1,8 @@
-import { dumling, type DumlingId, type SupportedLang } from "dumling";
+import {
+	dumling,
+	type DumlingId,
+	type SupportedLang,
+} from "../dumling-compat";
 import { err, ok } from "neverthrow";
 import { makeDumdict } from "./impl/make-dumdict";
 import {

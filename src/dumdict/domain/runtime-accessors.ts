@@ -4,7 +4,7 @@ import type {
 	SupportedLang,
 	UniversalLemmaKind,
 	UniversalLemmaSubKind,
-} from "dumling";
+} from "../../dumling-compat";
 
 type LemmaRuntimeShape<L extends SupportedLang> = Lemma<L> & {
 	canonicalLemma: string;

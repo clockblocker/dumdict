@@ -1,4 +1,4 @@
-import type { SupportedLang } from "dumling";
+import type { SupportedLang } from "../../dumling-compat";
 import type { Dumdict } from "../public";
 import { InMemoryDumdict } from "./in-memory-dumdict";
 

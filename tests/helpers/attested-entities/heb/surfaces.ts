@@ -1,4 +1,4 @@
-import type { Surface } from "dumling";
+import type { Surface } from "../../../../src/dumling-compat";
 import {
 	hebrewKatavLemma,
 	hebrewShanaLemma,

@@ -1,4 +1,4 @@
-import type { Lemma } from "dumling";
+import type { Lemma } from "../../../../src/dumling-compat";
 
 // Attestation: "Am Ufer des [Sees] war es still."
 export const germanMasculineSeeLemma = {

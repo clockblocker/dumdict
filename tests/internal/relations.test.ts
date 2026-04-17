@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { type DumlingId, dumling } from "dumling";
+import { type DumlingId, dumling } from "../../src/dumling-compat";
 import {
 	getInverseLexicalRelation,
 	getInverseMorphologicalRelation,

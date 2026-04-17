@@ -1,4 +1,4 @@
-import type { Surface } from "dumling";
+import type { Surface } from "../../../../src/dumling-compat";
 import { englishGiveUpLemma, englishWalkLemma } from "./lemmas";
 
 // Attestation: "They [walk] home together."

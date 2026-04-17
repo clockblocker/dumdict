@@ -1,4 +1,4 @@
-import type { DumlingId, SupportedLang } from "dumling";
+import type { DumlingId, SupportedLang } from "../../dumling-compat";
 import type {
 	LemmaEntry,
 	PendingLemmaId,

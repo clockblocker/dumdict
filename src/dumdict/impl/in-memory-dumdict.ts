@@ -1,4 +1,8 @@
-import { type DumlingId, dumling, type SupportedLang } from "dumling";
+import {
+	type DumlingId,
+	dumling,
+	type SupportedLang,
+} from "../../dumling-compat";
 import { err, ok } from "neverthrow";
 import { sortIds, sortStrings, toSortedRecord } from "../domain/collections";
 import { makePendingLemmaRef, makePendingRelationKey } from "../domain/pending";

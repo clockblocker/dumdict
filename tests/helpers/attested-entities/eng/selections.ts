@@ -1,4 +1,4 @@
-import type { Selection } from "dumling";
+import type { Selection } from "../../../../src/dumling-compat";
 import {
 	englishGiveUpTypoUnresolvedInflectionSurface,
 	englishWalkResolvedLemmaSurface,

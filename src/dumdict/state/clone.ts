@@ -1,4 +1,4 @@
-import type { DumlingId, SupportedLang } from "dumling";
+import type { DumlingId, SupportedLang } from "../../dumling-compat";
 import { sortIds, sortStrings, toSortedRecord } from "../domain/collections";
 import type { LemmaEntry, PendingLemmaRef, SurfaceEntry } from "../public";
 import { lexicalRelationKeys } from "../relations/lexical";

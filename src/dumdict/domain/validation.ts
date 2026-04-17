@@ -3,7 +3,7 @@ import {
 	dumling,
 	type Lemma,
 	type SupportedLang,
-} from "dumling";
+} from "../../dumling-compat";
 import { err, ok } from "neverthrow";
 import { type DumdictResult, makeError } from "../errors";
 import type {

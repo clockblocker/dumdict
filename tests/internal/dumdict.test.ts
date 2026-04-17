@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { dumling, type Lemma, type Surface } from "dumling";
+import { dumling, type Lemma, type Surface } from "../../src/dumling-compat";
 import type {
 	AuthoritativeWriteSnapshot,
 	ChangePrecondition,

@@ -1,4 +1,4 @@
-import type { DumlingId, SupportedLang } from "dumling";
+import type { DumlingId, SupportedLang } from "../../dumling-compat";
 import { sortIds, toSortedRecord } from "../domain/collections";
 import type { LemmaEntry, SurfaceEntry } from "../public";
 import { cloneLemmaEntry, cloneSurfaceEntry } from "./clone";

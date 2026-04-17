@@ -1,4 +1,4 @@
-import type { Lemma } from "dumling";
+import type { Lemma } from "../../../../src/dumling-compat";
 
 // Attestation: "They [walk] home together."
 export const englishWalkLemma = {
