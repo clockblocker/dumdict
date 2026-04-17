@@ -943,6 +943,40 @@ describe("dumdict", () => {
 		]);
 	});
 
+	it("rejects authoritative snapshots with orphan pending refs", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(
+			dict.patchLemmaEntry(walkEntry.id, {
+				op: "addMorphologicalRelation",
+				relation: "derivedFrom",
+				target: {
+					kind: "pending",
+					ref: {
+						canonicalLemma: "stride",
+						lemmaKind: "Lexeme",
+						lemmaSubKind: "VERB",
+					},
+				},
+			}),
+		);
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const orphanSnapshot = {
+			...baseSnapshot,
+			pendingRelations: [],
+		} satisfies AuthoritativeWriteSnapshot<"English">;
+
+		const result = validateAuthoritativeWriteSnapshot(orphanSnapshot);
+
+		expect(result.isErr()).toBe(true);
+		if (result.isErr()) {
+			expect(result.error.code).toBe("InvariantViolation");
+		}
+	});
+
 	it("rejects pending self-relations at patch time", () => {
 		const dict = makeDumdict("English");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);

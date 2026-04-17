@@ -257,6 +257,7 @@ function validateSnapshotInternal<L extends SupportedLang>(
 	}
 
 	const seenPendingRelations = new Set<string>();
+	const referencedPendingIds = new Set<string>();
 	for (const pendingRelation of snapshot.pendingRelations) {
 		const sourceResult = assertLemmaIdMatchesDictionaryLanguage(
 			language as L,
@@ -284,6 +285,7 @@ function validateSnapshotInternal<L extends SupportedLang>(
 			);
 		}
 		seenPendingRelations.add(relationKey);
+		referencedPendingIds.add(pendingRelation.targetPendingId);
 
 		const targetPendingRef = pendingRefsById.get(pendingRelation.targetPendingId);
 		const requiresClosure =
@@ -348,6 +350,19 @@ function validateSnapshotInternal<L extends SupportedLang>(
 					`Pending morphological relation ${pendingRelation.relation} is invalid.`,
 				),
 			);
+		}
+	}
+
+	if (mode === "authoritative-write" || snapshot.completeness === "full") {
+		for (const pendingRef of snapshot.pendingRefs) {
+			if (!referencedPendingIds.has(pendingRef.pendingId)) {
+				return err(
+					makeError(
+						"InvariantViolation",
+						`Pending lemma ref ${pendingRef.pendingId} is orphaned and must not appear without at least one pending relation.`,
+					),
+				);
+			}
 		}
 	}
 
