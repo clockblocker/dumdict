@@ -2,7 +2,16 @@
 
 ## Purpose
 
-`dumdict` is a dictionary-storage layer built on top of `dumling`.
+`dumdict` is a semantic dictionary engine built on top of `dumling`.
+
+Architecturally, v1 sits between persisted dictionary snapshots and
+consumer-facing mutation intents.
+
+`dumdict` is semantic authority, not persistence authority:
+
+- hosts load and persist dictionary state
+- hosts ask `dumdict` to look up candidates inside that state
+- hosts ask `dumdict` to plan dictionary-safe changes from higher-level intents
 
 `dumling` provides:
 
@@ -14,9 +23,10 @@
 
 - dictionary entry DTOs
 - lookup indexes
-- CRUD operations
 - relation semantics
 - pending unresolved targets
+- change planning over snapshots
+- a mutable in-memory reference engine that can back the planner internally
 
 ## Language Scope
 
@@ -24,7 +34,48 @@
 - All public APIs are the same for every language.
 - All dictionary DTOs are parameterized by `L extends SupportedLang`.
 
-## Construction
+## Status
+
+This document intentionally mixes:
+
+- current exported reference-engine API
+- target host-facing planning API
+
+Today, the package exports the mutable reference engine described in the Read,
+Write, Delete, and Pending Resolution sections.
+
+The snapshot-based planning boundary described later in this document is
+aspirational v1 architecture and should be treated as target-state until it is
+implemented and exported.
+
+Likewise, any DTO field or behavior described here that is not present in
+`src/dumdict/public.ts` today, such as host-facing planner types, is
+target-state rather than current package surface.
+
+## Consumer Roles
+
+V1 should not treat every consumer as an equal write authority.
+
+The intended default roles are:
+
+- Node + SQLite: canonical shared write authority
+- Electron: client/cache over that authority
+- Obsidian: either a local-only authority or a client of the Node authority,
+  but not both in one mode
+
+The distinction that matters is not application type but authority:
+
+- does this process own persistence and conflict resolution?
+- or is it a UI/orchestration shell over another authority?
+
+For shared-write modes, v1 is intentionally optimized around one canonical
+writer and full-snapshot planning. That is an explicit product boundary and v1
+limitation, not a hidden implementation detail.
+
+## Reference Engine Construction
+
+The mutable in-memory engine remains a useful implementation substrate, but it
+is not the architectural center of gravity for host integration.
 
 Factory-based API:
 
@@ -266,8 +317,20 @@ Behavior:
 - includes:
   - directly matched lemma entries
   - owner lemmas of matched surface entries
+- for complete snapshots and the current in-memory reference engine, owner
+  lemmas of matched surface entries are expected to be present
+- for partial read snapshots, snapshot-based lookup may return only owner lemmas
+  that are actually present in the supplied snapshot
+- hosts that need stable owner-lemma results from partial read snapshots should
+  make those snapshots owner-closed for included surfaces
 
 ## Read API
+
+The sections below describe the low-level mutable reference engine API.
+
+This engine may remain exported for advanced hosts and for the internal
+implementation of the planner boundary described later, but it is not the
+preferred integration surface for ordinary consumers.
 
 ```ts
 getLemmaEntry(
@@ -339,6 +402,7 @@ Rules:
 - if any resolved relation target ID does not exist, return `RelationTargetNotFound`
 - `upsertLemmaEntry` does not convert missing resolved IDs into pending refs
 - if the caller wants a pending target, it must use `patchLemmaEntry` with `target.kind === "pending"`
+- raw upsert is therefore stricter than pending-aware patch/planning flows
 - replacing a lemma's resolved relation sets also removes stale inverse edges from previously related lemmas
 - resolved relation rewrites are atomic across the affected lemma graph
 - pending relation state is separate from `LemmaEntry` and is not replaced by `upsertLemmaEntry`
@@ -469,9 +533,8 @@ Behavior:
 
 ## Pending Unresolved Targets
 
-Missing relation targets are preserved as pending unresolved refs in v1.
-
-They are not rejected.
+Missing relation targets may be preserved as pending unresolved refs in v1, but
+only through pending-aware mutation flows.
 
 Pending refs and pending relations are first-class readable state.
 
@@ -536,10 +599,18 @@ type PendingLemmaIdV1 =
 - lookup normalization does not apply to pending-ref identity or dedupe
 - `dumdict` does not infer semantic sufficiency beyond the pending-ref fields it is given
 - it is the caller's responsibility to supply discriminator fields that are specific enough for the intended future lemma identity
+- host-local unresolved disambiguation metadata must not participate in shared
+  pending identity in v1
+- if a host needs extra local-only discriminators for UI or workflow reasons,
+  it should store them outside the shared `dumdict` snapshot contract
 - if `dumling` lemma identity later requires more discriminators, `PendingLemmaRefInput`, pending dedupe, and pending resolution validation must expand in lockstep
 - pending refs exist only while referenced by at least one pending relation
 
 ### Pending Resolution
+
+This section describes the current exported reference-engine API.
+
+Its current exported signature is:
 
 ```ts
 resolvePendingLemma(
@@ -628,7 +699,8 @@ type DumdictError = {
 
 `dumdict` remains responsible for:
 
-- dictionary CRUD
+- dictionary lookup
+- dictionary mutation semantics and planning
 - lookup and normalization
 - relation types and inverse logic
 - pending unresolved targets
@@ -638,26 +710,253 @@ type DumdictError = {
 `dumdict` v1 is not a general storage adapter and does not read or write
 directly to files, databases, or remote services.
 
-The current exported v1 API is the mutable in-memory dictionary API described
-in the Read, Write, and Delete sections above.
+The public architectural boundary for host integration should be:
 
-Instead, `dumdict` acts as the semantic engine that:
+- snapshot in
+- lookup / mutation planning
+- change-set out
+
+The mutable in-memory API described in the Read, Write, and Delete sections
+above remains the reference engine API. It may stay exported and may back the
+planner internally, but it is not the architectural truth that hosts should be
+built around.
+
+At the host boundary, `dumdict` acts as the semantic engine that:
 
 - validates dictionary DTOs
 - maintains lookup indexes
 - maintains reciprocal resolved relations
 - creates and resolves pending targets
+- turns mutation intents into dictionary-safe change operations
 
 An external host remains responsible for:
 
 - loading persisted dictionary data from its own storage
 - serializing and deserializing that storage format
-- committing writes to that storage format
+- committing planned writes to that storage format
 - conflict detection and revision management
 - sync with any remote or local authority outside `dumdict`
 
 This keeps `dumdict` implementation-independent while allowing multiple hosts
 to reuse the same dictionary semantics.
+
+### Public Planning Boundary
+
+The host-facing API should be snapshot-based, even if the implementation under
+the hood remains mutable.
+
+This section is target-state architecture, not a claim about the package's
+current exports.
+
+Minimal shape:
+
+```ts
+type DictionarySnapshotData<L extends SupportedLang> = {
+  revision: string;
+  lemmas: LemmaEntry<L>[];
+  surfaces: SurfaceEntry<L>[];
+  pendingRefs: PendingLemmaRef<L>[];
+  pendingRelations: PendingLemmaRelation<L>[];
+};
+
+type ReadDictionarySnapshot<L extends SupportedLang> =
+  DictionarySnapshotData<L> & {
+    authority: "read";
+    completeness: "partial" | "full";
+  };
+
+type AuthoritativeWriteSnapshot<L extends SupportedLang> =
+  DictionarySnapshotData<L> & {
+    authority: "write";
+    completeness: "full";
+  };
+
+type ReadableDictionarySnapshot<L extends SupportedLang> =
+  | ReadDictionarySnapshot<L>
+  | AuthoritativeWriteSnapshot<L>;
+
+type NewLemmaPayload<L extends SupportedLang> = {
+  lemma: Lemma<L>;
+  attestedTranslations: string[];
+  attestations: string[];
+  notes: string;
+};
+
+type OwnedSurfacePayload<L extends SupportedLang> = {
+  surface: ResolvedSurface<L>;
+  ownerLemmaId: DumlingId<"Lemma", L>;
+  attestedTranslations: string[];
+  attestations: string[];
+  notes: string;
+};
+
+type IntentRelationTarget<L extends SupportedLang> =
+  | { kind: "existing"; lemmaId: DumlingId<"Lemma", L> }
+  | { kind: "pending"; ref: PendingLemmaRefInput<L> };
+
+type MutationIntentV1<L extends SupportedLang> =
+  | {
+      version: "v1";
+      kind: "appendLemmaAttestation";
+      lemmaId: DumlingId<"Lemma", L>;
+      attestation: string;
+    }
+  | {
+      version: "v1";
+      kind: "insertLemma";
+      entry: NewLemmaPayload<L>;
+      ownedSurfaces?: OwnedSurfacePayload<L>[];
+      initialRelations?: Array<
+        | {
+            relationFamily: "lexical";
+            relation: LexicalRelation;
+            target: IntentRelationTarget<L>;
+          }
+        | {
+            relationFamily: "morphological";
+            relation: MorphologicalRelation;
+            target: IntentRelationTarget<L>;
+          }
+      >;
+    }
+  | {
+      version: "v1";
+      kind: "resolvePendingLemma";
+      pendingId: PendingLemmaId<L>;
+      lemmaId: DumlingId<"Lemma", L>;
+    }
+  | {
+      version: "v1";
+      kind: "upsertOwnedSurface";
+      entry: OwnedSurfacePayload<L>;
+    }
+  | {
+      version: "v1-extension";
+      namespace: string;
+      kind: string;
+      payload: unknown;
+    };
+
+type ChangePrecondition<L extends SupportedLang> =
+  | { kind: "snapshotRevisionMatches"; revision: string }
+  | { kind: "lemmaExists"; lemmaId: DumlingId<"Lemma", L> }
+  | { kind: "lemmaMissing"; lemmaId: DumlingId<"Lemma", L> }
+  | { kind: "surfaceExists"; surfaceId: DumlingId<"ResolvedSurface", L> }
+  | { kind: "surfaceMissing"; surfaceId: DumlingId<"ResolvedSurface", L> }
+  | { kind: "pendingRefExists"; pendingId: PendingLemmaId<L> }
+  | { kind: "pendingRefMissing"; pendingId: PendingLemmaId<L> };
+
+type PlannedChangeOp<L extends SupportedLang> =
+  | {
+      type: "createLemma";
+      entry: LemmaEntry<L>;
+      preconditions?: ChangePrecondition<L>[];
+    }
+  | {
+      type: "patchLemma";
+      lemmaId: DumlingId<"Lemma", L>;
+      ops: LemmaEntryPatchOp<L>[];
+      preconditions?: ChangePrecondition<L>[];
+    }
+  | {
+      type: "deleteLemma";
+      id: DumlingId<"Lemma", L>;
+      preconditions?: ChangePrecondition<L>[];
+    }
+  | {
+      type: "createSurface";
+      entry: SurfaceEntry<L>;
+      preconditions?: ChangePrecondition<L>[];
+    }
+  | {
+      type: "patchSurface";
+      surfaceId: DumlingId<"ResolvedSurface", L>;
+      ops: SurfaceEntryPatchOp<L>[];
+      preconditions?: ChangePrecondition<L>[];
+    }
+  | {
+      type: "deleteSurface";
+      id: DumlingId<"ResolvedSurface", L>;
+      preconditions?: ChangePrecondition<L>[];
+    }
+  | {
+      type: "createPendingRef";
+      ref: PendingLemmaRef<L>;
+      preconditions?: ChangePrecondition<L>[];
+    }
+  | {
+      type: "deletePendingRef";
+      pendingId: PendingLemmaId<L>;
+      preconditions?: ChangePrecondition<L>[];
+    }
+  | {
+      type: "createPendingRelation";
+      relation: PendingLemmaRelation<L>;
+      preconditions?: ChangePrecondition<L>[];
+    }
+  | {
+      type: "deletePendingRelation";
+      relation: PendingLemmaRelation<L>;
+      preconditions?: ChangePrecondition<L>[];
+    };
+
+interface DumdictSnapshotBoundary<L extends SupportedLang> {
+  validateReadableSnapshot(
+    snapshot: ReadableDictionarySnapshot<L>,
+  ): DumdictResult<void>;
+  validateAuthoritativeWriteSnapshot(
+    snapshot: AuthoritativeWriteSnapshot<L>,
+  ): DumdictResult<void>;
+  applyPlannedChanges(
+    snapshot: AuthoritativeWriteSnapshot<L>,
+    changes: PlannedChangeOp<L>[],
+  ): DumdictResult<AuthoritativeWriteSnapshot<L>>;
+  hydrate(
+    snapshot: AuthoritativeWriteSnapshot<L>,
+  ): DumdictResult<Dumdict<L>>;
+  exportSnapshot(
+    dict: Dumdict<L>,
+    revision: string,
+  ): DumdictResult<AuthoritativeWriteSnapshot<L>>;
+}
+
+interface DumdictPlanningBoundary<L extends SupportedLang>
+  extends DumdictSnapshotBoundary<L> {
+  lookupBySurface(
+    snapshot: ReadableDictionarySnapshot<L>,
+    surface: string,
+  ): DumdictResult<LookupResult<L>>;
+  lookupLemmasBySurface(
+    snapshot: ReadableDictionarySnapshot<L>,
+    surface: string,
+  ): DumdictResult<Record<DumlingId<"Lemma", L>, LemmaEntry<L>>>;
+  plan(
+    snapshot: AuthoritativeWriteSnapshot<L>,
+    intent: MutationIntentV1<L>,
+  ): DumdictResult<PlannedChangeOp<L>[]>;
+}
+```
+
+`MutationIntentV1` is a starter interop set for shared consumers, not a claim
+that the intent vocabulary is already complete.
+
+Additional workflows may arrive through future versioned additions or
+namespaced `v1-extension` intents.
+
+For `insertLemma`, `entry` is intentionally relation-free. Initial graph edges
+must come only from `initialRelations`, so the planner has a single source of
+truth for relation materialization.
+
+The planner should derive stable IDs from `lemma` and `surface` payloads rather
+than requiring ordinary callers to manufacture them.
+
+`PlannedChangeOp<L>[]` is intentionally patch-like and preconditioned. The
+shared host boundary should preserve mutation intent and avoid forcing hosts to
+invent merge semantics around whole-record upserts.
+
+The snapshot helper surface is part of the intended interop contract, not an
+optional convenience. Hosts should not each reimplement their own semantic
+hydrate, validate, apply, or export logic around the low-level mutable engine.
 
 ### Authority Model
 
@@ -669,9 +968,11 @@ V1 distinguishes between:
 `dumdict` is authoritative for:
 
 - whether a payload is a valid `LemmaEntry` or `SurfaceEntry`
+- whether a snapshot is semantically coherent
 - what reciprocal relations must be added or removed
 - how pending refs are deduped
 - how pending refs resolve into real relations
+- how valid change plans are derived from mutation intents
 
 The host is authoritative for:
 
@@ -679,6 +980,7 @@ The host is authoritative for:
 - how revisions are tracked
 - what slice of data is loaded into memory
 - whether commits succeed or conflict
+- how planned change operations are applied to the host's native storage model
 
 `dumdict` should not invent fake lemma entries merely to represent unresolved
 related targets.
@@ -688,60 +990,72 @@ When a related lemma does not yet exist, v1 should represent it as a
 that unresolved state into its UI as a "stub", but the stub is a host concern,
 not a `dumdict` entity kind.
 
-V1 is therefore specified as a mutating in-memory library, not as a
-change-planner that emits a separate public `ChangeSet` API.
-
 ### Snapshot Safety
 
-The current in-memory implementation maintains reciprocal graph edges against
-whatever lemma set is already loaded in memory.
+The current reference engine maintains reciprocal graph edges against whatever
+lemma set is already loaded in memory.
 
 That means partial state is unsafe for graph mutations.
 
 V1 therefore distinguishes between:
 
-- read slices: may be partial
-- write state: must be a complete authoritative snapshot
+- read snapshots: may be partial
+- write snapshots: must be complete authoritative snapshots
+
+This distinction should be explicit in the public types, not only in prose:
+
+- `lookup...` APIs accept `ReadableDictionarySnapshot<L>`
+- `plan(...)` accepts only `AuthoritativeWriteSnapshot<L>`
+- a partial cache therefore cannot type-check as planning input
 
 For v1, the simplest safe rule is:
 
-- hosts may hydrate `dumdict` from partial slices for read-only flows
-- hosts must not perform lemma-graph mutations against an arbitrary partial slice
-- before any mutation, the host must load a full authoritative snapshot for the
-  language into memory
+- hosts may run read-only lookup flows against partial slices if they accept
+  partial results
+- partial read snapshots are allowed to violate owner-closure, but in that case
+  snapshot-based lookup can only return owner lemmas that are actually present
+  in the snapshot
+- hosts must not ask `dumdict` to plan lemma-graph mutations against an
+  arbitrary partial slice
+- before planning any mutation, the writing host must load a full authoritative
+  snapshot for the language
+- if a consumer is not the write authority, it should forward the mutation
+  intent to the canonical authority rather than planning locally against a
+  cache
 
-Until `dumdict` grows a different mutation model, v1 write sessions require a
+Until `dumdict` grows a different planning model, v1 write planning requires a
 full-language snapshot.
+
+This is an explicit v1 limitation intended for small-to-medium dictionaries and
+single-authority shared-write deployments. It is not claimed to be the final
+scaling model for very large dictionaries.
 
 ### Canonical Host Profile
 
-This section describes adapter guidance for external persistence hosts.
-
-It is not a currently exported `dumdict` API surface. V1 does not yet export a
-standardized `ingest`, `dumpSnapshot`, or `plan` API.
-
 To interoperate cleanly with different storage backends, hosts should provide a
-small persistence contract to `dumdict`.
+small persistence contract around snapshots and planned changes.
 
 Minimal shape:
 
 ```ts
-type DictionarySnapshot<L extends SupportedLang> = {
-  revision: string;
-  lemmas: LemmaEntry<L>[];
-  surfaces: SurfaceEntry<L>[];
-  pendingRelations: PendingLemmaRelation<L>[];
-};
-
 interface DumdictHost<L extends SupportedLang> {
   readonly language: L;
-  loadSnapshot(): Promise<DictionarySnapshot<L>>;
-  saveSnapshot(
-    snapshot: DictionarySnapshot<L>,
+  loadSnapshot(
+    mode: "read",
+  ): Promise<ReadableDictionarySnapshot<L>>;
+  loadSnapshot(
+    mode: "write",
+  ): Promise<AuthoritativeWriteSnapshot<L>>;
+  commitChanges(
+    changes: PlannedChangeOp<L>[],
     baseRevision: string,
   ): Promise<
     | { ok: true; revision: string }
-    | { ok: false; conflictAt: string; latest: DictionarySnapshot<L> }
+    | {
+        ok: false;
+        conflictAt: string;
+        latest: AuthoritativeWriteSnapshot<L>;
+      }
   >;
 }
 ```
@@ -749,19 +1063,21 @@ interface DumdictHost<L extends SupportedLang> {
 Rules:
 
 - hosts may store richer local metadata, but the shared contract should stay
-  centered on dictionary DTOs plus pending relation state
+  centered on dictionary DTOs, pending state, and planned changes
 - `revision` is host-defined and opaque to `dumdict`
-- mutation sessions require a full authoritative snapshot in memory
+- mutation planning requires a full authoritative snapshot in memory
 - partial loads are read-only
 - lookup ownership remains with `dumdict`
-- pending refs are not independently writable host state in this contract
-- pending ref lifecycle is derived from pending relations and must be recreated
-  by adapters during snapshot hydration
-- when hydrating a snapshot, adapters reconstruct readable pending refs from
-  `PendingLemmaId` values using the pending-ID wire format specified in the
-  Pending Unresolved Targets section
-- pending IDs must come from `dumdict` / `dumling`-compatible lemma identity,
-  not arbitrary raw LLM text
+- `pendingRefs` are persisted explicitly in the snapshot contract
+- pending refs must not be reconstructed only from encoded pending IDs
+- pending IDs must come from `dumdict` / `dumling`-compatible identity
+  handling, not arbitrary raw LLM text
+- `commitChanges(...)` is atomic relative to `baseRevision`
+- a conforming host must apply the full `PlannedChangeOp<L>[]` set or none of
+  it
+- a conforming host must not expose partially applied reciprocal edges, pending cleanup, or mixed revisions to other readers
+- if a backend cannot provide atomic graph commits, it is not a conforming shared write authority for this contract
+- such non-transactional backends may still be used in explicitly local-only mode, typically by materializing and atomically replacing a full snapshot projection
 - incremental sync is out of scope for v1; on conflict or uncertainty, full
   reload is allowed and preferred
 - canonical multi-writer hosts must provide a real `revision`
@@ -770,9 +1086,13 @@ Rules:
 - a `DumdictHost<L>` instance is language-bound
 - a multi-language service should expose one host instance per language rather
   than multiplexing language through one unbound runtime contract
-- because `dumdict` does not yet export standardized snapshot hydration APIs,
-  adapters must translate between `DictionarySnapshot<L>` and the current
-  in-memory CRUD/patch surface themselves
+- a host must not invent ad hoc merge semantics for planner output; on
+  conflict, it should reload, replan, and retry
+- a host may apply `PlannedChangeOp<L>[]` directly to its own native storage or
+  by using `dumdict.applyPlannedChanges(...)`
+- a host that uses the mutable reference engine internally should use the
+  shared `hydrate(...)` and `exportSnapshot(...)` helpers rather than each
+  adapter inventing its own semantic import/export path
 
 ### Consumer Model
 
@@ -783,12 +1103,11 @@ Instead, v1 needs one semantic contract and multiple host adapters.
 
 Expected host roles:
 
-- Obsidian plugin: host adapter over markdown files
 - Node server: host adapter over SQLite and the canonical shared write
   authority
-- Electron app: usually a client of another host authority plus an optional
-  local cache; it should only become a write authority if offline sync is an
-  explicit product requirement
+- Electron app: client/cache over that authority by default
+- Obsidian plugin: either a local-only authority over markdown files or a
+  client of the Node authority, but not both in one mode
 
 The distinction that matters is not "which app type is this?" but:
 
@@ -815,22 +1134,23 @@ an existing lemma or insert a new one:
    candidate slice
 3. if the interaction remains read-only, no full authoritative snapshot is
    required
-4. once the consumer decides it may mutate dictionary state, it loads the
-   current authoritative full snapshot into memory
-5. the consumer asks `dumdict` for authoritative candidate entries using the
-   normal in-memory lookup and read APIs
-6. the consumer narrows candidates using its own discriminator logic and LLM
+4. once the consumer decides it may mutate dictionary state, it routes the
+   write through the canonical authority for that mode
+5. the writing host loads the current authoritative full snapshot into memory
+6. the writing host asks `dumdict.lookupBySurface(snapshot, surface)` or
+   `dumdict.lookupLemmasBySurface(snapshot, surface)` for authoritative
+   candidate entries
+7. the consumer narrows candidates using its own discriminator logic and LLM
    assistance if needed
-7. if the attestation belongs to an existing lemma, the consumer mutates the
-   in-memory dictionary through the current patch/upsert APIs
-8. if the attestation implies a new lemma, the consumer mutates the in-memory
-   dictionary through the current insert plus relation APIs
-9. unresolved related targets remain represented as pending relations and
-   derived pending refs
-10. the adapter serializes the resulting authoritative in-memory state back into
-    `DictionarySnapshot<L>` form and asks the host to `saveSnapshot(...)`
-11. if the save conflicts, the host reloads the latest full authoritative
-   snapshot and the consumer retries from fresh state
+8. the consumer forms a higher-level `MutationIntentV1<L>` and asks
+   `dumdict.plan(snapshot, intent)` for dictionary-safe
+   `PlannedChangeOp<L>[]`
+9. unresolved related targets remain represented as explicit `PendingLemmaRef`s
+   plus `PendingLemmaRelation`s
+10. the host commits the planned `PlannedChangeOp<L>[]` against its own
+    storage using `baseRevision`
+11. if the commit conflicts, the host reloads the latest full authoritative
+    snapshot, replans from fresh state, and retries
 
 In this model, the LLM does not directly mutate storage and `dumdict` does not
 directly talk to storage. The host remains the bridge between semantic planning

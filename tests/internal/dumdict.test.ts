@@ -1,7 +1,19 @@
 import { describe, expect, it } from "bun:test";
 import { dumling, type Lemma } from "dumling";
-import type { DumdictResult, LemmaEntry, SurfaceEntry } from "../../src";
-import { makeDumdict } from "../../src";
+import type {
+	AuthoritativeWriteSnapshot,
+	DumdictResult,
+	LemmaEntry,
+	ReadDictionarySnapshot,
+	SurfaceEntry,
+} from "../../src";
+import {
+	exportSnapshot,
+	hydrateSnapshot,
+	makeDumdict,
+	validateAuthoritativeWriteSnapshot,
+	validateReadableSnapshot,
+} from "../../src";
 import {
 	englishWalkLemma,
 	englishWalkResolvedInflectionSurface,
@@ -199,6 +211,76 @@ describe("dumdict", () => {
 		).toEqual({
 			sourceFor: [walkEntry.id],
 		});
+	});
+
+	it("hydrates and exports authoritative snapshots through public helpers", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const runEntry = makeLemmaEntry(englishRunLemma);
+		const surfaceEntry = makeSurfaceEntry();
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(dict.upsertLemmaEntry(runEntry));
+		unwrap(dict.upsertSurfaceEntry(surfaceEntry));
+		unwrap(
+			dict.patchLemmaEntry(walkEntry.id, [
+				{
+					op: "addLexicalRelation",
+					relation: "synonym",
+					target: { kind: "existing", lemmaId: runEntry.id },
+				},
+				{
+					op: "addMorphologicalRelation",
+					relation: "derivedFrom",
+					target: {
+						kind: "pending",
+						ref: {
+							canonicalLemma: "stride",
+							lemmaKind: "Lexeme",
+							lemmaSubKind: "VERB",
+						},
+					},
+				},
+			]),
+		);
+
+		const snapshot = unwrap(
+			exportSnapshot(dict, "revision-1"),
+		) satisfies AuthoritativeWriteSnapshot<"English">;
+
+		unwrap(validateReadableSnapshot(snapshot));
+		unwrap(validateAuthoritativeWriteSnapshot(snapshot));
+
+		const hydrated = unwrap(hydrateSnapshot(snapshot));
+		const exportedAgain = unwrap(exportSnapshot(hydrated, "revision-2"));
+
+		expect(exportedAgain).toEqual({
+			...snapshot,
+			revision: "revision-2",
+		});
+	});
+
+	it("accepts partial read snapshots for reads and rejects them for write authority", () => {
+		const partialReadSnapshot = {
+			authority: "read",
+			completeness: "partial",
+			revision: "revision-1",
+			lemmas: [],
+			surfaces: [makeSurfaceEntry()],
+			pendingRefs: [],
+			pendingRelations: [],
+		} satisfies ReadDictionarySnapshot<"English">;
+
+		const readValidation = validateReadableSnapshot(partialReadSnapshot);
+		const writeValidation = validateAuthoritativeWriteSnapshot(
+			partialReadSnapshot as never,
+		);
+
+		expect(readValidation.isOk()).toBe(true);
+		expect(writeValidation.isErr()).toBe(true);
+		if (writeValidation.isErr()) {
+			expect(writeValidation.error.code).toBe("InvariantViolation");
+		}
 	});
 
 	it("rejects pending self-relations at patch time", () => {

@@ -15,6 +15,7 @@ import {
 } from "../domain/validation";
 import { type DumdictResult, makeError } from "../errors";
 import type {
+	AuthoritativeWriteSnapshot,
 	Dumdict,
 	LemmaEntry,
 	LemmaEntryPatchOp,
@@ -64,6 +65,39 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 	constructor(language: L) {
 		this.language = language;
 		this.#state = makeEmptyState();
+	}
+
+	exportAuthoritativeSnapshot(
+		revision: string,
+	): AuthoritativeWriteSnapshot<L> {
+		const state = cloneState(this.#state);
+		const lemmas = collectLemmaRecord(state, state.lemmasById.keys());
+		const surfaces = collectSurfaceRecord(state, state.surfacesById.keys());
+		const pendingRefs = toSortedRecord(
+			sortIds([...state.pendingLemmaRefsById.keys()]).map((pendingId) => {
+				const ref = state.pendingLemmaRefsById.get(pendingId);
+				if (!ref) {
+					throw new Error(`Missing pending ref ${pendingId} during export.`);
+				}
+
+				return [pendingId, clonePendingLemmaRef(ref)] as const;
+			}),
+		);
+		const pendingRelations = sortPendingRelations(
+			[...state.pendingRelationsBySourceLemmaId.values()].flatMap((bySource) =>
+				[...bySource.values()].map((relation) => ({ ...relation })),
+			),
+		);
+
+		return {
+			authority: "write",
+			completeness: "full",
+			revision,
+			lemmas: Object.values(lemmas),
+			surfaces: Object.values(surfaces),
+			pendingRefs: Object.values(pendingRefs),
+			pendingRelations,
+		};
 	}
 
 	lookupBySurface(surface: string) {

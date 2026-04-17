@@ -74,6 +74,30 @@ export type LookupResult<L extends SupportedLang> = {
 	surfaces: Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>;
 };
 
+export type DictionarySnapshotData<L extends SupportedLang> = {
+	revision: string;
+	lemmas: LemmaEntry<L>[];
+	surfaces: SurfaceEntry<L>[];
+	pendingRefs: PendingLemmaRef<L>[];
+	pendingRelations: PendingLemmaRelation<L>[];
+};
+
+export type ReadDictionarySnapshot<L extends SupportedLang> =
+	DictionarySnapshotData<L> & {
+		authority: "read";
+		completeness: "partial" | "full";
+	};
+
+export type AuthoritativeWriteSnapshot<L extends SupportedLang> =
+	DictionarySnapshotData<L> & {
+		authority: "write";
+		completeness: "full";
+	};
+
+export type ReadableDictionarySnapshot<L extends SupportedLang> =
+	| ReadDictionarySnapshot<L>
+	| AuthoritativeWriteSnapshot<L>;
+
 export type LemmaRelationTarget<L extends SupportedLang> =
 	| { kind: "existing"; lemmaId: DumlingId<"Lemma", L> }
 	| { kind: "pending"; ref: PendingLemmaRefInput<L> };
