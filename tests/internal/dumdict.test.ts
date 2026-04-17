@@ -6,6 +6,7 @@ import type {
 	DumdictResult,
 	LemmaEntry,
 	MutationIntentV1,
+	PendingLemmaId,
 	PlannedChangeOp,
 	ReadDictionarySnapshot,
 	SurfaceEntry,
@@ -877,6 +878,64 @@ describe("dumdict", () => {
 		).toEqual([
 			{
 				sourceLemmaId: runEntry.id,
+				relationFamily: "morphological",
+				relation: "derivedFrom",
+				targetPendingId: pendingId,
+			},
+		]);
+	});
+
+	it("applies create-pending-ref and create-pending-relation changes in one batch", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const pendingId =
+			"pending:v1:English:stride:Lexeme:VERB" as PendingLemmaId<"English">;
+
+		const changes = [
+			{
+				type: "createPendingRef",
+				ref: {
+					pendingId,
+					language: "English",
+					canonicalLemma: "stride",
+					lemmaKind: "Lexeme",
+					lemmaSubKind: "VERB",
+				},
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "pendingRefMissing", pendingId },
+				],
+			},
+			{
+				type: "createPendingRelation",
+				relation: {
+					sourceLemmaId: walkEntry.id,
+					relationFamily: "morphological",
+					relation: "derivedFrom",
+					targetPendingId: pendingId,
+				},
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "lemmaExists", lemmaId: walkEntry.id },
+				],
+			},
+		] satisfies PlannedChangeOp<"English">[];
+
+		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
+		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
+
+		expect(Object.keys(unwrap(nextHydrated.listPendingLemmaRefs()))).toEqual([
+			pendingId,
+		]);
+		expect(
+			unwrap(nextHydrated.listPendingRelationsForLemma(walkEntry.id)),
+		).toEqual([
+			{
+				sourceLemmaId: walkEntry.id,
 				relationFamily: "morphological",
 				relation: "derivedFrom",
 				targetPendingId: pendingId,

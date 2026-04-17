@@ -737,6 +737,7 @@ export function applyPlannedChanges<L extends SupportedLang>(
 	}
 
 	const dict = dictResult.value;
+	const createdPendingRefs = new Map<string, PendingLemmaRef<L>>();
 	for (const change of changes) {
 		switch (change.type) {
 			case "createLemma": {
@@ -782,6 +783,8 @@ export function applyPlannedChanges<L extends SupportedLang>(
 				break;
 			}
 			case "createPendingRef":
+				createdPendingRefs.set(change.ref.pendingId, change.ref);
+				break;
 			case "deletePendingRef":
 				return err(
 					makeError(
@@ -790,9 +793,11 @@ export function applyPlannedChanges<L extends SupportedLang>(
 					),
 				);
 			case "createPendingRelation": {
-				const pendingRef = snapshot.pendingRefs.find(
-					(ref) => ref.pendingId === change.relation.targetPendingId,
-				);
+				const pendingRef =
+					createdPendingRefs.get(change.relation.targetPendingId) ??
+					snapshot.pendingRefs.find(
+						(ref) => ref.pendingId === change.relation.targetPendingId,
+					);
 				if (!pendingRef) {
 					return err(
 						makeError(
@@ -846,7 +851,24 @@ export function applyPlannedChanges<L extends SupportedLang>(
 		}
 	}
 
-	return exportSnapshot(dict, snapshot.revision);
+	const exportResult = exportSnapshot(dict, snapshot.revision);
+	if (exportResult.isErr()) {
+		return err(exportResult.error);
+	}
+
+	const nextSnapshot = exportResult.value;
+	for (const pendingId of createdPendingRefs.keys()) {
+		if (!nextSnapshot.pendingRefs.some((ref) => ref.pendingId === pendingId)) {
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Pending lemma ref ${pendingId} was created in changes but did not materialize in the resulting snapshot.`,
+				),
+			);
+		}
+	}
+
+	return ok(nextSnapshot);
 }
 
 export function plan<L extends SupportedLang>(
