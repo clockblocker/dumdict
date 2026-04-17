@@ -1,4 +1,4 @@
-import type { DumlingId, SupportedLang } from "dumling";
+import { dumling, type DumlingId, type SupportedLang } from "dumling";
 import { err, ok } from "neverthrow";
 import { makeDumdict } from "./impl/make-dumdict";
 import { InMemoryDumdict } from "./impl/in-memory-dumdict";
@@ -817,6 +817,110 @@ export function plan<L extends SupportedLang>(
 				],
 			},
 		]);
+	}
+
+	if (intent.version === "v1" && intent.kind === "insertLemma") {
+		const language = getLemmaLanguage(intent.entry.lemma);
+		const lemmaId = dumling.idCodec.forLanguage(language).makeDumlingIdFor(
+			intent.entry.lemma,
+		) as DumlingId<"Lemma", L>;
+		const changes: PlannedChangeOp<L>[] = [
+			{
+				type: "createLemma",
+				entry: {
+					id: lemmaId,
+					lemma: intent.entry.lemma,
+					lexicalRelations: {},
+					morphologicalRelations: {},
+					attestedTranslations: intent.entry.attestedTranslations,
+					attestations: intent.entry.attestations,
+					notes: intent.entry.notes,
+				},
+				preconditions: [
+					{
+						kind: "snapshotRevisionMatches",
+						revision: snapshot.revision,
+					},
+					{
+						kind: "lemmaMissing",
+						lemmaId,
+					},
+				],
+			},
+		];
+
+		for (const ownedSurface of intent.ownedSurfaces ?? []) {
+			const surfaceId = dumling.idCodec
+				.forLanguage(language)
+				.makeDumlingIdFor(ownedSurface.surface) as DumlingId<
+				"ResolvedSurface",
+				L
+			>;
+
+			changes.push({
+				type: "createSurface",
+				entry: {
+					id: surfaceId,
+					surface: ownedSurface.surface,
+					ownerLemmaId: ownedSurface.ownerLemmaId,
+					attestedTranslations: ownedSurface.attestedTranslations,
+					attestations: ownedSurface.attestations,
+					notes: ownedSurface.notes,
+				},
+				preconditions: [
+					{
+						kind: "snapshotRevisionMatches",
+						revision: snapshot.revision,
+					},
+					{
+						kind: "surfaceMissing",
+						surfaceId,
+					},
+				],
+			});
+		}
+
+		const relationOps: LemmaEntryPatchOp<L>[] = [];
+		const relationPreconditions: ChangePrecondition<L>[] = [
+			{
+				kind: "snapshotRevisionMatches",
+				revision: snapshot.revision,
+			},
+		];
+
+		for (const relation of intent.initialRelations ?? []) {
+			if (relation.relationFamily === "lexical") {
+				relationOps.push({
+					op: "addLexicalRelation",
+					relation: relation.relation,
+					target: relation.target,
+				});
+			} else {
+				relationOps.push({
+					op: "addMorphologicalRelation",
+					relation: relation.relation,
+					target: relation.target,
+				});
+			}
+
+			if (relation.target.kind === "existing") {
+				relationPreconditions.push({
+					kind: "lemmaExists",
+					lemmaId: relation.target.lemmaId,
+				});
+			}
+		}
+
+		if (relationOps.length > 0) {
+			changes.push({
+				type: "patchLemma",
+				lemmaId,
+				ops: relationOps,
+				preconditions: relationPreconditions,
+			});
+		}
+
+		return ok(changes);
 	}
 
 	return err(

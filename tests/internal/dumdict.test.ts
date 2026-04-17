@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { dumling, type Lemma } from "dumling";
+import { dumling, type Lemma, type ResolvedSurface } from "dumling";
 import type {
 	AuthoritativeWriteSnapshot,
 	ChangePrecondition,
@@ -76,6 +76,17 @@ function makeSurfaceEntry(): SurfaceEntry<"English"> {
 		notes: "",
 	};
 }
+
+const englishRunResolvedLemmaSurface = {
+	discriminators: {
+		lemmaKind: "Lexeme",
+		lemmaSubKind: "VERB",
+	},
+	language: "English",
+	normalizedFullSurface: "run",
+	surfaceKind: "Lemma",
+	lemma: englishRunLemma,
+} satisfies ResolvedSurface<"English", "Standard", "Lemma", "Lexeme", "VERB">;
 
 describe("dumdict", () => {
 	it("stores entries with deterministic collection ordering and lookup behavior", () => {
@@ -459,6 +470,110 @@ describe("dumdict", () => {
 		]);
 		expect(unwrap(nextHydrated.getLemmaEntry(walkEntry.id)).attestations).toEqual(
 			["They walk home together."],
+		);
+	});
+
+	it("plans insert-lemma intents into create and patch operations", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const runLemmaId = dumling.idCodec.English.makeDumlingIdFor(englishRunLemma);
+		const runSurfaceId = dumling.idCodec.English.makeDumlingIdFor(
+			englishRunResolvedLemmaSurface,
+		) as SurfaceEntry<"English">["id"];
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const intent = {
+			version: "v1",
+			kind: "insertLemma",
+			entry: {
+				lemma: englishRunLemma,
+				attestedTranslations: ["courir"],
+				attestations: ["They run every morning."],
+				notes: "motion verb",
+			},
+			ownedSurfaces: [
+				{
+					surface: englishRunResolvedLemmaSurface,
+					ownerLemmaId: runLemmaId,
+					attestedTranslations: ["run"],
+					attestations: ["run"],
+					notes: "lemma surface",
+				},
+			],
+			initialRelations: [
+				{
+					relationFamily: "lexical",
+					relation: "synonym",
+					target: { kind: "existing", lemmaId: walkEntry.id },
+				},
+			],
+		} satisfies MutationIntentV1<"English">;
+
+		const changes = unwrap(plan(baseSnapshot, intent));
+		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
+		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
+
+		expect(changes).toEqual([
+			{
+				type: "createLemma",
+				entry: {
+					id: runLemmaId,
+					lemma: englishRunLemma,
+					lexicalRelations: {},
+					morphologicalRelations: {},
+					attestedTranslations: ["courir"],
+					attestations: ["They run every morning."],
+					notes: "motion verb",
+				},
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "lemmaMissing", lemmaId: runLemmaId },
+				],
+			},
+			{
+				type: "createSurface",
+				entry: {
+					id: runSurfaceId,
+					surface: englishRunResolvedLemmaSurface,
+					ownerLemmaId: runLemmaId,
+					attestedTranslations: ["run"],
+					attestations: ["run"],
+					notes: "lemma surface",
+				},
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "surfaceMissing", surfaceId: runSurfaceId },
+				],
+			},
+			{
+				type: "patchLemma",
+				lemmaId: runLemmaId,
+				ops: [
+					{
+						op: "addLexicalRelation",
+						relation: "synonym",
+						target: { kind: "existing", lemmaId: walkEntry.id },
+					},
+				],
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "lemmaExists", lemmaId: walkEntry.id },
+				],
+			},
+		]);
+		expect(unwrap(nextHydrated.getLemmaEntry(runLemmaId)).attestedTranslations).toEqual(
+			["courir"],
+		);
+		expect(unwrap(nextHydrated.getLemmaEntry(runLemmaId)).lexicalRelations).toEqual(
+			{ synonym: [walkEntry.id] },
+		);
+		expect(unwrap(nextHydrated.getLemmaEntry(walkEntry.id)).lexicalRelations).toEqual(
+			{ synonym: [runLemmaId] },
+		);
+		expect(unwrap(nextHydrated.getSurfaceEntry(runSurfaceId)).ownerLemmaId).toBe(
+			runLemmaId,
 		);
 	});
 
