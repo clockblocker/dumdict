@@ -1,9 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { dumling, type Lemma } from "dumling";
 import type { DumdictResult, LemmaEntry, SurfaceEntry } from "../../src";
-import {
-	makeDumdict,
-} from "../../src";
+import { makeDumdict } from "../../src";
 import {
 	englishWalkLemma,
 	englishWalkResolvedInflectionSurface,
@@ -127,8 +125,12 @@ describe("dumdict", () => {
 			}),
 		);
 
-		expect(unwrap(dict.getLemmaEntry(walkEntry.id)).lexicalRelations).toEqual({});
-		expect(unwrap(dict.getLemmaEntry(runEntry.id)).lexicalRelations).toEqual({});
+		expect(unwrap(dict.getLemmaEntry(walkEntry.id)).lexicalRelations).toEqual(
+			{},
+		);
+		expect(unwrap(dict.getLemmaEntry(runEntry.id)).lexicalRelations).toEqual(
+			{},
+		);
 	});
 
 	it("dedupes pending refs and resolves them into real reciprocal edges", () => {
@@ -167,10 +169,18 @@ describe("dumdict", () => {
 		);
 
 		const pendingRefs = unwrap(dict.listPendingLemmaRefs());
-		const pendingId = Object.keys(pendingRefs)[0]! as keyof typeof pendingRefs;
-		const pendingRelations = unwrap(dict.listPendingRelationsForLemma(walkEntry.id));
+		const [pendingId] = Object.keys(pendingRefs) as Array<
+			keyof typeof pendingRefs
+		>;
+		const pendingRelations = unwrap(
+			dict.listPendingRelationsForLemma(walkEntry.id),
+		);
 
 		expect(Object.keys(pendingRefs)).toHaveLength(1);
+		expect(pendingId).toBeDefined();
+		if (pendingId === undefined) {
+			throw new Error("Expected exactly one pending lemma id.");
+		}
 		expect(pendingRelations).toHaveLength(1);
 		expect(pendingRelations[0]?.targetPendingId).toBe(pendingId);
 
@@ -215,6 +225,74 @@ describe("dumdict", () => {
 			expect(result.error.code).toBe("SelfRelationForbidden");
 		}
 		expect(unwrap(dict.listPendingLemmaRefs())).toEqual({});
+	});
+
+	it("rejects foreign-language and malformed pending ids on pending-id APIs", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const strideEntry = makeLemmaEntry(englishStrideLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(
+			dict.patchLemmaEntry(walkEntry.id, {
+				op: "addMorphologicalRelation",
+				relation: "derivedFrom",
+				target: {
+					kind: "pending",
+					ref: {
+						canonicalLemma: "stride",
+						lemmaKind: "Lexeme",
+						lemmaSubKind: "VERB",
+					},
+				},
+			}),
+		);
+		unwrap(dict.upsertLemmaEntry(strideEntry));
+
+		const foreignPendingId =
+			"pending:v1:Hebrew:stride:Lexeme:VERB" as unknown as string;
+		const malformedPendingId = "pending:not-valid" as unknown as string;
+
+		const foreignGetResult = dict.getPendingLemmaRef(foreignPendingId as never);
+		const malformedGetResult = dict.getPendingLemmaRef(
+			malformedPendingId as never,
+		);
+		const foreignResolveResult = dict.resolvePendingLemma(
+			foreignPendingId as never,
+			strideEntry.id,
+		);
+		const malformedResolveResult = dict.resolvePendingLemma(
+			malformedPendingId as never,
+			strideEntry.id,
+		);
+		const foreignRemoveResult = dict.removePendingRelation({
+			sourceLemmaId: walkEntry.id,
+			relationFamily: "morphological",
+			relation: "derivedFrom",
+			targetPendingId: foreignPendingId as never,
+		});
+
+		expect(foreignGetResult.isErr()).toBe(true);
+		expect(malformedGetResult.isErr()).toBe(true);
+		expect(foreignResolveResult.isErr()).toBe(true);
+		expect(malformedResolveResult.isErr()).toBe(true);
+		expect(foreignRemoveResult.isErr()).toBe(true);
+
+		if (foreignGetResult.isErr()) {
+			expect(foreignGetResult.error.code).toBe("LanguageMismatch");
+		}
+		if (malformedGetResult.isErr()) {
+			expect(malformedGetResult.error.code).toBe("DecodeFailed");
+		}
+		if (foreignResolveResult.isErr()) {
+			expect(foreignResolveResult.error.code).toBe("LanguageMismatch");
+		}
+		if (malformedResolveResult.isErr()) {
+			expect(malformedResolveResult.error.code).toBe("DecodeFailed");
+		}
+		if (foreignRemoveResult.isErr()) {
+			expect(foreignRemoveResult.error.code).toBe("LanguageMismatch");
+		}
 	});
 
 	it("deletes owned surfaces, incident relations, and sourced pending refs with lemma deletion", () => {

@@ -36,7 +36,8 @@ export function replaceSurfaceEntryDirect<L extends SupportedLang>(
 	);
 
 	const ownerBucket =
-		state.surfaceIdsByOwnerLemmaId.get(canonicalEntry.ownerLemmaId) ?? new Set();
+		state.surfaceIdsByOwnerLemmaId.get(canonicalEntry.ownerLemmaId) ??
+		new Set();
 	ownerBucket.add(canonicalEntry.id);
 	state.surfaceIdsByOwnerLemmaId.set(canonicalEntry.ownerLemmaId, ownerBucket);
 }

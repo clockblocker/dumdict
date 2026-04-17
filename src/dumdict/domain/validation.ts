@@ -1,10 +1,16 @@
-import { type DumlingId, dumling, type Lemma, type SupportedLang } from "dumling";
+import {
+	type DumlingId,
+	dumling,
+	type Lemma,
+	type SupportedLang,
+} from "dumling";
 import { err, ok } from "neverthrow";
-import { makeError, type DumdictResult } from "../errors";
+import { type DumdictResult, makeError } from "../errors";
 import type {
 	LemmaEntry,
 	LexicalRelations,
 	MorphologicalRelations,
+	PendingLemmaId,
 	PendingLemmaRef,
 	SurfaceEntry,
 } from "../public";
@@ -50,6 +56,34 @@ export function inferSurfaceIdLanguage(surfaceId: string) {
 	return undefined;
 }
 
+export function inferPendingIdLanguage(pendingId: string) {
+	const segments = pendingId.split(":");
+	if (segments.length !== 6) {
+		return undefined;
+	}
+
+	const [prefix0, prefix1, encodedLanguage] = segments;
+	if (prefix0 !== "pending" || prefix1 !== "v1" || !encodedLanguage) {
+		return undefined;
+	}
+
+	try {
+		const language = decodeURIComponent(encodedLanguage);
+
+		if (
+			language === "English" ||
+			language === "German" ||
+			language === "Hebrew"
+		) {
+			return language;
+		}
+	} catch {
+		return undefined;
+	}
+
+	return undefined;
+}
+
 export function assertLemmaIdMatchesDictionaryLanguage<L extends SupportedLang>(
 	language: L,
 	id: DumlingId<"Lemma", L>,
@@ -76,10 +110,9 @@ export function assertLemmaIdMatchesDictionaryLanguage<L extends SupportedLang>(
 	return ok(undefined);
 }
 
-export function assertSurfaceIdMatchesDictionaryLanguage<L extends SupportedLang>(
-	language: L,
-	id: DumlingId<"ResolvedSurface", L>,
-): DumdictResult<void> {
+export function assertSurfaceIdMatchesDictionaryLanguage<
+	L extends SupportedLang,
+>(language: L, id: DumlingId<"ResolvedSurface", L>): DumdictResult<void> {
 	const inferredLanguage = inferSurfaceIdLanguage(id);
 	if (!inferredLanguage) {
 		return err(
@@ -102,6 +135,31 @@ export function assertSurfaceIdMatchesDictionaryLanguage<L extends SupportedLang
 	return ok(undefined);
 }
 
+export function assertPendingIdMatchesDictionaryLanguage<
+	L extends SupportedLang,
+>(language: L, id: PendingLemmaId<L>): DumdictResult<void> {
+	const inferredLanguage = inferPendingIdLanguage(id);
+	if (!inferredLanguage) {
+		return err(
+			makeError(
+				"DecodeFailed",
+				`Could not decode pending lemma ID ${id} as a supported dumdict pending ID.`,
+			),
+		);
+	}
+
+	if (inferredLanguage !== language) {
+		return err(
+			makeError(
+				"LanguageMismatch",
+				`Pending lemma ID ${id} belongs to ${inferredLanguage}, not ${language}.`,
+			),
+		);
+	}
+
+	return ok(undefined);
+}
+
 export function validateLemmaEntry<L extends SupportedLang>(
 	language: L,
 	entry: LemmaEntry<L>,
@@ -115,12 +173,17 @@ export function validateLemmaEntry<L extends SupportedLang>(
 		);
 	}
 
-	const idLanguageResult = assertLemmaIdMatchesDictionaryLanguage(language, entry.id);
+	const idLanguageResult = assertLemmaIdMatchesDictionaryLanguage(
+		language,
+		entry.id,
+	);
 	if (idLanguageResult.isErr()) {
 		return idLanguageResult;
 	}
 
-	const derivedId = dumling.idCodec.forLanguage(language).makeDumlingIdFor(entry.lemma);
+	const derivedId = dumling.idCodec
+		.forLanguage(language)
+		.makeDumlingIdFor(entry.lemma);
 	if (entry.id !== derivedId) {
 		return err(
 			makeError(
@@ -146,7 +209,10 @@ export function validateSurfaceEntry<L extends SupportedLang>(
 		);
 	}
 
-	const surfaceIdResult = assertSurfaceIdMatchesDictionaryLanguage(language, entry.id);
+	const surfaceIdResult = assertSurfaceIdMatchesDictionaryLanguage(
+		language,
+		entry.id,
+	);
 	if (surfaceIdResult.isErr()) {
 		return surfaceIdResult;
 	}

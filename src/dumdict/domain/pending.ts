@@ -1,9 +1,9 @@
 import type { SupportedLang } from "dumling";
 import type {
+	PendingLemmaId,
 	PendingLemmaRef,
 	PendingLemmaRefInput,
 	PendingLemmaRelation,
-	PendingLemmaId,
 } from "../public";
 
 export function derivePendingLemmaId<L extends SupportedLang>(

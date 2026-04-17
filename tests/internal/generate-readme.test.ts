@@ -13,14 +13,16 @@ test("README examples expose all named blocks used by the template", () => {
 	);
 	const templateBlockNames = [
 		...templateText.matchAll(/<!-- README_BLOCK:([a-z0-9-]+) -->/g),
-	].map((match) => match[1]);
+	].flatMap((match) => {
+		const blockName = match[1];
+		return blockName === undefined ? [] : [blockName];
+	});
 
 	expect(blocks.size).toBeGreaterThan(0);
 	expect(templateBlockNames.length).toBeGreaterThan(0);
 
 	for (const blockName of templateBlockNames) {
-		expect(blockName).toBeDefined();
-		expect(blocks.has(blockName!)).toBe(true);
+		expect(blocks.has(blockName)).toBe(true);
 	}
 });
 

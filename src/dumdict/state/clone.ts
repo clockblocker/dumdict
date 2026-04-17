@@ -1,10 +1,6 @@
 import type { DumlingId, SupportedLang } from "dumling";
 import { sortIds, sortStrings, toSortedRecord } from "../domain/collections";
-import type {
-	LemmaEntry,
-	PendingLemmaRef,
-	SurfaceEntry,
-} from "../public";
+import type { LemmaEntry, PendingLemmaRef, SurfaceEntry } from "../public";
 import { lexicalRelationKeys } from "../relations/lexical";
 import { morphologicalRelationKeys } from "../relations/morphological";
 import type { InternalState } from "./state";
@@ -88,7 +84,10 @@ export function cloneState<L extends SupportedLang>(
 ): InternalState<L> {
 	return {
 		lemmasById: new Map(
-			Array.from(state.lemmasById, ([id, entry]) => [id, cloneLemmaEntry(entry)]),
+			Array.from(state.lemmasById, ([id, entry]) => [
+				id,
+				cloneLemmaEntry(entry),
+			]),
 		),
 		surfacesById: new Map(
 			Array.from(state.surfacesById, ([id, entry]) => [

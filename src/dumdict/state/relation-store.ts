@@ -1,15 +1,15 @@
 import type { DumlingId, SupportedLang } from "dumling";
+import type { LemmaEntry } from "../public";
 import {
 	getInverseLexicalRelation,
 	type LexicalRelation,
+	lexicalRelationKeys,
 } from "../relations/lexical";
 import {
 	getInverseMorphologicalRelation,
 	type MorphologicalRelation,
 	morphologicalRelationKeys,
 } from "../relations/morphological";
-import { lexicalRelationKeys } from "../relations/lexical";
-import type { LemmaEntry } from "../public";
 import { getMutableLemmaEntry } from "./lemma-store";
 import type { InternalState } from "./state";
 
@@ -118,7 +118,9 @@ export function addResolvedMorphologicalRelationEdge<L extends SupportedLang>(
 	);
 }
 
-export function removeResolvedMorphologicalRelationEdge<L extends SupportedLang>(
+export function removeResolvedMorphologicalRelationEdge<
+	L extends SupportedLang,
+>(
 	state: InternalState<L>,
 	sourceLemmaId: DumlingId<"Lemma", L>,
 	relation: MorphologicalRelation,

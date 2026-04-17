@@ -48,7 +48,7 @@ export type SurfaceEntry<L extends SupportedLang> = {
 	notes: string;
 };
 
-export type PendingLemmaRefInput<L extends SupportedLang> = {
+export type PendingLemmaRefInput<_L extends SupportedLang> = {
 	canonicalLemma: string;
 	lemmaKind: UniversalLemmaKind;
 	lemmaSubKind: UniversalLemmaSubKind;
@@ -105,7 +105,7 @@ export type LemmaEntryPatchOp<L extends SupportedLang> =
 			target: LemmaRelationTarget<L>;
 	  };
 
-export type SurfaceEntryPatchOp<L extends SupportedLang> =
+export type SurfaceEntryPatchOp<_L extends SupportedLang> =
 	| { op: "addTranslation"; value: string }
 	| { op: "removeTranslation"; value: string }
 	| { op: "addAttestation"; value: string }

@@ -1,8 +1,4 @@
-import type {
-	ResolvedSurface,
-	Surface,
-	UnresolvedSurface,
-} from "dumling";
+import type { ResolvedSurface, Surface, UnresolvedSurface } from "dumling";
 import { englishWalkLemma } from "./lemmas";
 
 // Attestation: "They [walk] home together."

@@ -32,7 +32,20 @@ function asResolvedSurfaceRuntimeShape<L extends SupportedLang>(
 	return surface as ResolvedSurfaceRuntimeShape<L>;
 }
 
-export function getLemmaCanonicalLemma<L extends SupportedLang>(lemma: Lemma<L>) {
+function requireLemmaSubKind(
+	value: UniversalLemmaSubKind | undefined,
+	lemmaKind: UniversalLemmaKind,
+) {
+	if (value === undefined) {
+		throw new Error(`Expected ${lemmaKind} lemma to expose a sub-kind.`);
+	}
+
+	return value;
+}
+
+export function getLemmaCanonicalLemma<L extends SupportedLang>(
+	lemma: Lemma<L>,
+) {
 	return asLemmaRuntimeShape(lemma).canonicalLemma;
 }
 
@@ -44,11 +57,17 @@ export function getLemmaSubKind<L extends SupportedLang>(lemma: Lemma<L>) {
 	const runtimeLemma = asLemmaRuntimeShape(lemma);
 	switch (runtimeLemma.lemmaKind) {
 		case "Lexeme":
-			return runtimeLemma.pos!;
+			return requireLemmaSubKind(runtimeLemma.pos, runtimeLemma.lemmaKind);
 		case "Morpheme":
-			return runtimeLemma.morphemeKind!;
+			return requireLemmaSubKind(
+				runtimeLemma.morphemeKind,
+				runtimeLemma.lemmaKind,
+			);
 		case "Phraseme":
-			return runtimeLemma.phrasemeKind!;
+			return requireLemmaSubKind(
+				runtimeLemma.phrasemeKind,
+				runtimeLemma.lemmaKind,
+			);
 	}
 }
 

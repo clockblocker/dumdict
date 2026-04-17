@@ -10,7 +10,9 @@ const morphologicalRelations = [
 export const MorphologicalRelation = z.enum(morphologicalRelations);
 export type MorphologicalRelation = z.infer<typeof MorphologicalRelation>;
 
-export const morphologicalRelationKeys = [...MorphologicalRelation.options].sort();
+export const morphologicalRelationKeys = [
+	...MorphologicalRelation.options,
+].sort();
 
 const inverseMorphologicalRelation = {
 	consistsOf: "usedIn",

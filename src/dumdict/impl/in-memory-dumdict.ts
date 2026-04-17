@@ -1,22 +1,19 @@
-import {
-	type DumlingId,
-	dumling,
-	type SupportedLang,
-} from "dumling";
+import { type DumlingId, dumling, type SupportedLang } from "dumling";
 import { err, ok } from "neverthrow";
-import { makePendingLemmaRef, makePendingRelationKey } from "../domain/pending";
 import { sortIds, sortStrings, toSortedRecord } from "../domain/collections";
+import { makePendingLemmaRef, makePendingRelationKey } from "../domain/pending";
 import {
+	assertLemmaIdMatchesDictionaryLanguage,
+	assertPendingIdMatchesDictionaryLanguage,
+	assertSurfaceIdMatchesDictionaryLanguage,
 	pendingRefMatchesLemma,
 	pendingRefMatchesLemmaIdentityTuple,
-	assertLemmaIdMatchesDictionaryLanguage,
-	assertSurfaceIdMatchesDictionaryLanguage,
 	validateExistingRelationTarget,
 	validateLemmaEntry,
 	validateResolvedRelationTargets,
 	validateSurfaceEntry,
 } from "../domain/validation";
-import { makeError, type DumdictResult } from "../errors";
+import { type DumdictResult, makeError } from "../errors";
 import type {
 	Dumdict,
 	LemmaEntry,
@@ -28,10 +25,18 @@ import type {
 	SurfaceEntry,
 	SurfaceEntryPatchOp,
 } from "../public";
-import { type LexicalRelation } from "../relations/lexical";
-import { type MorphologicalRelation } from "../relations/morphological";
-import { clonePendingLemmaRef, cloneState, cloneSurfaceEntry, cloneLemmaEntry } from "../state/clone";
-import { deleteLemmaEntryDirect, replaceLemmaEntryDirect } from "../state/lemma-store";
+import type { LexicalRelation } from "../relations/lexical";
+import type { MorphologicalRelation } from "../relations/morphological";
+import {
+	cloneLemmaEntry,
+	clonePendingLemmaRef,
+	cloneState,
+	cloneSurfaceEntry,
+} from "../state/clone";
+import {
+	deleteLemmaEntryDirect,
+	replaceLemmaEntryDirect,
+} from "../state/lemma-store";
 import {
 	addPendingRelationEdge,
 	removePendingRelationEdge,
@@ -45,7 +50,7 @@ import {
 	removeResolvedLexicalRelationEdge,
 	removeResolvedMorphologicalRelationEdge,
 } from "../state/relation-store";
-import { makeEmptyState, type InternalState } from "../state/state";
+import { type InternalState, makeEmptyState } from "../state/state";
 import {
 	deleteSurfaceEntryDirect,
 	replaceSurfaceEntryDirect,
@@ -64,7 +69,8 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 	lookupBySurface(surface: string) {
 		const lookupKey = surface.normalize("NFC").toLowerCase();
 		const lemmaIds = this.#state.lemmaLookupIndex.get(lookupKey) ?? new Set();
-		const surfaceIds = this.#state.surfaceLookupIndex.get(lookupKey) ?? new Set();
+		const surfaceIds =
+			this.#state.surfaceLookupIndex.get(lookupKey) ?? new Set();
 
 		return ok({
 			lemmas: collectLemmaRecord(this.#state, lemmaIds),
@@ -75,7 +81,8 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 	lookupLemmasBySurface(surface: string) {
 		const lookupKey = surface.normalize("NFC").toLowerCase();
 		const lemmaIds = new Set(this.#state.lemmaLookupIndex.get(lookupKey) ?? []);
-		const surfaceIds = this.#state.surfaceLookupIndex.get(lookupKey) ?? new Set();
+		const surfaceIds =
+			this.#state.surfaceLookupIndex.get(lookupKey) ?? new Set();
 
 		for (const surfaceId of surfaceIds) {
 			const surfaceEntry = this.#state.surfacesById.get(surfaceId);
@@ -109,7 +116,10 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 	getSurfaceEntry(
 		id: DumlingId<"ResolvedSurface", L>,
 	): DumdictResult<SurfaceEntry<L>> {
-		const idResult = assertSurfaceIdMatchesDictionaryLanguage(this.language, id);
+		const idResult = assertSurfaceIdMatchesDictionaryLanguage(
+			this.language,
+			id,
+		);
 		if (idResult.isErr()) {
 			return err(idResult.error);
 		}
@@ -155,6 +165,14 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 	getPendingLemmaRef(
 		pendingId: PendingLemmaId<L>,
 	): DumdictResult<PendingLemmaRef<L>> {
+		const pendingIdResult = assertPendingIdMatchesDictionaryLanguage(
+			this.language,
+			pendingId,
+		);
+		if (pendingIdResult.isErr()) {
+			return err(pendingIdResult.error);
+		}
+
 		const ref = this.#state.pendingLemmaRefsById.get(pendingId);
 		if (!ref) {
 			return err(
@@ -172,7 +190,9 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 		Record<PendingLemmaId<L>, PendingLemmaRef<L>>
 	> {
 		const entries: [PendingLemmaId<L>, PendingLemmaRef<L>][] = [];
-		for (const pendingId of sortIds([...this.#state.pendingLemmaRefsById.keys()])) {
+		for (const pendingId of sortIds([
+			...this.#state.pendingLemmaRefsById.keys(),
+		])) {
 			const ref = this.#state.pendingLemmaRefsById.get(pendingId);
 			if (ref) {
 				entries.push([pendingId, clonePendingLemmaRef(ref)]);
@@ -235,12 +255,16 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 			morphologicalRelations: {},
 		});
 
-		for (const [relation, targetIds] of Object.entries(entry.lexicalRelations) as [
-			LexicalRelation,
-			DumlingId<"Lemma", L>[],
-		][]) {
+		for (const [relation, targetIds] of Object.entries(
+			entry.lexicalRelations,
+		) as [LexicalRelation, DumlingId<"Lemma", L>[]][]) {
 			for (const targetLemmaId of sortIds(targetIds ?? [])) {
-				addResolvedLexicalRelationEdge(draft, entry.id, relation, targetLemmaId);
+				addResolvedLexicalRelationEdge(
+					draft,
+					entry.id,
+					relation,
+					targetLemmaId,
+				);
 			}
 		}
 
@@ -258,7 +282,17 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 		}
 
 		this.#state = draft;
-		return ok(cloneLemmaEntry(draft.lemmasById.get(entry.id)!));
+		const storedEntry = draft.lemmasById.get(entry.id);
+		if (!storedEntry) {
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Lemma entry ${entry.id} disappeared after upsert.`,
+				),
+			);
+		}
+
+		return ok(cloneLemmaEntry(storedEntry));
 	}
 
 	upsertSurfaceEntry(entry: SurfaceEntry<L>): DumdictResult<SurfaceEntry<L>> {
@@ -274,7 +308,9 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 				dumling.idCodec
 					.forLanguage(this.language)
 					.makeDumlingIdFor(existing.surface) ===
-				dumling.idCodec.forLanguage(this.language).makeDumlingIdFor(entry.surface);
+				dumling.idCodec
+					.forLanguage(this.language)
+					.makeDumlingIdFor(entry.surface);
 			if (!sameSurface || existing.ownerLemmaId !== entry.ownerLemmaId) {
 				return err(
 					makeError(
@@ -296,14 +332,27 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 
 		replaceSurfaceEntryDirect(draft, entry);
 		this.#state = draft;
-		return ok(cloneSurfaceEntry(draft.surfacesById.get(entry.id)!));
+		const storedEntry = draft.surfacesById.get(entry.id);
+		if (!storedEntry) {
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Surface entry ${entry.id} disappeared after upsert.`,
+				),
+			);
+		}
+
+		return ok(cloneSurfaceEntry(storedEntry));
 	}
 
 	patchLemmaEntry(
 		id: DumlingId<"Lemma", L>,
 		ops: LemmaEntryPatchOp<L> | LemmaEntryPatchOp<L>[],
 	): DumdictResult<LemmaEntry<L>> {
-		const lemmaIdResult = assertLemmaIdMatchesDictionaryLanguage(this.language, id);
+		const lemmaIdResult = assertLemmaIdMatchesDictionaryLanguage(
+			this.language,
+			id,
+		);
 		if (lemmaIdResult.isErr()) {
 			return err(lemmaIdResult.error);
 		}
@@ -329,7 +378,17 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 
 		replaceLemmaEntryDirect(draft, entry);
 		this.#state = draft;
-		return ok(cloneLemmaEntry(draft.lemmasById.get(id)!));
+		const storedEntry = draft.lemmasById.get(id);
+		if (!storedEntry) {
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Lemma entry ${id} disappeared after patch.`,
+				),
+			);
+		}
+
+		return ok(cloneLemmaEntry(storedEntry));
 	}
 
 	patchSurfaceEntry(
@@ -392,7 +451,17 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 
 		replaceSurfaceEntryDirect(draft, entry);
 		this.#state = draft;
-		return ok(cloneSurfaceEntry(draft.surfacesById.get(id)!));
+		const storedEntry = draft.surfacesById.get(id);
+		if (!storedEntry) {
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Surface entry ${id} disappeared after patch.`,
+				),
+			);
+		}
+
+		return ok(cloneSurfaceEntry(storedEntry));
 	}
 
 	removePendingRelation(edge: PendingLemmaRelation<L>): DumdictResult<void> {
@@ -404,9 +473,19 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 			return err(lemmaIdResult.error);
 		}
 
+		const pendingIdResult = assertPendingIdMatchesDictionaryLanguage(
+			this.language,
+			edge.targetPendingId,
+		);
+		if (pendingIdResult.isErr()) {
+			return err(pendingIdResult.error);
+		}
+
 		const draft = cloneState(this.#state);
 		const edgeKey = makePendingRelationKey(edge);
-		const bySource = draft.pendingRelationsBySourceLemmaId.get(edge.sourceLemmaId);
+		const bySource = draft.pendingRelationsBySourceLemmaId.get(
+			edge.sourceLemmaId,
+		);
 		if (!bySource || !bySource.has(edgeKey)) {
 			return err(
 				makeError(
@@ -425,6 +504,14 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 		pendingId: PendingLemmaId<L>,
 		lemmaId: DumlingId<"Lemma", L>,
 	): DumdictResult<LemmaEntry<L>> {
+		const pendingIdResult = assertPendingIdMatchesDictionaryLanguage(
+			this.language,
+			pendingId,
+		);
+		if (pendingIdResult.isErr()) {
+			return err(pendingIdResult.error);
+		}
+
 		const lemmaIdResult = assertLemmaIdMatchesDictionaryLanguage(
 			this.language,
 			lemmaId,
@@ -499,11 +586,24 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 
 		draft.pendingLemmaRefsById.delete(pendingId);
 		this.#state = draft;
-		return ok(cloneLemmaEntry(draft.lemmasById.get(lemmaId)!));
+		const resolvedEntry = draft.lemmasById.get(lemmaId);
+		if (!resolvedEntry) {
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Lemma entry ${lemmaId} disappeared after resolving pending lemma ${pendingId}.`,
+				),
+			);
+		}
+
+		return ok(cloneLemmaEntry(resolvedEntry));
 	}
 
 	deleteLemmaEntry(id: DumlingId<"Lemma", L>): DumdictResult<void> {
-		const lemmaIdResult = assertLemmaIdMatchesDictionaryLanguage(this.language, id);
+		const lemmaIdResult = assertLemmaIdMatchesDictionaryLanguage(
+			this.language,
+			id,
+		);
 		if (lemmaIdResult.isErr()) {
 			return err(lemmaIdResult.error);
 		}
@@ -651,7 +751,12 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 			}
 
 			if (shouldAdd) {
-				addResolvedLexicalRelationEdge(state, entry.id, relation, target.lemmaId);
+				addResolvedLexicalRelationEdge(
+					state,
+					entry.id,
+					relation,
+					target.lemmaId,
+				);
 			} else {
 				removeResolvedLexicalRelationEdge(
 					state,
@@ -665,7 +770,10 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 		}
 
 		const pendingRef = makePendingLemmaRef(this.language, target.ref);
-		if (shouldAdd && pendingRefMatchesLemmaIdentityTuple(pendingRef, entry.lemma)) {
+		if (
+			shouldAdd &&
+			pendingRefMatchesLemmaIdentityTuple(pendingRef, entry.lemma)
+		) {
 			return err(
 				makeError(
 					"SelfRelationForbidden",
@@ -728,7 +836,10 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 		}
 
 		const pendingRef = makePendingLemmaRef(this.language, target.ref);
-		if (shouldAdd && pendingRefMatchesLemmaIdentityTuple(pendingRef, entry.lemma)) {
+		if (
+			shouldAdd &&
+			pendingRefMatchesLemmaIdentityTuple(pendingRef, entry.lemma)
+		) {
 			return err(
 				makeError(
 					"SelfRelationForbidden",

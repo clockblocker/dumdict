@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { dumling, type DumlingId } from "dumling";
+import { type DumlingId, dumling } from "dumling";
 import {
-	LexicalRelationsSchema,
-	MorphologicalRelationsSchema,
-	RelationTargetDumlingIdsSchema,
-	Relations,
 	getInverseLexicalRelation,
 	getInverseMorphologicalRelation,
 	getReprForLexicalRelation,
 	getReprForMorphologicalRelation,
+	LexicalRelationsSchema,
+	MorphologicalRelationsSchema,
+	Relations,
+	RelationTargetDumlingIdsSchema,
 } from "../../src";
 import {
 	englishWalkLemma,
@@ -49,9 +49,7 @@ describe("dumdict relations", () => {
 
 	it("exposes inverse and repr helpers from the root api", () => {
 		expect(Relations.Lexical.getInverse("hypernym")).toBe("hyponym");
-		expect(Relations.Morphological.getInverse("derivedFrom")).toBe(
-			"sourceFor",
-		);
+		expect(Relations.Morphological.getInverse("derivedFrom")).toBe("sourceFor");
 		expect(getInverseLexicalRelation("holonym")).toBe("meronym");
 		expect(getInverseMorphologicalRelation("usedIn")).toBe("consistsOf");
 		expect(getReprForLexicalRelation("nearSynonym")).toBe("≈");

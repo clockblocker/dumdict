@@ -1,4 +1,4 @@
-import { dumling, type DumlingId } from "dumling";
+import { type DumlingId, dumling } from "dumling";
 import { z } from "zod/v3";
 import type { LexicalRelation } from "./lexical";
 import type { MorphologicalRelation } from "./morphological";

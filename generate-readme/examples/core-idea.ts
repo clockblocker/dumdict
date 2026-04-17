@@ -99,8 +99,9 @@ unwrap(
 	}),
 );
 
-const runRelations = unwrap(dictForRelations.getLemmaEntry(runEntry.id))
-	.lexicalRelations;
+const runRelations = unwrap(
+	dictForRelations.getLemmaEntry(runEntry.id),
+).lexicalRelations;
 // { synonym: [walkEntry.id] }
 // README_BLOCK:reciprocal-relations:end
 

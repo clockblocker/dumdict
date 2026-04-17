@@ -200,7 +200,8 @@ Inflectional and orthographic facts are represented through surface ownership an
 ## Collections
 
 - Duplicate adds are no-ops.
-- Removing a missing value is a no-op.
+- Removing a missing value is a no-op for DTO collection fields and relation-target collections.
+- Command-style APIs may define stricter missing-target behavior explicitly.
 - Collection fields are deduped.
 - Collection fields are semantically sets.
 - Public reads are deterministically ordered.
@@ -298,6 +299,11 @@ listPendingRelationsForLemma(
 
 Behavior:
 
+- if a supplied resolved lemma ID decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if a supplied resolved surface ID decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if a supplied pending ID decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if a supplied resolved lemma or resolved surface ID is malformed, return `DecodeFailed`
+- if a supplied pending ID is malformed, return `DecodeFailed`
 - `getLemmaEntry` returns `LemmaEntryNotFound` if the lemma does not exist
 - `getSurfaceEntry` returns `SurfaceEntryNotFound` if the surface does not exist
 - `getOwnedSurfaceEntries` returns `LemmaEntryNotFound` if the owner lemma does not exist
@@ -365,7 +371,11 @@ Rules:
 - duplicate add is a no-op
 - remove-missing is a no-op
 - patch may not mutate identity-bearing fields by generic merge
+- if the patched entry ID decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if the patched entry ID is malformed, return `DecodeFailed`
 - if a lemma patch op uses `target.kind === "existing"` and that target lemma ID does not exist, return `RelationTargetNotFound`
+- if a lemma patch op uses `target.kind === "existing"` and that target lemma ID decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if a lemma patch op uses `target.kind === "existing"` and that target lemma ID is malformed, return `DecodeFailed`
 - `patchLemmaEntry` is the only API that can create new pending relation refs from lemma relation writes
 
 ### Pending Relation Write API
@@ -378,6 +388,11 @@ removePendingRelation(
 
 Rules:
 
+- `removePendingRelation(...)` is a command API exception to the generic collection no-op rule
+- if `edge.sourceLemmaId` decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if `edge.sourceLemmaId` is malformed, return `DecodeFailed`
+- if `edge.targetPendingId` decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if `edge.targetPendingId` is malformed, return `DecodeFailed`
 - removing a missing pending relation returns `PendingRelationNotFound`
 - if removing an edge leaves a pending ref with no remaining inbound pending relations, that pending ref is removed automatically
 
@@ -445,6 +460,9 @@ Behavior:
 - deleting a `LemmaEntry` removes inbound and outbound lemma relations
 - deleting a `LemmaEntry` removes pending relations where `sourceLemmaId` is that lemma
 - deleting those edges also removes now-unreferenced pending refs
+- if the supplied lemma ID decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if the supplied surface ID decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if the supplied lemma or surface ID is malformed, return `DecodeFailed`
 - deleting a missing lemma returns `LemmaEntryNotFound`
 - deleting a missing surface returns `SurfaceEntryNotFound`
 - deleting a `SurfaceEntry` only deletes that surface entry
@@ -496,6 +514,19 @@ Rules:
 - pending refs are not keyed by `DumlingId<"Lemma">`
 - `PendingLemmaId<L>` is an opaque branded string in the public API
 - `PendingLemmaId<L>` is deterministically derived from `(language, canonicalLemma, lemmaKind, lemmaSubKind)`
+- the v1 wire format is:
+
+```ts
+type PendingLemmaIdV1 =
+  `pending:v1:${EncodedLanguage}:${EncodedCanonicalLemma}:${EncodedLemmaKind}:${EncodedLemmaSubKind}`;
+```
+
+- each encoded segment is `encodeURIComponent(...)` of the corresponding raw field value
+- `language` is the exact `SupportedLang` discriminant string
+- `canonicalLemma`, `lemmaKind`, and `lemmaSubKind` use exact field values with no lookup normalization
+- the separator is literal `:`
+- the prefix is literal `pending:v1:`
+- callers may persist or transmit `PendingLemmaId<L>` across processes and implementations; conforming v1 implementations must round-trip this exact string format
 - callers do not construct `PendingLemmaId<L>` directly; `dumdict` creates and returns it
 - the caller must provide enough discriminators to create a pending ref
 - pending refs must preserve the identity granularity that `dumling` uses for real lemmas
@@ -520,7 +551,11 @@ resolvePendingLemma(
 Behavior:
 
 - resolves the pending ref onto an already-existing lemma entry
+- if `pendingId` decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if `lemmaId` decodes to a different language than the dictionary language, return `LanguageMismatch`
+- if `pendingId` or `lemmaId` is malformed, return `DecodeFailed`
 - returns `LemmaEntryNotFound` if the target lemma does not exist
+- returns `PendingRefNotFound` if the pending ref does not exist
 - validates the target lemma's `lemma` against the pending ref before resolution
 - v1 validation checks `canonicalLemma`, `lemmaKind`, and `lemmaSubKind`
 - mismatches return `PendingResolutionMismatch`

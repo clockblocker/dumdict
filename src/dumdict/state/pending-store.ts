@@ -18,7 +18,9 @@ export function sortPendingRelations<L extends SupportedLang>(
 			return relationOrder;
 		}
 
-		const targetOrder = left.targetPendingId.localeCompare(right.targetPendingId);
+		const targetOrder = left.targetPendingId.localeCompare(
+			right.targetPendingId,
+		);
 		if (targetOrder !== 0) {
 			return targetOrder;
 		}
@@ -52,7 +54,9 @@ export function removePendingRelationEdge<L extends SupportedLang>(
 ) {
 	const edgeKey = makePendingRelationKey(edge);
 
-	const bySource = state.pendingRelationsBySourceLemmaId.get(edge.sourceLemmaId);
+	const bySource = state.pendingRelationsBySourceLemmaId.get(
+		edge.sourceLemmaId,
+	);
 	bySource?.delete(edgeKey);
 	if (bySource && bySource.size === 0) {
 		state.pendingRelationsBySourceLemmaId.delete(edge.sourceLemmaId);
