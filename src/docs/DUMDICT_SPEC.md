@@ -6,56 +6,23 @@
 
 `dumling` provides:
 
-- typed linguistic DTOs such as `Lemma` and `ResolvedSurface`
+- linguistic DTOs such as `Lemma` and `ResolvedSurface`
 - stable IDs for resolved entities
-- language-bound runtime validation
+- language-bound validation
 
 `dumdict` provides:
 
 - dictionary entry DTOs
 - lookup indexes
 - CRUD operations
-- lemma-lemma relation semantics
-- pending unresolved targets for later hydration
-
-The intent is to support UI implementors with a small, stable, language-generic API.
+- relation semantics
+- pending unresolved targets
 
 ## Language Scope
 
 - One `dumdict` instance is bound to exactly one language.
 - All public APIs are the same for every language.
-- All entry DTOs share one universal shape parameterized by `L extends SupportedLang`.
-- If `dumling` lacks universal helper types needed for this, they should be added there.
-
-## Suggested Final Naming
-
-For `dumdict` public DTOs and API-facing types, prefer short concrete names without the `Universal` prefix:
-
-- `LemmaEntry<L>`
-- `SurfaceEntry<L>`
-- `LookupResult<L>`
-- `PendingLemmaRef<L>`
-- `PendingLemmaRefInput<L>`
-- `PendingLemmaRelation<L>`
-- `LemmaEntryPatchOp<L>`
-- `SurfaceEntryPatchOp<L>`
-- `DumdictError`
-- `DumdictResult<T>`
-
-For helper types that may need to come from `dumling`, `Universal` is still fine because those are taxonomy helpers rather than dictionary DTOs:
-
-- `SupportedLang`
-- `UniversalLemmaKind`
-- `UniversalLemmaSubKind`
-- `UniversalLexicalRelation`
-- `UniversalMorphologicalRelation`
-- `UniversalLexicalRelations<L>`
-- `UniversalMorphologicalRelations<L>`
-
-The naming split should be:
-
-- `dumling`: universal taxonomy and linguistic helper types
-- `dumdict`: concrete dictionary storage DTOs
+- All dictionary DTOs are parameterized by `L extends SupportedLang`.
 
 ## Construction
 
@@ -66,248 +33,300 @@ const deDict = makeDumdict("German");
 const heDict = makeDumdict("Hebrew");
 ```
 
-Suggested shape:
-
 ```ts
 declare function makeDumdict<L extends SupportedLang>(language: L): Dumdict<L>;
 ```
 
-## Clarifications From Design Discussion
+## Core Model
 
-The following points are clarified enough to treat as working v1 assumptions.
+### Entity Kinds
 
-### Confirmed Direction
+There are two entry kinds in v1:
 
-- `dumling` should provide identity, DTO shapes, and language-bound validation.
-- `dumdict` should own dictionary semantics:
-  - stored dictionary entities
-  - lookup indexes
-  - CRUD behavior
-  - relation semantics
-  - reciprocity rules
-  - delete cleanup rules
-- The primary dictionary entity is lemma-level.
-- Lexical relations are lemma-to-lemma only.
-- Morphological relations are lemma-to-lemma only.
-- Inflectional / grammatical facts must not be modeled as the same generic relation bag as lexical or morphological relations.
-- Surface ownership is the primary v1 mechanism for representing inflected or orthographic forms tied to a lemma.
-- Reciprocal lemma relations must be updated atomically by `dumdict`.
+- `LemmaEntry<L>`: primary dictionary entity
+- `SurfaceEntry<L>`: secondary owned entity for resolved surfaces
 
-### Questions Clarified Into Sharper V1 Decisions
+`Selection` is not a dictionary entity in v1.
 
-These questions came up in discussion and are now sharpened enough that the spec should answer them explicitly:
-
-- Is the primary dictionary entity lemma-level or arbitrary over all `DumlingId`s?
-  - Current direction: lemma-level.
-- Are lexical and morphological relations `dumling` concerns or `dumdict` concerns?
-  - Current direction: `dumdict` owns them completely.
-- Should grammatical / inflectional relations share the same relation model as synonymy or derivation?
-  - Current direction: no; they are represented via surface ownership and surface data, not the lemma-lemma relation graph.
-- Does relation reciprocity happen manually or automatically?
-  - Current direction: automatically, inside `dumdict`, with atomic updates.
-
-### Questions Still Open
-
-- Are surfaces nested inside a lemma entry, or stored as separate `SurfaceEntry`s in a second store?
-- Should `lookupBySurface` return:
-  - mixed lemma and surface entries
-  - lemma entries only
-- Is a missing relation target rejected in v1, or preserved as a pending unresolved target?
-- What exact normalization pipeline should surface lookup use beyond Unicode normalization?
-- Are translations and notes intentionally lemma-level in v1, even when a form-specific or sense-specific distinction may exist?
-
-## Core Ontology
-
-### Entry Kinds
-
-#### `LemmaEntry`
-
-Primary dictionary entity.
+### `LemmaEntry`
 
 ```ts
 type LemmaEntry<L extends SupportedLang> = {
-	id: DumlingId<"Lemma", L>;
-	lemma: Lemma<L>;
-	lexicalRelations: UniversalLexicalRelations<L>;
-	morphologicalRelations: UniversalMorphologicalRelations<L>;
-	attestedTranslations: string[];
-	attestations: string[];
-	notes: string;
+  id: DumlingId<"Lemma", L>;
+  lemma: Lemma<L>;
+  lexicalRelations: LexicalRelations<L>;
+  morphologicalRelations: MorphologicalRelations<L>;
+  attestedTranslations: string[];
+  attestations: string[];
+  notes: string;
 };
 ```
 
-#### `SurfaceEntry`
-
-Secondary dictionary entity for resolved surfaces such as inflections or orthographic variants.
+### `SurfaceEntry`
 
 ```ts
 type SurfaceEntry<L extends SupportedLang> = {
-	id: DumlingId<"ResolvedSurface", L>;
-	surface: ResolvedSurface<L>;
-	ownerLemmaId: DumlingId<"Lemma", L>;
-	attestedTranslations: string[];
-	attestations: string[];
-	notes: string;
+  id: DumlingId<"ResolvedSurface", L>;
+  surface: ResolvedSurface<L>;
+  ownerLemmaId: DumlingId<"Lemma", L>;
+  attestedTranslations: string[];
+  attestations: string[];
+  notes: string;
 };
 ```
 
-### Non-Entities
+### Storage Model
 
-- `Selection` is not a dictionary entry.
-- There is no `SelectionEntry` in v1.
-- `Selection` may be used by outer systems as evidence or acquisition context, but not as a first-class `dumdict` entity.
+Storage is two-entity, not nested:
 
-## Allowed Links
+- `lemmasById`
+- `surfacesById`
+- `surfaceIdsByOwnerLemmaId`
+- lemma lookup index by normalized `lemma.canonicalLemma`
+- surface lookup index by normalized `surface.normalizedFullSurface`
+- `pendingLemmaRefsById`
+- pending relation state keyed by source lemma and target pending ref
 
-### `LemmaEntry <-> LemmaEntry`
+But the API is lemma-primary:
 
-Allowed:
+- lemma entries are the main graph
+- surface entries are secondary owned data
+- most navigation starts from lemmas
 
-- lexical relations
-- morphological relations
+This means:
 
-These relations are owned by `dumdict`, not by `dumling`.
+- `SurfaceEntry` is first-class for storage and CRUD
+- `SurfaceEntry` is secondary for ontology and relation semantics
 
-### `SurfaceEntry -> LemmaEntry`
+## Relations
 
-Allowed:
+All relation logic belongs to `dumdict`, not `dumling`.
 
-- ownership only
+### Relation Types
 
-This is not a generic relation bag. A `SurfaceEntry` belongs to exactly one lemma entry.
-Inflectional / grammatical facts should be represented through surface ownership and surface data rather than by reusing the lemma-lemma relation graph.
+```ts
+type LexicalRelation =
+  | "synonym"
+  | "nearSynonym"
+  | "antonym"
+  | "hypernym"
+  | "hyponym"
+  | "meronym"
+  | "holonym";
 
-### Forbidden Links In V1
+type MorphologicalRelation =
+  | "consistsOf"
+  | "derivedFrom"
+  | "usedIn"
+  | "sourceFor";
+```
+
+### Relation Maps
+
+```ts
+type LexicalRelations<L extends SupportedLang> =
+  Partial<Record<LexicalRelation, DumlingId<"Lemma", L>[]>>;
+
+type MorphologicalRelations<L extends SupportedLang> =
+  Partial<Record<MorphologicalRelation, DumlingId<"Lemma", L>[]>>;
+```
+
+`LemmaEntry.lexicalRelations` and `LemmaEntry.morphologicalRelations` contain
+only resolved lemma IDs.
+
+Pending relation targets are stored as separate readable state and are not
+embedded inside `LemmaEntry`.
+
+### Allowed Links
+
+- `LemmaEntry <-> LemmaEntry`: lexical relations
+- `LemmaEntry <-> LemmaEntry`: morphological relations
+- `SurfaceEntry -> LemmaEntry`: ownership only
+
+### Forbidden Links
 
 - no `Selection -> *` entry graph
 - no `SurfaceEntry <-> SurfaceEntry` relation graph
 - no generic `SurfaceEntry <-> LemmaEntry` relations beyond ownership
 
-## Invariants
+### Relation Inverses
 
-### Surface Ownership
+Reciprocity is automatic and uses these inverse pairs:
+
+```ts
+type LexicalInverseMap = {
+  synonym: "synonym";
+  nearSynonym: "nearSynonym";
+  antonym: "antonym";
+  hypernym: "hyponym";
+  hyponym: "hypernym";
+  meronym: "holonym";
+  holonym: "meronym";
+};
+
+type MorphologicalInverseMap = {
+  consistsOf: "usedIn";
+  usedIn: "consistsOf";
+  derivedFrom: "sourceFor";
+  sourceFor: "derivedFrom";
+};
+```
+
+### Relation Rules
+
+- Reciprocity is maintained automatically by `dumdict`.
+- Self-relations are forbidden.
+- `dumdict` must not invent fake lemma entries for inflected forms, such as `"go, verb, present"`.
+
+## Ownership And Surface Semantics
 
 - Every `SurfaceEntry` wraps a `ResolvedSurface<L>`.
 - Every `SurfaceEntry` has exactly one `ownerLemmaId`.
 - `ownerLemmaId` must match the lemma encoded inside `surface.lemma`.
-- Multiple `SurfaceEntry`s may share the same normalized spelling string.
-- A `SurfaceEntry` cannot have multiple owner lemmas.
+- Multiple `SurfaceEntry`s may share the same spelling string.
+- A `SurfaceEntry` cannot have multiple owners.
+- `surface` is immutable after creation.
+- `ownerLemmaId` is immutable after creation.
 
-### Relation Invariants
+Inflectional and orthographic facts are represented through surface ownership and surface data, not through the lemma-lemma relation graph.
 
-- Lemma-lemma relation reciprocity is maintained automatically by `dumdict`.
-- Self-relations are forbidden.
-- `dumdict` must not invent fake lemma entries for inflected forms, such as `"go, verb, present"`.
-
-### Collection Invariants
+## Collections
 
 - Duplicate adds are no-ops.
 - Removing a missing value is a no-op.
 - Collection fields are deduped.
 - Collection fields are semantically sets.
-- Public contract does not guarantee insertion order.
+- Public reads are deterministically ordered.
+- `string[]` collections are sorted lexicographically.
+- ID collections are sorted by ascending stable ID.
+- Record-shaped reads must be constructed in ascending key order.
 
 ## Lookup
 
-### Lookup Result
+### Normalization
+
+Current v1 lookup normalization:
 
 ```ts
-type LookupResult<L extends SupportedLang> = {
-	lemmas: Record<DumlingId<"Lemma", L>, LemmaEntry<L>>;
-	surfaces: Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>;
-};
+makeLookupKey(input: string) = input.normalize("NFC").toLowerCase()
 ```
+
+This is a known v1 limitation and is not claimed to be linguistically complete
+for all supported languages.
+
+### Indexed Fields
+
+- lemma lookup indexes `lemma.canonicalLemma`
+- surface lookup indexes `surface.normalizedFullSurface`
+- both indexes use the same `makeLookupKey(...)` normalization
 
 ### `lookupBySurface`
 
 ```ts
-lookupBySurface(surface: string): Result<LookupResult<L>, DumdictError>;
+type LookupResult<L extends SupportedLang> = {
+  lemmas: Record<DumlingId<"Lemma", L>, LemmaEntry<L>>;
+  surfaces: Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>;
+};
+
+lookupBySurface(surface: string): DumdictResult<LookupResult<L>>;
 ```
 
 Behavior:
 
 - exact-match only
-- no fuzzy search
-- no prefix search
-- no substring search
-- lookup key is preprocessed before matching
-- preprocessing currently means:
-    - Unicode normalization via `input.normalize("NFC")`
-    - lowercasing
-- returns only direct matches
-- does not automatically include owner lemmas of matched surfaces unless they also match directly
+- no fuzzy, prefix, or substring search
+- matches by normalized lookup key
+- returns direct matches only
+- direct lemma matches are matches on `lemma.canonicalLemma`
+- direct surface matches are matches on `surface.normalizedFullSurface`
+- may return both matched lemma entries and matched surface entries
 
 ### `lookupLemmasBySurface`
 
 ```ts
 lookupLemmasBySurface(
   surface: string,
-): Result<Record<DumlingId<"Lemma", L>, LemmaEntry<L>>, DumdictError>;
+): DumdictResult<Record<DumlingId<"Lemma", L>, LemmaEntry<L>>>;
 ```
 
 Behavior:
 
-- uses the same lookup-key preprocessing as `lookupBySurface`
-- returns only lemma entries
-- includes both:
-    - owner lemmas of matched surface entries
-    - directly matched lemma entries
+- uses the same lookup normalization
+- returns lemma entries only
+- includes:
+  - directly matched lemma entries
+  - owner lemmas of matched surface entries
 
 ## Read API
 
 ```ts
 getLemmaEntry(
   id: DumlingId<"Lemma", L>,
-): Result<LemmaEntry<L>, DumdictError>;
+): DumdictResult<LemmaEntry<L>>;
 
 getSurfaceEntry(
   id: DumlingId<"ResolvedSurface", L>,
-): Result<SurfaceEntry<L>, DumdictError>;
+): DumdictResult<SurfaceEntry<L>>;
 
 getOwnedSurfaceEntries(
   lemmaId: DumlingId<"Lemma", L>,
-): Result<
-  Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>,
-  DumdictError
+): DumdictResult<
+  Record<DumlingId<"ResolvedSurface", L>, SurfaceEntry<L>>
 >;
+
+getPendingLemmaRef(
+  pendingId: PendingLemmaId<L>,
+): DumdictResult<PendingLemmaRef<L>>;
+
+listPendingLemmaRefs(): DumdictResult<
+  Record<PendingLemmaId<L>, PendingLemmaRef<L>>
+>;
+
+listPendingRelationsForLemma(
+  lemmaId: DumlingId<"Lemma", L>,
+): DumdictResult<PendingLemmaRelation<L>[]>;
 ```
 
 ## Write API
 
 ### Upsert
 
-Upsert is full replacement of the targeted entry.
+Upsert is full replacement.
 
 ```ts
-upsertLemmaEntry(
-  entry: LemmaEntry<L>,
-): Result<LemmaEntry<L>, DumdictError>;
-
-upsertSurfaceEntry(
-  entry: SurfaceEntry<L>,
-): Result<SurfaceEntry<L>, DumdictError>;
+upsertLemmaEntry(entry: LemmaEntry<L>): DumdictResult<LemmaEntry<L>>;
+upsertSurfaceEntry(entry: SurfaceEntry<L>): DumdictResult<SurfaceEntry<L>>;
 ```
 
 Rules:
 
 - `upsert` is not a partial merge
 - identity-bearing fields must be internally consistent
+- `upsertLemmaEntry` is a full replacement of the `LemmaEntry` DTO only
+- `upsertLemmaEntry` is graph-aware for resolved lemma relations
+- replacing a lemma's resolved relation sets also removes stale inverse edges from previously related lemmas
+- resolved relation rewrites are atomic across the affected lemma graph
+- pending relation state is separate from `LemmaEntry` and is not replaced by `upsertLemmaEntry`
 - `upsertSurfaceEntry` must enforce `ownerLemmaId` consistency against `surface.lemma`
+- `upsertSurfaceEntry` requires the owner lemma to already exist
+- if the owner lemma does not exist, return `OwnerLemmaNotFound`
+- for an existing surface entry, `surface` and `ownerLemmaId` must match the stored values
+- mutating immutable surface identity fields returns `InvariantViolation`
 
 ### Patch
 
-Patch is command-based, not deep-partial object merge.
+Patch is command-based, not deep-partial merge.
 
 ```ts
 patchLemmaEntry(
   id: DumlingId<"Lemma", L>,
   ops: LemmaEntryPatchOp<L> | LemmaEntryPatchOp<L>[],
-): Result<LemmaEntry<L>, DumdictError>;
+): DumdictResult<LemmaEntry<L>>;
 
 patchSurfaceEntry(
   id: DumlingId<"ResolvedSurface", L>,
   ops: SurfaceEntryPatchOp<L> | SurfaceEntryPatchOp<L>[],
-): Result<SurfaceEntry<L>, DumdictError>;
+): DumdictResult<SurfaceEntry<L>>;
 ```
 
 Rules:
@@ -317,150 +336,155 @@ Rules:
 - remove-missing is a no-op
 - patch may not mutate identity-bearing fields by generic merge
 
+### Pending Relation Write API
+
+```ts
+removePendingRelation(
+  edge: PendingLemmaRelation<L>,
+): DumdictResult<void>;
+```
+
+Rules:
+
+- removing a missing pending relation returns `PendingRelationNotFound`
+- if removing an edge leaves a pending ref with no remaining inbound pending relations, that pending ref is removed automatically
+
 ### Lemma Patch Operations
 
 ```ts
+type LemmaRelationTarget<L extends SupportedLang> =
+  | { kind: "existing"; lemmaId: DumlingId<"Lemma", L> }
+  | { kind: "pending"; ref: PendingLemmaRefInput<L> };
+
 type LemmaEntryPatchOp<L extends SupportedLang> =
-	| { op: "addTranslation"; value: string }
-	| { op: "removeTranslation"; value: string }
-	| { op: "addAttestation"; value: string }
-	| { op: "removeAttestation"; value: string }
-	| { op: "setNotes"; value: string }
-	| {
-			op: "addLexicalRelation";
-			relation: UniversalLexicalRelation;
-			target: LemmaRelationTarget<L>;
-	  }
-	| {
-			op: "removeLexicalRelation";
-			relation: UniversalLexicalRelation;
-			target: LemmaRelationTarget<L>;
-	  }
-	| {
-			op: "addMorphologicalRelation";
-			relation: UniversalMorphologicalRelation;
-			target: LemmaRelationTarget<L>;
-	  }
-	| {
-			op: "removeMorphologicalRelation";
-			relation: UniversalMorphologicalRelation;
-			target: LemmaRelationTarget<L>;
-	  };
+  | { op: "addTranslation"; value: string }
+  | { op: "removeTranslation"; value: string }
+  | { op: "addAttestation"; value: string }
+  | { op: "removeAttestation"; value: string }
+  | { op: "setNotes"; value: string }
+  | {
+      op: "addLexicalRelation";
+      relation: LexicalRelation;
+      target: LemmaRelationTarget<L>;
+    }
+  | {
+      op: "removeLexicalRelation";
+      relation: LexicalRelation;
+      target: LemmaRelationTarget<L>;
+    }
+  | {
+      op: "addMorphologicalRelation";
+      relation: MorphologicalRelation;
+      target: LemmaRelationTarget<L>;
+    }
+  | {
+      op: "removeMorphologicalRelation";
+      relation: MorphologicalRelation;
+      target: LemmaRelationTarget<L>;
+    };
 ```
 
 ### Surface Patch Operations
 
 ```ts
 type SurfaceEntryPatchOp<L extends SupportedLang> =
-	| { op: "addTranslation"; value: string }
-	| { op: "removeTranslation"; value: string }
-	| { op: "addAttestation"; value: string }
-	| { op: "removeAttestation"; value: string }
-	| { op: "setNotes"; value: string };
+  | { op: "addTranslation"; value: string }
+  | { op: "removeTranslation"; value: string }
+  | { op: "addAttestation"; value: string }
+  | { op: "removeAttestation"; value: string }
+  | { op: "setNotes"; value: string };
 ```
+
+Rules:
+
+- surface patch only edits notes, translations, and attestations
+- surface patch cannot mutate `surface` or `ownerLemmaId`
 
 ## Delete API
 
 ```ts
-deleteLemmaEntry(
-  id: DumlingId<"Lemma", L>,
-): Result<void, DumdictError>;
-
-deleteSurfaceEntry(
-  id: DumlingId<"ResolvedSurface", L>,
-): Result<void, DumdictError>;
+deleteLemmaEntry(id: DumlingId<"Lemma", L>): DumdictResult<void>;
+deleteSurfaceEntry(id: DumlingId<"ResolvedSurface", L>): DumdictResult<void>;
 ```
 
 Behavior:
 
 - deleting a `LemmaEntry` deletes its owned `SurfaceEntry`s
 - deleting a `LemmaEntry` removes inbound and outbound lemma relations
+- deleting a `LemmaEntry` removes pending relations where `sourceLemmaId` is that lemma
+- deleting those edges also removes now-unreferenced pending refs
 - deleting a `SurfaceEntry` only deletes that surface entry
 
 ## Pending Unresolved Targets
 
-### Motivation
+Missing relation targets are preserved as pending unresolved refs in v1.
 
-The outer system may discover a related lemma before full lemma hydration exists.
+They are not rejected.
 
-Example flow:
-
-- user clicks a token in text
-- outer system resolves one real lemma entry and some related lemmas
-- some related lemmas already exist
-- some related lemmas do not yet exist as full dictionary entries
-
-`dumdict` should preserve those unresolved targets without breaking the invariant that confirmed relations live on confirmed lemma entries.
-
-### Chosen Model
-
-Use a separate pending layer.
-
-- confirmed relations live on confirmed `LemmaEntry`s
-- unresolved relation targets live in pending refs plus pending edges
-- later hydration rewires pending edges into real lemma relations
+Pending refs and pending relations are first-class readable state.
 
 ### Pending DTOs
 
 ```ts
+type PendingLemmaRefInput<L extends SupportedLang> = {
+  canonicalLemma: string;
+  lemmaKind: UniversalLemmaKind;
+  lemmaSubKind: UniversalLemmaSubKind;
+};
+
 type PendingLemmaRef<L extends SupportedLang> = {
-	pendingId: PendingLemmaId<L>;
-	language: L;
-	canonicalLemma: string;
-	lemmaKind: UniversalLemmaKind;
-	lemmaSubKind: UniversalLemmaSubKind;
+  pendingId: PendingLemmaId<L>;
+  language: L;
+  canonicalLemma: string;
+  lemmaKind: UniversalLemmaKind;
+  lemmaSubKind: UniversalLemmaSubKind;
 };
 
 type PendingLemmaRelation<L extends SupportedLang> = {
-	sourceLemmaId: DumlingId<"Lemma", L>;
-	relationFamily: "lexical" | "morphological";
-	relation: UniversalLexicalRelation | UniversalMorphologicalRelation;
-	targetPendingId: PendingLemmaId<L>;
+  sourceLemmaId: DumlingId<"Lemma", L>;
+  relationFamily: "lexical" | "morphological";
+  relation: LexicalRelation | MorphologicalRelation;
+  targetPendingId: PendingLemmaId<L>;
 };
 ```
 
-Notes:
+Rules:
 
 - pending refs are not `LemmaEntry`s
 - pending refs are not keyed by `DumlingId<"Lemma">`
-- pending refs exist specifically to preserve unresolved acquisition state
-
-### Relation Targets
-
-Lemma relation patch operations target either:
-
-- an existing lemma ID
-- a pending unresolved lemma ref
-
-```ts
-type LemmaRelationTarget<L extends SupportedLang> = { kind: "existing"; lemmaId: DumlingId<"Lemma", L> } | { kind: "pending"; ref: PendingLemmaRefInput<L> };
-
-type PendingLemmaRefInput<L extends SupportedLang> = {
-	canonicalLemma: string;
-	lemmaKind: UniversalLemmaKind;
-	lemmaSubKind: UniversalLemmaSubKind;
-};
-```
-
-The user must provide enough discriminators to create a pending ref.
+- the caller must provide enough discriminators to create a pending ref
+- pending refs are deduped by language plus `(canonicalLemma, lemmaKind, lemmaSubKind)`
+- pending refs exist only while referenced by at least one pending relation
 
 ### Pending Resolution
-
-Later, when a pending target is hydrated into a full lemma entry:
 
 ```ts
 resolvePendingLemma(
   pendingId: PendingLemmaId<L>,
   entry: LemmaEntry<L>,
-): Result<LemmaEntry<L>, DumdictError>;
+): DumdictResult<LemmaEntry<L>>;
 ```
 
 Behavior:
 
 - creates or upserts the real lemma entry
+- validates `canonicalLemma`, `lemmaKind`, and `lemmaSubKind` against the pending ref before resolution
+- mismatches return `PendingResolutionMismatch`
 - materializes pending inbound relations onto the real entry
-- materializes reciprocal relations onto other real entries as needed
+- materializes reciprocal relations onto other real entries
 - removes the resolved pending ref and its pending edges
+
+## Sense Granularity
+
+V1 is intentionally lemma-level and surface-level only.
+
+That means:
+
+- no separate sense entity
+- translations are attached at lemma or surface level
+- notes are attached at lemma or surface level
+
+This is knowingly lossy for polysemy, and that tradeoff is accepted in v1.
 
 ## Error Model
 
@@ -468,51 +492,40 @@ Use `neverthrow`.
 
 ```ts
 type DumdictResult<T> = Result<T, DumdictError>;
-```
 
-Suggested error codes:
-
-```ts
 type DumdictErrorCode =
-	| "EntryNotFound"
-	| "EntryAlreadyExists"
-	| "PendingRefNotFound"
-	| "LanguageMismatch"
-	| "InvalidOwnership"
-	| "InvalidPatchOp"
-	| "SelfRelationForbidden"
-	| "DecodeFailed";
+  | "EntryNotFound"
+  | "PendingRefNotFound"
+  | "OwnerLemmaNotFound"
+  | "PendingRelationNotFound"
+  | "PendingResolutionMismatch"
+  | "LanguageMismatch"
+  | "InvalidOwnership"
+  | "InvalidPatchOp"
+  | "SelfRelationForbidden"
+  | "InvariantViolation"
+  | "DecodeFailed";
 
 type DumdictError = {
-	code: DumdictErrorCode;
-	message: string;
-	cause?: unknown;
+  code: DumdictErrorCode;
+  message: string;
+  cause?: unknown;
 };
 ```
 
-## Boundaries With `dumling`
+## Boundary With `dumling`
 
-`dumling` should remain responsible for:
+`dumling` remains responsible for:
 
 - `Lemma`
 - `ResolvedSurface`
 - `DumlingId`
-- language-bound runtime decoding and validation
+- language-bound decoding and validation
+- universal lemma discriminator helper types
 
-`dumdict` should remain responsible for:
+`dumdict` remains responsible for:
 
 - dictionary CRUD
-- lookup indexes
-- relation semantics
+- lookup and normalization
+- relation types and inverse logic
 - pending unresolved targets
-
-### Potential `dumling` Additions
-
-If missing, `dumling` may need to expose:
-
-- universal lemma-kind helper types
-- universal lemma-subkind helper types
-- universal lexical-relation helper types
-- universal morphological-relation helper types
-
-`dumdict` should not require `dumling` to add unresolved lemma IDs in v1 because pending refs are modeled separately.
