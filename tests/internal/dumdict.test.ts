@@ -811,6 +811,79 @@ describe("dumdict", () => {
 		]);
 	});
 
+	it("applies create-pending-relation changes against an existing pending ref", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const runEntry = makeLemmaEntry(englishRunLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(dict.upsertLemmaEntry(runEntry));
+		unwrap(
+			dict.patchLemmaEntry(walkEntry.id, {
+				op: "addMorphologicalRelation",
+				relation: "derivedFrom",
+				target: {
+					kind: "pending",
+					ref: {
+						canonicalLemma: "stride",
+						lemmaKind: "Lexeme",
+						lemmaSubKind: "VERB",
+					},
+				},
+			}),
+		);
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const pendingId = baseSnapshot.pendingRefs[0]?.pendingId;
+		if (!pendingId) {
+			throw new Error("Expected one pending ref in the base snapshot.");
+		}
+
+		const changes = [
+			{
+				type: "createPendingRelation",
+				relation: {
+					sourceLemmaId: runEntry.id,
+					relationFamily: "morphological",
+					relation: "derivedFrom",
+					targetPendingId: pendingId,
+				},
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "lemmaExists", lemmaId: runEntry.id },
+					{ kind: "pendingRefExists", pendingId },
+				],
+			},
+		] satisfies PlannedChangeOp<"English">[];
+
+		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
+		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
+
+		expect(Object.keys(unwrap(nextHydrated.listPendingLemmaRefs()))).toEqual([
+			pendingId,
+		]);
+		expect(
+			unwrap(nextHydrated.listPendingRelationsForLemma(walkEntry.id)),
+		).toEqual([
+			{
+				sourceLemmaId: walkEntry.id,
+				relationFamily: "morphological",
+				relation: "derivedFrom",
+				targetPendingId: pendingId,
+			},
+		]);
+		expect(
+			unwrap(nextHydrated.listPendingRelationsForLemma(runEntry.id)),
+		).toEqual([
+			{
+				sourceLemmaId: runEntry.id,
+				relationFamily: "morphological",
+				relation: "derivedFrom",
+				targetPendingId: pendingId,
+			},
+		]);
+	});
+
 	it("rejects pending self-relations at patch time", () => {
 		const dict = makeDumdict("English");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);

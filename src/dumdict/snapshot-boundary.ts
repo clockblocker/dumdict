@@ -783,13 +783,59 @@ export function applyPlannedChanges<L extends SupportedLang>(
 			}
 			case "createPendingRef":
 			case "deletePendingRef":
-			case "createPendingRelation":
 				return err(
 					makeError(
 						"InvariantViolation",
 						`Planned change type ${change.type} is not implemented yet in applyPlannedChanges(...).`,
 					),
 				);
+			case "createPendingRelation": {
+				const pendingRef = snapshot.pendingRefs.find(
+					(ref) => ref.pendingId === change.relation.targetPendingId,
+				);
+				if (!pendingRef) {
+					return err(
+						makeError(
+							"PendingRefNotFound",
+							`Pending lemma ref ${change.relation.targetPendingId} was not found in the snapshot.`,
+						),
+					);
+				}
+
+				const op: LemmaEntryPatchOp<L> =
+					change.relation.relationFamily === "lexical"
+						? {
+								op: "addLexicalRelation",
+								relation: change.relation.relation as LexicalRelation,
+								target: {
+									kind: "pending",
+									ref: {
+										canonicalLemma: pendingRef.canonicalLemma,
+										lemmaKind: pendingRef.lemmaKind,
+										lemmaSubKind: pendingRef.lemmaSubKind,
+									},
+								},
+							}
+						: {
+								op: "addMorphologicalRelation",
+								relation:
+									change.relation.relation as MorphologicalRelation,
+								target: {
+									kind: "pending",
+									ref: {
+										canonicalLemma: pendingRef.canonicalLemma,
+										lemmaKind: pendingRef.lemmaKind,
+										lemmaSubKind: pendingRef.lemmaSubKind,
+									},
+								},
+							};
+
+				const result = dict.patchLemmaEntry(change.relation.sourceLemmaId, op);
+				if (result.isErr()) {
+					return err(result.error);
+				}
+				break;
+			}
 			case "deletePendingRelation": {
 				const result = dict.removePendingRelation(change.relation);
 				if (result.isErr()) {
