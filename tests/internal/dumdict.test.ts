@@ -577,6 +577,60 @@ describe("dumdict", () => {
 		);
 	});
 
+	it("plans upsert-owned-surface intents into patch operations for existing surfaces", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const surfaceEntry = makeSurfaceEntry();
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(dict.upsertSurfaceEntry(surfaceEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const intent = {
+			version: "v1",
+			kind: "upsertOwnedSurface",
+			entry: {
+				surface: englishWalkResolvedInflectionSurface,
+				ownerLemmaId: walkEntry.id,
+				attestedTranslations: ["go on foot"],
+				attestations: ["They walk home together."],
+				notes: "updated surface note",
+			},
+		} satisfies MutationIntentV1<"English">;
+
+		const changes = unwrap(plan(baseSnapshot, intent));
+		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
+		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
+		const surfaceId = dumling.idCodec.English.makeDumlingIdFor(
+			englishWalkResolvedInflectionSurface,
+		) as SurfaceEntry<"English">["id"];
+
+		expect(changes).toEqual([
+			{
+				type: "patchSurface",
+				surfaceId,
+				ops: [
+					{ op: "addTranslation", value: "go on foot" },
+					{ op: "addAttestation", value: "They walk home together." },
+					{ op: "setNotes", value: "updated surface note" },
+				],
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "surfaceExists", surfaceId },
+				],
+			},
+		]);
+		expect(unwrap(nextHydrated.getSurfaceEntry(surfaceId)).attestedTranslations).toEqual(
+			["go on foot"],
+		);
+		expect(unwrap(nextHydrated.getSurfaceEntry(surfaceId)).attestations).toEqual(
+			["They walk home together."],
+		);
+		expect(unwrap(nextHydrated.getSurfaceEntry(surfaceId)).notes).toBe(
+			"updated surface note",
+		);
+	});
+
 	it("rejects pending self-relations at patch time", () => {
 		const dict = makeDumdict("English");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);

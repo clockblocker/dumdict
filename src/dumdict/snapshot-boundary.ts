@@ -16,7 +16,12 @@ import {
 	getSurfaceLanguage,
 	getSurfaceNormalizedFullSurface,
 } from "./domain/runtime-accessors";
-import { makeLookupKey, sortIds, toSortedRecord } from "./domain/collections";
+import {
+	makeLookupKey,
+	sortIds,
+	sortStrings,
+	toSortedRecord,
+} from "./domain/collections";
 import { makePendingRelationKey } from "./domain/pending";
 import { type DumdictResult, makeError } from "./errors";
 import type {
@@ -30,6 +35,7 @@ import type {
 	PendingLemmaRelation,
 	PlannedChangeOp,
 	ReadableDictionarySnapshot,
+	SurfaceEntryPatchOp,
 } from "./public";
 import { lexicalRelationKeys } from "./relations/lexical";
 import type { LexicalRelation } from "./relations/lexical";
@@ -921,6 +927,92 @@ export function plan<L extends SupportedLang>(
 		}
 
 		return ok(changes);
+	}
+
+	if (intent.version === "v1" && intent.kind === "upsertOwnedSurface") {
+		const language = getSurfaceLanguage(intent.entry.surface);
+		const surfaceId = dumling.idCodec
+			.forLanguage(language)
+			.makeDumlingIdFor(intent.entry.surface) as DumlingId<
+			"ResolvedSurface",
+			L
+		>;
+		const existingSurface = snapshot.surfaces.find(
+			(entry) => entry.id === surfaceId,
+		);
+
+		if (!existingSurface) {
+			return ok([
+				{
+					type: "createSurface",
+					entry: {
+						id: surfaceId,
+						surface: intent.entry.surface,
+						ownerLemmaId: intent.entry.ownerLemmaId,
+						attestedTranslations: intent.entry.attestedTranslations,
+						attestations: intent.entry.attestations,
+						notes: intent.entry.notes,
+					},
+					preconditions: [
+						{
+							kind: "snapshotRevisionMatches",
+							revision: snapshot.revision,
+						},
+						{
+							kind: "surfaceMissing",
+							surfaceId,
+						},
+					],
+				},
+			]);
+		}
+
+		const ops: SurfaceEntryPatchOp<L>[] = [];
+		for (const value of sortStrings(intent.entry.attestedTranslations)) {
+			if (!existingSurface.attestedTranslations.includes(value)) {
+				ops.push({ op: "addTranslation", value });
+			}
+		}
+		for (const value of sortStrings(existingSurface.attestedTranslations)) {
+			if (!intent.entry.attestedTranslations.includes(value)) {
+				ops.push({ op: "removeTranslation", value });
+			}
+		}
+		for (const value of sortStrings(intent.entry.attestations)) {
+			if (!existingSurface.attestations.includes(value)) {
+				ops.push({ op: "addAttestation", value });
+			}
+		}
+		for (const value of sortStrings(existingSurface.attestations)) {
+			if (!intent.entry.attestations.includes(value)) {
+				ops.push({ op: "removeAttestation", value });
+			}
+		}
+		if (existingSurface.notes !== intent.entry.notes) {
+			ops.push({ op: "setNotes", value: intent.entry.notes });
+		}
+
+		return ok(
+			ops.length === 0
+				? []
+				: [
+						{
+							type: "patchSurface",
+							surfaceId,
+							ops,
+							preconditions: [
+								{
+									kind: "snapshotRevisionMatches",
+									revision: snapshot.revision,
+								},
+								{
+									kind: "surfaceExists",
+									surfaceId,
+								},
+							],
+						},
+				  ],
+		);
 	}
 
 	return err(
