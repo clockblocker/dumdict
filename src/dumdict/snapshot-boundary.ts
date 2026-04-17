@@ -607,6 +607,7 @@ export function lookupLemmasBySurface<L extends SupportedLang>(
 function checkPrecondition<L extends SupportedLang>(
 	snapshot: AuthoritativeWriteSnapshot<L>,
 	precondition: ChangePrecondition<L>,
+	stagedPendingRefs?: ReadonlyMap<string, PendingLemmaRef<L>>,
 ): DumdictResult<void> {
 	switch (precondition.kind) {
 		case "snapshotRevisionMatches":
@@ -665,6 +666,7 @@ function checkPrecondition<L extends SupportedLang>(
 			);
 		case "pendingRefExists":
 			if (
+				stagedPendingRefs?.has(precondition.pendingId) ||
 				snapshot.pendingRefs.some(
 					(ref) => ref.pendingId === precondition.pendingId,
 				)
@@ -679,6 +681,7 @@ function checkPrecondition<L extends SupportedLang>(
 			);
 		case "pendingRefMissing":
 			if (
+				!(stagedPendingRefs?.has(precondition.pendingId) ?? false) &&
 				snapshot.pendingRefs.every(
 					(ref) => ref.pendingId !== precondition.pendingId,
 				)
@@ -694,6 +697,126 @@ function checkPrecondition<L extends SupportedLang>(
 	}
 }
 
+function validateIntentAgainstSnapshot<L extends SupportedLang>(
+	snapshot: AuthoritativeWriteSnapshot<L>,
+	intent: MutationIntentV1<L>,
+): DumdictResult<void> {
+	if (intent.version !== "v1") {
+		return ok(undefined);
+	}
+
+	if (intent.kind === "appendLemmaAttestation") {
+		return assertLemmaIdMatchesDictionaryLanguage(
+			snapshot.language,
+			intent.lemmaId,
+		);
+	}
+
+	if (intent.kind === "insertLemma") {
+		const lemmaLanguage = getLemmaLanguage(intent.entry.lemma);
+		const lemmaId = dumling.idCodec
+			.forLanguage(lemmaLanguage)
+			.makeDumlingIdFor(intent.entry.lemma) as DumlingId<"Lemma", L>;
+		const lemmaEntryResult = validateLemmaEntry(snapshot.language, {
+			id: lemmaId,
+			lemma: intent.entry.lemma,
+			lexicalRelations: {},
+			morphologicalRelations: {},
+			attestedTranslations: intent.entry.attestedTranslations,
+			attestations: intent.entry.attestations,
+			notes: intent.entry.notes,
+		});
+		if (lemmaEntryResult.isErr()) {
+			return lemmaEntryResult;
+		}
+
+		for (const ownedSurface of intent.ownedSurfaces ?? []) {
+			const surfaceLanguage = getSurfaceLanguage(ownedSurface.surface);
+			const surfaceId = dumling.idCodec
+				.forLanguage(surfaceLanguage)
+				.makeDumlingIdFor(ownedSurface.surface) as DumlingId<"Surface", L>;
+			const surfaceEntryResult = validateSurfaceEntry(snapshot.language, {
+				id: surfaceId,
+				surface: ownedSurface.surface,
+				ownerLemmaId: ownedSurface.ownerLemmaId,
+				attestedTranslations: ownedSurface.attestedTranslations,
+				attestations: ownedSurface.attestations,
+				notes: ownedSurface.notes,
+			});
+			if (surfaceEntryResult.isErr()) {
+				return surfaceEntryResult;
+			}
+		}
+
+		for (const relation of intent.initialRelations ?? []) {
+			if (relation.target.kind !== "existing") {
+				continue;
+			}
+
+			const targetResult = assertLemmaIdMatchesDictionaryLanguage(
+				snapshot.language,
+				relation.target.lemmaId,
+			);
+			if (targetResult.isErr()) {
+				return targetResult;
+			}
+		}
+
+		return ok(undefined);
+	}
+
+	if (intent.kind === "upsertOwnedSurface") {
+		if (getSurfaceLanguage(intent.entry.surface) !== snapshot.language) {
+			return err(
+				makeError(
+					"LanguageMismatch",
+					`Surface entry payload language ${getSurfaceLanguage(intent.entry.surface)} does not match ${snapshot.language}.`,
+				),
+			);
+		}
+
+		const ownerIdResult = assertLemmaIdMatchesDictionaryLanguage(
+			snapshot.language,
+			intent.entry.ownerLemmaId,
+		);
+		if (ownerIdResult.isErr()) {
+			return ownerIdResult;
+		}
+
+		if (
+			snapshot.lemmas.every(
+				(entry) => entry.id !== intent.entry.ownerLemmaId,
+			)
+		) {
+			return err(
+				makeError(
+					"OwnerLemmaNotFound",
+					`Owner lemma ${intent.entry.ownerLemmaId} was not found in the snapshot.`,
+				),
+			);
+		}
+
+		return ok(undefined);
+	}
+
+	if (intent.kind === "resolvePendingLemma") {
+		const pendingIdResult = assertPendingIdMatchesDictionaryLanguage(
+			snapshot.language,
+			intent.pendingId,
+		);
+		if (pendingIdResult.isErr()) {
+			return pendingIdResult;
+		}
+
+		return assertLemmaIdMatchesDictionaryLanguage(
+			snapshot.language,
+			intent.lemmaId,
+		);
+	}
+
+	return ok(undefined);
+}
+
 export function applyPlannedChanges<L extends SupportedLang>(
 	snapshot: AuthoritativeWriteSnapshot<L>,
 	changes: PlannedChangeOp<L>[],
@@ -704,14 +827,8 @@ export function applyPlannedChanges<L extends SupportedLang>(
 		return err(validationResult.error);
 	}
 
-	for (const change of changes) {
-		for (const precondition of change.preconditions ?? []) {
-			const result = checkPrecondition(snapshot, precondition);
-			if (result.isErr()) {
-				return err(result.error);
-			}
-		}
-	}
+	let currentSnapshot = snapshot;
+	const stagedPendingRefs = new Map<string, PendingLemmaRef<L>>();
 
 	const dictResult = hydrateSnapshot(snapshot);
 	if (dictResult.isErr()) {
@@ -719,8 +836,18 @@ export function applyPlannedChanges<L extends SupportedLang>(
 	}
 
 	const dict = dictResult.value;
-	const createdPendingRefs = new Map<string, PendingLemmaRef<L>>();
 	for (const change of changes) {
+		for (const precondition of change.preconditions ?? []) {
+			const result = checkPrecondition(
+				currentSnapshot,
+				precondition,
+				stagedPendingRefs,
+			);
+			if (result.isErr()) {
+				return err(result.error);
+			}
+		}
+
 		switch (change.type) {
 			case "createLemma": {
 				const result = dict.upsertLemmaEntry(change.entry);
@@ -765,7 +892,7 @@ export function applyPlannedChanges<L extends SupportedLang>(
 				break;
 			}
 			case "createPendingRef":
-				createdPendingRefs.set(change.ref.pendingId, change.ref);
+				stagedPendingRefs.set(change.ref.pendingId, change.ref);
 				break;
 			case "deletePendingRef":
 				return err(
@@ -776,8 +903,8 @@ export function applyPlannedChanges<L extends SupportedLang>(
 				);
 			case "createPendingRelation": {
 				const pendingRef =
-					createdPendingRefs.get(change.relation.targetPendingId) ??
-					snapshot.pendingRefs.find(
+					stagedPendingRefs.get(change.relation.targetPendingId) ??
+					currentSnapshot.pendingRefs.find(
 						(ref) => ref.pendingId === change.relation.targetPendingId,
 					);
 				if (!pendingRef) {
@@ -821,6 +948,7 @@ export function applyPlannedChanges<L extends SupportedLang>(
 				if (result.isErr()) {
 					return err(result.error);
 				}
+				stagedPendingRefs.delete(change.relation.targetPendingId);
 				break;
 			}
 			case "deletePendingRelation": {
@@ -830,6 +958,19 @@ export function applyPlannedChanges<L extends SupportedLang>(
 				}
 				break;
 			}
+		}
+
+		if (change.type === "createPendingRef") {
+			continue;
+		}
+
+		const currentSnapshotResult = exportSnapshot(dict, snapshot.revision);
+		if (currentSnapshotResult.isErr()) {
+			return err(currentSnapshotResult.error);
+		}
+		currentSnapshot = currentSnapshotResult.value;
+		for (const pendingRef of currentSnapshot.pendingRefs) {
+			stagedPendingRefs.delete(pendingRef.pendingId);
 		}
 	}
 
@@ -842,7 +983,7 @@ export function applyPlannedChanges<L extends SupportedLang>(
 	}
 
 	const nextSnapshot = exportResult.value;
-	for (const pendingId of createdPendingRefs.keys()) {
+	for (const pendingId of stagedPendingRefs.keys()) {
 		if (!nextSnapshot.pendingRefs.some((ref) => ref.pendingId === pendingId)) {
 			return err(
 				makeError(
@@ -863,6 +1004,11 @@ export function plan<L extends SupportedLang>(
 	const validationResult = validateAuthoritativeWriteSnapshot(snapshot);
 	if (validationResult.isErr()) {
 		return err(validationResult.error);
+	}
+
+	const intentValidationResult = validateIntentAgainstSnapshot(snapshot, intent);
+	if (intentValidationResult.isErr()) {
+		return err(intentValidationResult.error);
 	}
 
 	if (intent.version === "v1" && intent.kind === "appendLemmaAttestation") {

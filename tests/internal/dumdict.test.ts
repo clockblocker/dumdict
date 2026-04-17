@@ -26,6 +26,7 @@ import {
 import {
 	englishWalkLemma,
 	englishWalkResolvedInflectionSurface,
+	germanGehenLemma,
 } from "../helpers";
 
 const englishRunLemma = {
@@ -779,6 +780,28 @@ describe("dumdict", () => {
 		}
 	});
 
+	it("rejects insert-lemma intents whose lemma payload belongs to another language", () => {
+		const dict = makeDumdict("English");
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const intent = {
+			version: "v1",
+			kind: "insertLemma",
+			entry: {
+				lemma: germanGehenLemma as never,
+				attestedTranslations: [],
+				attestations: [],
+				notes: "",
+			},
+		} satisfies MutationIntentV1<"English">;
+
+		const result = plan(baseSnapshot, intent);
+
+		expect(result.isErr()).toBe(true);
+		if (result.isErr()) {
+			expect(result.error.code).toBe("LanguageMismatch");
+		}
+	});
+
 	it("plans upsert-owned-surface intents into patch operations for existing surfaces", () => {
 		const dict = makeDumdict("English");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
@@ -861,6 +884,31 @@ describe("dumdict", () => {
 		expect(result.isErr()).toBe(true);
 		if (result.isErr()) {
 			expect(result.error.code).toBe("InvariantViolation");
+		}
+	});
+
+	it("rejects upsert-owned-surface intents when the owner lemma is missing from the snapshot", () => {
+		const dict = makeDumdict("English");
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const ownerLemmaId =
+			dumling.idCodec.English.makeDumlingIdFor(englishWalkLemma);
+		const intent = {
+			version: "v1",
+			kind: "upsertOwnedSurface",
+			entry: {
+				surface: englishWalkResolvedInflectionSurface,
+				ownerLemmaId,
+				attestedTranslations: ["go on foot"],
+				attestations: ["They walk home together."],
+				notes: "updated surface note",
+			},
+		} satisfies MutationIntentV1<"English">;
+
+		const result = plan(baseSnapshot, intent);
+
+		expect(result.isErr()).toBe(true);
+		if (result.isErr()) {
+			expect(result.error.code).toBe("OwnerLemmaNotFound");
 		}
 	});
 
@@ -1170,6 +1218,65 @@ describe("dumdict", () => {
 				preconditions: [
 					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
 					{ kind: "lemmaExists", lemmaId: walkEntry.id },
+				],
+			},
+		] satisfies PlannedChangeOp<"English">[];
+
+		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
+		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
+
+		expect(Object.keys(unwrap(nextHydrated.listPendingLemmaRefs()))).toEqual([
+			pendingId,
+		]);
+		expect(
+			unwrap(nextHydrated.listPendingRelationsForLemma(walkEntry.id)),
+		).toEqual([
+			{
+				sourceLemmaId: walkEntry.id,
+				relationFamily: "morphological",
+				relation: "derivedFrom",
+				targetPendingId: pendingId,
+			},
+		]);
+	});
+
+	it("lets later preconditions observe earlier changes in the same batch", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const pendingId =
+			"pending:v1:English:stride:Lexeme:VERB" as PendingLemmaId<"English">;
+
+		const changes = [
+			{
+				type: "createPendingRef",
+				ref: {
+					pendingId,
+					language: "English",
+					canonicalLemma: "stride",
+					lemmaKind: "Lexeme",
+					lemmaSubKind: "VERB",
+				},
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "pendingRefMissing", pendingId },
+				],
+			},
+			{
+				type: "createPendingRelation",
+				relation: {
+					sourceLemmaId: walkEntry.id,
+					relationFamily: "morphological",
+					relation: "derivedFrom",
+					targetPendingId: pendingId,
+				},
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "lemmaExists", lemmaId: walkEntry.id },
+					{ kind: "pendingRefExists", pendingId },
 				],
 			},
 		] satisfies PlannedChangeOp<"English">[];
