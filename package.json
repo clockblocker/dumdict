@@ -1,0 +1,21 @@
+{
+	"name": "dumdict",
+	"version": "0.1.0",
+	"description": "External-test harness for the published dumling package.",
+	"private": true,
+	"type": "module",
+	"license": "MIT",
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"test": "bun test tests/external",
+		"test:external": "bun test tests/external"
+	},
+	"dependencies": {
+		"dumling": "^0.1.0"
+	},
+	"devDependencies": {
+		"@types/bun": "1.3.0"
+	}
+}
