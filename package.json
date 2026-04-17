@@ -14,7 +14,8 @@
 		"test:internal": "bun test tests/internal"
 	},
 	"dependencies": {
-		"dumling": "^0.1.0",
+		"dumling": "latest",
+		"neverthrow": "^8.2.0",
 		"zod": "3.25.76"
 	},
 	"devDependencies": {

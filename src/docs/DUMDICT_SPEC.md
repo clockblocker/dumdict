@@ -323,6 +323,10 @@ Rules:
 
 - `upsert` is not a partial merge
 - identity-bearing fields must be internally consistent
+- `upsertLemmaEntry` requires `entry.id` to exactly match the stable `dumling` ID derived from `entry.lemma`
+- `upsertSurfaceEntry` requires `entry.id` to exactly match the stable `dumling` ID derived from `entry.surface`
+- if the entry payload language or entry ID language does not match the dictionary language, return `LanguageMismatch`
+- if `entry.id` does not match the derived stable entity ID, return `InvariantViolation`
 - `upsertLemmaEntry` is a full replacement of the `LemmaEntry` DTO only
 - `upsertLemmaEntry` is graph-aware for resolved lemma relations
 - `upsertLemmaEntry` may reference only existing resolved lemma IDs in its relation fields
@@ -459,6 +463,11 @@ identity granularity. They are not bare spelling-only stubs.
 ### Pending DTOs
 
 ```ts
+type PendingLemmaId<L extends SupportedLang> = string & {
+  readonly __brand: "PendingLemmaId";
+  readonly __language: L;
+};
+
 type PendingLemmaRefInput<L extends SupportedLang> = {
   canonicalLemma: string;
   lemmaKind: UniversalLemmaKind;
@@ -485,6 +494,9 @@ Rules:
 
 - pending refs are not `LemmaEntry`s
 - pending refs are not keyed by `DumlingId<"Lemma">`
+- `PendingLemmaId<L>` is an opaque branded string in the public API
+- `PendingLemmaId<L>` is deterministically derived from `(language, canonicalLemma, lemmaKind, lemmaSubKind)`
+- callers do not construct `PendingLemmaId<L>` directly; `dumdict` creates and returns it
 - the caller must provide enough discriminators to create a pending ref
 - pending refs must preserve the identity granularity that `dumling` uses for real lemmas
 - pending refs stand for a future lemma identity, not just a future canonical spelling
@@ -512,6 +524,8 @@ Behavior:
 - validates the target lemma's `lemma` against the pending ref before resolution
 - v1 validation checks `canonicalLemma`, `lemmaKind`, and `lemmaSubKind`
 - mismatches return `PendingResolutionMismatch`
+- if resolution would materialize any self-relation, return `SelfRelationForbidden`
+- self-relation detection during resolution is atomic: no pending edges are consumed and no partial materialization occurs
 - resolution does not overwrite the target lemma's notes, attestations, translations, or existing resolved relations beyond adding materialized edges from the pending ref
 - materializes pending inbound relations onto the real entry
 - materializes reciprocal relations onto other real entries
