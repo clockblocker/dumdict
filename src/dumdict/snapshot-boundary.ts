@@ -10,16 +10,25 @@ import {
 	validateLemmaEntry,
 	validateSurfaceEntry,
 } from "./domain/validation";
-import { getLemmaLanguage, getSurfaceLanguage } from "./domain/runtime-accessors";
-import { sortIds } from "./domain/collections";
+import {
+	getLemmaCanonicalLemma,
+	getLemmaLanguage,
+	getSurfaceLanguage,
+	getSurfaceNormalizedFullSurface,
+} from "./domain/runtime-accessors";
+import { makeLookupKey, sortIds, toSortedRecord } from "./domain/collections";
 import { makePendingRelationKey } from "./domain/pending";
 import { type DumdictResult, makeError } from "./errors";
 import type {
 	AuthoritativeWriteSnapshot,
+	ChangePrecondition,
 	Dumdict,
 	LemmaEntryPatchOp,
+	LookupResult,
+	MutationIntentV1,
 	PendingLemmaRef,
 	PendingLemmaRelation,
+	PlannedChangeOp,
 	ReadableDictionarySnapshot,
 } from "./public";
 import { lexicalRelationKeys } from "./relations/lexical";
@@ -548,4 +557,272 @@ export function exportSnapshot<L extends SupportedLang>(
 	}
 
 	return ok(snapshot);
+}
+
+export function lookupBySurface<L extends SupportedLang>(
+	snapshot: ReadableDictionarySnapshot<L>,
+	surface: string,
+): DumdictResult<LookupResult<L>> {
+	const validationResult = validateReadableSnapshot(snapshot);
+	if (validationResult.isErr()) {
+		return err(validationResult.error);
+	}
+
+	const lookupKey = makeLookupKey(surface);
+	const lemmaEntries = snapshot.lemmas
+		.filter(
+			(entry) => makeLookupKey(getLemmaCanonicalLemma(entry.lemma)) === lookupKey,
+		)
+		.map((entry) => [entry.id, structuredClone(entry)] as const);
+	const surfaceEntries = snapshot.surfaces
+		.filter(
+			(entry) =>
+				makeLookupKey(getSurfaceNormalizedFullSurface(entry.surface)) ===
+				lookupKey,
+		)
+		.map((entry) => [entry.id, structuredClone(entry)] as const);
+
+	return ok({
+		lemmas: toSortedRecord(lemmaEntries),
+		surfaces: toSortedRecord(surfaceEntries),
+	});
+}
+
+export function lookupLemmasBySurface<L extends SupportedLang>(
+	snapshot: ReadableDictionarySnapshot<L>,
+	surface: string,
+): DumdictResult<Record<DumlingId<"Lemma", L>, (typeof snapshot.lemmas)[number]>> {
+	const lookupResult = lookupBySurface(snapshot, surface);
+	if (lookupResult.isErr()) {
+		return err(lookupResult.error);
+	}
+
+	const lemmaEntries = new Map(Object.entries(lookupResult.value.lemmas));
+	const lemmasById = new Map(snapshot.lemmas.map((entry) => [entry.id, entry]));
+	for (const surfaceEntry of Object.values(lookupResult.value.surfaces)) {
+		const ownerLemma = lemmasById.get(surfaceEntry.ownerLemmaId);
+		if (ownerLemma) {
+			lemmaEntries.set(ownerLemma.id, structuredClone(ownerLemma));
+		}
+	}
+
+	return ok(
+		toSortedRecord(
+			[...lemmaEntries.entries()].map(([lemmaId, entry]) => [
+				lemmaId as DumlingId<"Lemma", L>,
+				entry,
+			]),
+		),
+	);
+}
+
+function checkPrecondition<L extends SupportedLang>(
+	snapshot: AuthoritativeWriteSnapshot<L>,
+	precondition: ChangePrecondition<L>,
+): DumdictResult<void> {
+	switch (precondition.kind) {
+		case "snapshotRevisionMatches":
+			if (snapshot.revision !== precondition.revision) {
+				return err(
+					makeError(
+						"InvariantViolation",
+						`Snapshot revision ${snapshot.revision} does not match required revision ${precondition.revision}.`,
+					),
+				);
+			}
+			return ok(undefined);
+		case "lemmaExists":
+			if (snapshot.lemmas.some((entry) => entry.id === precondition.lemmaId)) {
+				return ok(undefined);
+			}
+			return err(
+				makeError(
+					"LemmaEntryNotFound",
+					`Lemma entry ${precondition.lemmaId} was not found in the snapshot.`,
+				),
+			);
+		case "lemmaMissing":
+			if (snapshot.lemmas.every((entry) => entry.id !== precondition.lemmaId)) {
+				return ok(undefined);
+			}
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Lemma entry ${precondition.lemmaId} already exists in the snapshot.`,
+				),
+			);
+		case "surfaceExists":
+			if (
+				snapshot.surfaces.some((entry) => entry.id === precondition.surfaceId)
+			) {
+				return ok(undefined);
+			}
+			return err(
+				makeError(
+					"SurfaceEntryNotFound",
+					`Surface entry ${precondition.surfaceId} was not found in the snapshot.`,
+				),
+			);
+		case "surfaceMissing":
+			if (
+				snapshot.surfaces.every((entry) => entry.id !== precondition.surfaceId)
+			) {
+				return ok(undefined);
+			}
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Surface entry ${precondition.surfaceId} already exists in the snapshot.`,
+				),
+			);
+		case "pendingRefExists":
+			if (
+				snapshot.pendingRefs.some(
+					(ref) => ref.pendingId === precondition.pendingId,
+				)
+			) {
+				return ok(undefined);
+			}
+			return err(
+				makeError(
+					"PendingRefNotFound",
+					`Pending lemma ref ${precondition.pendingId} was not found in the snapshot.`,
+				),
+			);
+		case "pendingRefMissing":
+			if (
+				snapshot.pendingRefs.every(
+					(ref) => ref.pendingId !== precondition.pendingId,
+				)
+			) {
+				return ok(undefined);
+			}
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Pending lemma ref ${precondition.pendingId} already exists in the snapshot.`,
+				),
+			);
+	}
+}
+
+export function applyPlannedChanges<L extends SupportedLang>(
+	snapshot: AuthoritativeWriteSnapshot<L>,
+	changes: PlannedChangeOp<L>[],
+): DumdictResult<AuthoritativeWriteSnapshot<L>> {
+	const validationResult = validateAuthoritativeWriteSnapshot(snapshot);
+	if (validationResult.isErr()) {
+		return err(validationResult.error);
+	}
+
+	for (const change of changes) {
+		for (const precondition of change.preconditions ?? []) {
+			const result = checkPrecondition(snapshot, precondition);
+			if (result.isErr()) {
+				return err(result.error);
+			}
+		}
+	}
+
+	const dictResult = hydrateSnapshot(snapshot);
+	if (dictResult.isErr()) {
+		return err(dictResult.error);
+	}
+
+	const dict = dictResult.value;
+	for (const change of changes) {
+		switch (change.type) {
+			case "createLemma": {
+				const result = dict.upsertLemmaEntry(change.entry);
+				if (result.isErr()) {
+					return err(result.error);
+				}
+				break;
+			}
+			case "patchLemma": {
+				const result = dict.patchLemmaEntry(change.lemmaId, change.ops);
+				if (result.isErr()) {
+					return err(result.error);
+				}
+				break;
+			}
+			case "deleteLemma": {
+				const result = dict.deleteLemmaEntry(change.id);
+				if (result.isErr()) {
+					return err(result.error);
+				}
+				break;
+			}
+			case "createSurface": {
+				const result = dict.upsertSurfaceEntry(change.entry);
+				if (result.isErr()) {
+					return err(result.error);
+				}
+				break;
+			}
+			case "patchSurface": {
+				const result = dict.patchSurfaceEntry(change.surfaceId, change.ops);
+				if (result.isErr()) {
+					return err(result.error);
+				}
+				break;
+			}
+			case "deleteSurface": {
+				const result = dict.deleteSurfaceEntry(change.id);
+				if (result.isErr()) {
+					return err(result.error);
+				}
+				break;
+			}
+			case "createPendingRef":
+			case "deletePendingRef":
+			case "createPendingRelation":
+			case "deletePendingRelation":
+				return err(
+					makeError(
+						"InvariantViolation",
+						`Planned change type ${change.type} is not implemented yet in applyPlannedChanges(...).`,
+					),
+				);
+		}
+	}
+
+	return exportSnapshot(dict, snapshot.revision);
+}
+
+export function plan<L extends SupportedLang>(
+	snapshot: AuthoritativeWriteSnapshot<L>,
+	intent: MutationIntentV1<L>,
+): DumdictResult<PlannedChangeOp<L>[]> {
+	const validationResult = validateAuthoritativeWriteSnapshot(snapshot);
+	if (validationResult.isErr()) {
+		return err(validationResult.error);
+	}
+
+	if (intent.version === "v1" && intent.kind === "appendLemmaAttestation") {
+		return ok([
+			{
+				type: "patchLemma",
+				lemmaId: intent.lemmaId,
+				ops: [{ op: "addAttestation", value: intent.attestation }],
+				preconditions: [
+					{
+						kind: "snapshotRevisionMatches",
+						revision: snapshot.revision,
+					},
+					{
+						kind: "lemmaExists",
+						lemmaId: intent.lemmaId,
+					},
+				],
+			},
+		]);
+	}
+
+	return err(
+		makeError(
+			"InvariantViolation",
+			`Mutation intent ${intent.kind} is not implemented yet in plan(...).`,
+		),
+	);
 }

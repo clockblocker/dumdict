@@ -98,6 +98,131 @@ export type ReadableDictionarySnapshot<L extends SupportedLang> =
 	| ReadDictionarySnapshot<L>
 	| AuthoritativeWriteSnapshot<L>;
 
+export type ChangePrecondition<L extends SupportedLang> =
+	| { kind: "snapshotRevisionMatches"; revision: string }
+	| { kind: "lemmaExists"; lemmaId: DumlingId<"Lemma", L> }
+	| { kind: "lemmaMissing"; lemmaId: DumlingId<"Lemma", L> }
+	| { kind: "surfaceExists"; surfaceId: DumlingId<"ResolvedSurface", L> }
+	| { kind: "surfaceMissing"; surfaceId: DumlingId<"ResolvedSurface", L> }
+	| { kind: "pendingRefExists"; pendingId: PendingLemmaId<L> }
+	| { kind: "pendingRefMissing"; pendingId: PendingLemmaId<L> };
+
+export type PlannedChangeOp<L extends SupportedLang> =
+	| {
+			type: "createLemma";
+			entry: LemmaEntry<L>;
+			preconditions?: ChangePrecondition<L>[];
+	  }
+	| {
+			type: "patchLemma";
+			lemmaId: DumlingId<"Lemma", L>;
+			ops: LemmaEntryPatchOp<L>[];
+			preconditions?: ChangePrecondition<L>[];
+	  }
+	| {
+			type: "deleteLemma";
+			id: DumlingId<"Lemma", L>;
+			preconditions?: ChangePrecondition<L>[];
+	  }
+	| {
+			type: "createSurface";
+			entry: SurfaceEntry<L>;
+			preconditions?: ChangePrecondition<L>[];
+	  }
+	| {
+			type: "patchSurface";
+			surfaceId: DumlingId<"ResolvedSurface", L>;
+			ops: SurfaceEntryPatchOp<L>[];
+			preconditions?: ChangePrecondition<L>[];
+	  }
+	| {
+			type: "deleteSurface";
+			id: DumlingId<"ResolvedSurface", L>;
+			preconditions?: ChangePrecondition<L>[];
+	  }
+	| {
+			type: "createPendingRef";
+			ref: PendingLemmaRef<L>;
+			preconditions?: ChangePrecondition<L>[];
+	  }
+	| {
+			type: "deletePendingRef";
+			pendingId: PendingLemmaId<L>;
+			preconditions?: ChangePrecondition<L>[];
+	  }
+	| {
+			type: "createPendingRelation";
+			relation: PendingLemmaRelation<L>;
+			preconditions?: ChangePrecondition<L>[];
+	  }
+	| {
+			type: "deletePendingRelation";
+			relation: PendingLemmaRelation<L>;
+			preconditions?: ChangePrecondition<L>[];
+	  };
+
+export type NewLemmaPayload<L extends SupportedLang> = {
+	lemma: Lemma<L>;
+	attestedTranslations: string[];
+	attestations: string[];
+	notes: string;
+};
+
+export type OwnedSurfacePayload<L extends SupportedLang> = {
+	surface: ResolvedSurface<L>;
+	ownerLemmaId: DumlingId<"Lemma", L>;
+	attestedTranslations: string[];
+	attestations: string[];
+	notes: string;
+};
+
+export type IntentRelationTarget<L extends SupportedLang> =
+	| { kind: "existing"; lemmaId: DumlingId<"Lemma", L> }
+	| { kind: "pending"; ref: PendingLemmaRefInput<L> };
+
+export type MutationIntentV1<L extends SupportedLang> =
+	| {
+			version: "v1";
+			kind: "appendLemmaAttestation";
+			lemmaId: DumlingId<"Lemma", L>;
+			attestation: string;
+	  }
+	| {
+			version: "v1";
+			kind: "insertLemma";
+			entry: NewLemmaPayload<L>;
+			ownedSurfaces?: OwnedSurfacePayload<L>[];
+			initialRelations?: Array<
+				| {
+						relationFamily: "lexical";
+						relation: LexicalRelation;
+						target: IntentRelationTarget<L>;
+				  }
+				| {
+						relationFamily: "morphological";
+						relation: MorphologicalRelation;
+						target: IntentRelationTarget<L>;
+				  }
+			>;
+	  }
+	| {
+			version: "v1";
+			kind: "resolvePendingLemma";
+			pendingId: PendingLemmaId<L>;
+			lemmaId: DumlingId<"Lemma", L>;
+	  }
+	| {
+			version: "v1";
+			kind: "upsertOwnedSurface";
+			entry: OwnedSurfacePayload<L>;
+	  }
+	| {
+			version: "v1-extension";
+			namespace: string;
+			kind: string;
+			payload: unknown;
+	  };
+
 export type LemmaRelationTarget<L extends SupportedLang> =
 	| { kind: "existing"; lemmaId: DumlingId<"Lemma", L> }
 	| { kind: "pending"; ref: PendingLemmaRefInput<L> };

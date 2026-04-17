@@ -2,15 +2,22 @@ import { describe, expect, it } from "bun:test";
 import { dumling, type Lemma } from "dumling";
 import type {
 	AuthoritativeWriteSnapshot,
+	ChangePrecondition,
 	DumdictResult,
 	LemmaEntry,
+	MutationIntentV1,
+	PlannedChangeOp,
 	ReadDictionarySnapshot,
 	SurfaceEntry,
 } from "../../src";
 import {
+	applyPlannedChanges,
 	exportSnapshot,
 	hydrateSnapshot,
+	lookupBySurface,
+	lookupLemmasBySurface,
 	makeDumdict,
+	plan,
 	validateAuthoritativeWriteSnapshot,
 	validateReadableSnapshot,
 } from "../../src";
@@ -281,6 +288,178 @@ describe("dumdict", () => {
 		if (writeValidation.isErr()) {
 			expect(writeValidation.error.code).toBe("InvariantViolation");
 		}
+	});
+
+	it("looks up through readable snapshots and respects partial owner-closure", () => {
+		const dict = makeDumdict("English");
+		const lemmaEntry = makeLemmaEntry(englishWalkLemma);
+		const surfaceEntry = makeSurfaceEntry();
+
+		unwrap(dict.upsertLemmaEntry(lemmaEntry));
+		unwrap(dict.upsertSurfaceEntry(surfaceEntry));
+
+		const fullSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const fullLookup = unwrap(lookupBySurface(fullSnapshot, "WALK"));
+		const fullLemmaLookup = unwrap(lookupLemmasBySurface(fullSnapshot, "WALK"));
+
+		expect(Object.keys(fullLookup.lemmas)).toEqual([lemmaEntry.id]);
+		expect(Object.keys(fullLookup.surfaces)).toEqual([surfaceEntry.id]);
+		expect(Object.keys(fullLemmaLookup)).toEqual([lemmaEntry.id]);
+
+		const partialReadSnapshot = {
+			authority: "read",
+			completeness: "partial",
+			revision: "revision-2",
+			lemmas: [],
+			surfaces: [surfaceEntry],
+			pendingRefs: [],
+			pendingRelations: [],
+		} satisfies ReadDictionarySnapshot<"English">;
+
+		const partialLookup = unwrap(lookupBySurface(partialReadSnapshot, "WALK"));
+		const partialLemmaLookup = unwrap(
+			lookupLemmasBySurface(partialReadSnapshot, "WALK"),
+		);
+
+		expect(Object.keys(partialLookup.lemmas)).toEqual([]);
+		expect(Object.keys(partialLookup.surfaces)).toEqual([surfaceEntry.id]);
+		expect(Object.keys(partialLemmaLookup)).toEqual([]);
+	});
+
+	it("applies planned changes against authoritative snapshots", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const runEntry = makeLemmaEntry(englishRunLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const walkSurface = {
+			...makeSurfaceEntry(),
+			attestedTranslations: ["walk"],
+			attestations: ["they walk"],
+			notes: "demo surface",
+		} satisfies SurfaceEntry<"English">;
+		const changes = [
+			{
+				type: "createLemma",
+				entry: runEntry,
+				preconditions: [
+					{
+						kind: "lemmaMissing",
+						lemmaId: runEntry.id,
+					} satisfies ChangePrecondition<"English">,
+				],
+			},
+			{
+				type: "patchLemma",
+				lemmaId: walkEntry.id,
+				ops: [
+					{ op: "addTranslation", value: "go on foot" },
+					{
+						op: "addLexicalRelation",
+						relation: "synonym",
+						target: { kind: "existing", lemmaId: runEntry.id },
+					},
+				],
+			},
+			{
+				type: "createSurface",
+				entry: walkSurface,
+			},
+		] satisfies PlannedChangeOp<"English">[];
+
+		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
+		const nextLookup = unwrap(lookupBySurface(nextSnapshot, "WALK"));
+		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
+
+		expect(nextSnapshot.revision).toBe(baseSnapshot.revision);
+		expect(Object.keys(nextLookup.lemmas)).toEqual([walkEntry.id]);
+		expect(Object.keys(nextLookup.surfaces)).toEqual([walkSurface.id]);
+		expect(unwrap(nextHydrated.getLemmaEntry(walkEntry.id)).lexicalRelations).toEqual(
+			{
+				synonym: [runEntry.id],
+			},
+		);
+		expect(
+			unwrap(nextHydrated.getLemmaEntry(walkEntry.id)).attestedTranslations,
+		).toEqual(["go on foot"]);
+		expect(unwrap(nextHydrated.getLemmaEntry(runEntry.id)).lexicalRelations).toEqual(
+			{
+				synonym: [walkEntry.id],
+			},
+		);
+		expect(unwrap(nextHydrated.getSurfaceEntry(walkSurface.id)).ownerLemmaId).toBe(
+			walkEntry.id,
+		);
+	});
+
+	it("rejects planned changes when a precondition fails", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const runEntry = makeLemmaEntry(englishRunLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const changes = [
+			{
+				type: "createLemma",
+				entry: runEntry,
+				preconditions: [
+					{
+						kind: "snapshotRevisionMatches",
+						revision: "revision-stale",
+					} satisfies ChangePrecondition<"English">,
+				],
+			},
+		] satisfies PlannedChangeOp<"English">[];
+
+		const result = applyPlannedChanges(baseSnapshot, changes);
+
+		expect(result.isErr()).toBe(true);
+		if (result.isErr()) {
+			expect(result.error.code).toBe("InvariantViolation");
+		}
+
+		const hydratedBase = unwrap(hydrateSnapshot(baseSnapshot));
+		expect(unwrap(hydratedBase.getLemmaEntry(walkEntry.id)).lemma).toEqual(
+			walkEntry.lemma,
+		);
+	});
+
+	it("plans append-lemma-attestation intents into patch operations", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const intent = {
+			version: "v1",
+			kind: "appendLemmaAttestation",
+			lemmaId: walkEntry.id,
+			attestation: "They walk home together.",
+		} satisfies MutationIntentV1<"English">;
+
+		const changes = unwrap(plan(baseSnapshot, intent));
+		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
+		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
+
+		expect(changes).toEqual([
+			{
+				type: "patchLemma",
+				lemmaId: walkEntry.id,
+				ops: [{ op: "addAttestation", value: "They walk home together." }],
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "lemmaExists", lemmaId: walkEntry.id },
+				],
+			},
+		]);
+		expect(unwrap(nextHydrated.getLemmaEntry(walkEntry.id)).attestations).toEqual(
+			["They walk home together."],
+		);
 	});
 
 	it("rejects pending self-relations at patch time", () => {
