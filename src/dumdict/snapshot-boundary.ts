@@ -6,6 +6,7 @@ import {
 	assertLemmaIdMatchesDictionaryLanguage,
 	assertPendingIdMatchesDictionaryLanguage,
 	assertSurfaceIdMatchesDictionaryLanguage,
+	pendingRefMatchesLemma,
 	pendingRefMatchesLemmaIdentityTuple,
 	validateLemmaEntry,
 	validateSurfaceEntry,
@@ -783,13 +784,19 @@ export function applyPlannedChanges<L extends SupportedLang>(
 			case "createPendingRef":
 			case "deletePendingRef":
 			case "createPendingRelation":
-			case "deletePendingRelation":
 				return err(
 					makeError(
 						"InvariantViolation",
 						`Planned change type ${change.type} is not implemented yet in applyPlannedChanges(...).`,
 					),
 				);
+			case "deletePendingRelation": {
+				const result = dict.removePendingRelation(change.relation);
+				if (result.isErr()) {
+					return err(result.error);
+				}
+				break;
+			}
 		}
 	}
 
@@ -1013,6 +1020,111 @@ export function plan<L extends SupportedLang>(
 						},
 				  ],
 		);
+	}
+
+	if (intent.version === "v1" && intent.kind === "resolvePendingLemma") {
+		const pendingRef = snapshot.pendingRefs.find(
+			(ref) => ref.pendingId === intent.pendingId,
+		);
+		if (!pendingRef) {
+			return err(
+				makeError(
+					"PendingRefNotFound",
+					`Pending lemma ref ${intent.pendingId} was not found in the snapshot.`,
+				),
+			);
+		}
+
+		const lemmaEntry = snapshot.lemmas.find((entry) => entry.id === intent.lemmaId);
+		if (!lemmaEntry) {
+			return err(
+				makeError(
+					"LemmaEntryNotFound",
+					`Lemma entry ${intent.lemmaId} was not found in the snapshot.`,
+				),
+			);
+		}
+
+		if (!pendingRefMatchesLemma(pendingRef, lemmaEntry.lemma)) {
+			return err(
+				makeError(
+					"PendingResolutionMismatch",
+					`Pending lemma ref ${intent.pendingId} does not match lemma entry ${intent.lemmaId}.`,
+				),
+			);
+		}
+
+		const pendingRelations = sortPendingRelations(
+			snapshot.pendingRelations.filter(
+				(relation) => relation.targetPendingId === intent.pendingId,
+			),
+		);
+		for (const pendingRelation of pendingRelations) {
+			if (pendingRelation.sourceLemmaId === intent.lemmaId) {
+				return err(
+					makeError(
+						"SelfRelationForbidden",
+						`Resolving pending lemma ref ${intent.pendingId} onto ${intent.lemmaId} would create a self relation.`,
+					),
+				);
+			}
+		}
+
+		const changes: PlannedChangeOp<L>[] = [];
+		for (const pendingRelation of pendingRelations) {
+			const patchOp: LemmaEntryPatchOp<L> =
+				pendingRelation.relationFamily === "lexical"
+					? {
+							op: "addLexicalRelation",
+							relation: pendingRelation.relation as LexicalRelation,
+							target: { kind: "existing", lemmaId: intent.lemmaId },
+						}
+					: {
+							op: "addMorphologicalRelation",
+							relation: pendingRelation.relation as MorphologicalRelation,
+							target: { kind: "existing", lemmaId: intent.lemmaId },
+						};
+
+			changes.push({
+				type: "patchLemma",
+				lemmaId: pendingRelation.sourceLemmaId,
+				ops: [patchOp],
+				preconditions: [
+					{
+						kind: "snapshotRevisionMatches",
+						revision: snapshot.revision,
+					},
+					{
+						kind: "pendingRefExists",
+						pendingId: intent.pendingId,
+					},
+					{
+						kind: "lemmaExists",
+						lemmaId: pendingRelation.sourceLemmaId,
+					},
+					{
+						kind: "lemmaExists",
+						lemmaId: intent.lemmaId,
+					},
+				],
+			});
+			changes.push({
+				type: "deletePendingRelation",
+				relation: pendingRelation,
+				preconditions: [
+					{
+						kind: "snapshotRevisionMatches",
+						revision: snapshot.revision,
+					},
+					{
+						kind: "pendingRefExists",
+						pendingId: intent.pendingId,
+					},
+				],
+			});
+		}
+
+		return ok(changes);
 	}
 
 	return err(

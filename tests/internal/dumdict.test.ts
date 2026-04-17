@@ -631,6 +631,186 @@ describe("dumdict", () => {
 		);
 	});
 
+	it("plans resolve-pending-lemma intents into pending cleanup and relation materialization", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const strideEntry = makeLemmaEntry(englishStrideLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(dict.upsertLemmaEntry(strideEntry));
+		unwrap(
+			dict.patchLemmaEntry(walkEntry.id, {
+				op: "addMorphologicalRelation",
+				relation: "derivedFrom",
+				target: {
+					kind: "pending",
+					ref: {
+						canonicalLemma: "stride",
+						lemmaKind: "Lexeme",
+						lemmaSubKind: "VERB",
+					},
+				},
+			}),
+		);
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const pendingId = baseSnapshot.pendingRefs[0]?.pendingId;
+		if (!pendingId) {
+			throw new Error("Expected one pending ref in the base snapshot.");
+		}
+
+		const intent = {
+			version: "v1",
+			kind: "resolvePendingLemma",
+			pendingId,
+			lemmaId: strideEntry.id,
+		} satisfies MutationIntentV1<"English">;
+
+		const changes = unwrap(plan(baseSnapshot, intent));
+		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
+		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
+
+		expect(changes).toEqual([
+			{
+				type: "patchLemma",
+				lemmaId: walkEntry.id,
+				ops: [
+					{
+						op: "addMorphologicalRelation",
+						relation: "derivedFrom",
+						target: { kind: "existing", lemmaId: strideEntry.id },
+					},
+				],
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "pendingRefExists", pendingId },
+					{ kind: "lemmaExists", lemmaId: walkEntry.id },
+					{ kind: "lemmaExists", lemmaId: strideEntry.id },
+				],
+			},
+			{
+				type: "deletePendingRelation",
+				relation: {
+					sourceLemmaId: walkEntry.id,
+					relationFamily: "morphological",
+					relation: "derivedFrom",
+					targetPendingId: pendingId,
+				},
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "pendingRefExists", pendingId },
+				],
+			},
+		]);
+		expect(unwrap(nextHydrated.listPendingLemmaRefs())).toEqual({});
+		expect(
+			unwrap(nextHydrated.listPendingRelationsForLemma(walkEntry.id)),
+		).toEqual([]);
+		expect(
+			unwrap(nextHydrated.getLemmaEntry(walkEntry.id)).morphologicalRelations,
+		).toEqual({
+			derivedFrom: [strideEntry.id],
+		});
+		expect(
+			unwrap(nextHydrated.getLemmaEntry(strideEntry.id)).morphologicalRelations,
+		).toEqual({
+			sourceFor: [walkEntry.id],
+		});
+	});
+
+	it("plans insert-lemma intents with pending initial relations", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const runLemmaId = dumling.idCodec.English.makeDumlingIdFor(englishRunLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const intent = {
+			version: "v1",
+			kind: "insertLemma",
+			entry: {
+				lemma: englishRunLemma,
+				attestedTranslations: [],
+				attestations: [],
+				notes: "",
+			},
+			initialRelations: [
+				{
+					relationFamily: "morphological",
+					relation: "derivedFrom",
+					target: {
+						kind: "pending",
+						ref: {
+							canonicalLemma: "stride",
+							lemmaKind: "Lexeme",
+							lemmaSubKind: "VERB",
+						},
+					},
+				},
+			],
+		} satisfies MutationIntentV1<"English">;
+
+		const changes = unwrap(plan(baseSnapshot, intent));
+		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
+		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
+		const insertedPendingId = nextSnapshot.pendingRefs[0]?.pendingId;
+		if (!insertedPendingId) {
+			throw new Error("Expected one pending ref after insertLemma planning.");
+		}
+
+		expect(changes).toEqual([
+			{
+				type: "createLemma",
+				entry: {
+					id: runLemmaId,
+					lemma: englishRunLemma,
+					lexicalRelations: {},
+					morphologicalRelations: {},
+					attestedTranslations: [],
+					attestations: [],
+					notes: "",
+				},
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "lemmaMissing", lemmaId: runLemmaId },
+				],
+			},
+			{
+				type: "patchLemma",
+				lemmaId: runLemmaId,
+				ops: [
+					{
+						op: "addMorphologicalRelation",
+						relation: "derivedFrom",
+						target: {
+							kind: "pending",
+							ref: {
+								canonicalLemma: "stride",
+								lemmaKind: "Lexeme",
+								lemmaSubKind: "VERB",
+							},
+						},
+					},
+				],
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+				],
+			},
+		]);
+		expect(Object.keys(unwrap(nextHydrated.listPendingLemmaRefs()))).toHaveLength(1);
+		expect(
+			unwrap(nextHydrated.listPendingRelationsForLemma(runLemmaId)),
+		).toEqual([
+			{
+				sourceLemmaId: runLemmaId,
+				relationFamily: "morphological",
+				relation: "derivedFrom",
+				targetPendingId: insertedPendingId,
+			},
+		]);
+	});
+
 	it("rejects pending self-relations at patch time", () => {
 		const dict = makeDumdict("English");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
