@@ -1,7 +1,7 @@
 {
 	"name": "dumdict",
 	"version": "0.1.0",
-	"description": "External-test harness for the published dumling package.",
+	"description": "Dictionary relations and storage helpers built on top of dumling.",
 	"private": true,
 	"type": "module",
 	"license": "MIT",
@@ -9,11 +9,13 @@
 		"node": ">=20"
 	},
 	"scripts": {
-		"test": "bun test tests/external",
-		"test:external": "bun test tests/external"
+		"test": "bun test",
+		"test:external": "bun test tests/external",
+		"test:internal": "bun test tests/internal"
 	},
 	"dependencies": {
-		"dumling": "^0.1.0"
+		"dumling": "^0.1.0",
+		"zod": "3.25.76"
 	},
 	"devDependencies": {
 		"@types/bun": "1.3.0"

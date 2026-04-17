@@ -20,5 +20,5 @@
 		"types": ["node", "bun-types"],
 		"verbatimModuleSyntax": true
 	},
-	"include": ["tests/**/*.ts"]
+	"include": ["src/**/*.ts", "tests/**/*.ts"]
 }

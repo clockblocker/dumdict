@@ -1,10 +1,22 @@
 # `dumdict`
 
-This repo is a stripped-down copy of `dumling` that keeps only the external fixtures and external tests.
+`dumdict` now owns dictionary-level relation helpers that do not belong in `dumling`.
 
-It installs the published `dumling` package from npm and verifies that the public API still satisfies the external test suite:
+The repo still installs the published `dumling` package from npm and keeps the external consumer tests that verify `dumling`’s public API from the outside.
+
+Current scope:
+
+- relation enums and inverse helpers
+- relation schemas keyed by lemma Dumling IDs
+- external compatibility tests for the published `dumling` package
+
+Test commands:
 
 ```sh
 npm install
 npm test
+npm run test:external
+npm run test:internal
 ```
+*** Add File: /Users/annagorelova/work/dumdict/src/index.ts
+export * from "./relations/public";
