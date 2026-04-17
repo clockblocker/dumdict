@@ -72,6 +72,50 @@ Suggested shape:
 declare function makeDumdict<L extends SupportedLang>(language: L): Dumdict<L>;
 ```
 
+## Clarifications From Design Discussion
+
+The following points are clarified enough to treat as working v1 assumptions.
+
+### Confirmed Direction
+
+- `dumling` should provide identity, DTO shapes, and language-bound validation.
+- `dumdict` should own dictionary semantics:
+  - stored dictionary entities
+  - lookup indexes
+  - CRUD behavior
+  - relation semantics
+  - reciprocity rules
+  - delete cleanup rules
+- The primary dictionary entity is lemma-level.
+- Lexical relations are lemma-to-lemma only.
+- Morphological relations are lemma-to-lemma only.
+- Inflectional / grammatical facts must not be modeled as the same generic relation bag as lexical or morphological relations.
+- Surface ownership is the primary v1 mechanism for representing inflected or orthographic forms tied to a lemma.
+- Reciprocal lemma relations must be updated atomically by `dumdict`.
+
+### Questions Clarified Into Sharper V1 Decisions
+
+These questions came up in discussion and are now sharpened enough that the spec should answer them explicitly:
+
+- Is the primary dictionary entity lemma-level or arbitrary over all `DumlingId`s?
+  - Current direction: lemma-level.
+- Are lexical and morphological relations `dumling` concerns or `dumdict` concerns?
+  - Current direction: `dumdict` owns them completely.
+- Should grammatical / inflectional relations share the same relation model as synonymy or derivation?
+  - Current direction: no; they are represented via surface ownership and surface data, not the lemma-lemma relation graph.
+- Does relation reciprocity happen manually or automatically?
+  - Current direction: automatically, inside `dumdict`, with atomic updates.
+
+### Questions Still Open
+
+- Are surfaces nested inside a lemma entry, or stored as separate `SurfaceEntry`s in a second store?
+- Should `lookupBySurface` return:
+  - mixed lemma and surface entries
+  - lemma entries only
+- Is a missing relation target rejected in v1, or preserved as a pending unresolved target?
+- What exact normalization pipeline should surface lookup use beyond Unicode normalization?
+- Are translations and notes intentionally lemma-level in v1, even when a form-specific or sense-specific distinction may exist?
+
 ## Core Ontology
 
 ### Entry Kinds
@@ -131,6 +175,7 @@ Allowed:
 - ownership only
 
 This is not a generic relation bag. A `SurfaceEntry` belongs to exactly one lemma entry.
+Inflectional / grammatical facts should be represented through surface ownership and surface data rather than by reusing the lemma-lemma relation graph.
 
 ### Forbidden Links In V1
 
