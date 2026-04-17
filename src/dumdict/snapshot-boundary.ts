@@ -1,7 +1,6 @@
 import { dumling, type DumlingId, type SupportedLang } from "dumling";
 import { err, ok } from "neverthrow";
 import { makeDumdict } from "./impl/make-dumdict";
-import { InMemoryDumdict } from "./impl/in-memory-dumdict";
 import {
 	assertLemmaIdMatchesDictionaryLanguage,
 	assertPendingIdMatchesDictionaryLanguage,
@@ -38,72 +37,20 @@ import type {
 	ReadableDictionarySnapshot,
 	SurfaceEntryPatchOp,
 } from "./public";
+import { getInverseLexicalRelation } from "./relations/lexical";
 import { lexicalRelationKeys } from "./relations/lexical";
 import type { LexicalRelation } from "./relations/lexical";
+import { getInverseMorphologicalRelation } from "./relations/morphological";
 import { morphologicalRelationKeys } from "./relations/morphological";
 import type { MorphologicalRelation } from "./relations/morphological";
 import { sortPendingRelations } from "./state/pending-store";
 
 type SnapshotValidationMode = "readable" | "authoritative-write";
 
-function isEmptySnapshot<L extends SupportedLang>(
-	snapshot: ReadableDictionarySnapshot<L>,
-) {
-	return (
-		snapshot.lemmas.length === 0 &&
-		snapshot.surfaces.length === 0 &&
-		snapshot.pendingRefs.length === 0 &&
-		snapshot.pendingRelations.length === 0
-	);
-}
-
-function inferSnapshotLanguage<L extends SupportedLang>(
-	snapshot: ReadableDictionarySnapshot<L>,
-): SupportedLang | undefined {
-	const firstLemma = snapshot.lemmas[0];
-	if (firstLemma) {
-		return getLemmaLanguage(firstLemma.lemma);
-	}
-
-	const firstSurface = snapshot.surfaces[0];
-	if (firstSurface) {
-		return getSurfaceLanguage(firstSurface.surface);
-	}
-
-	const firstPendingRef = snapshot.pendingRefs[0];
-	if (firstPendingRef) {
-		return firstPendingRef.language;
-	}
-
-	const firstPendingRelation = snapshot.pendingRelations[0];
-	if (firstPendingRelation) {
-		const segments = firstPendingRelation.targetPendingId.split(":");
-		const encodedLanguage = segments[2];
-		if (!encodedLanguage) {
-			return undefined;
-		}
-
-		try {
-			const language = decodeURIComponent(encodedLanguage);
-			if (
-				language === "English" ||
-				language === "German" ||
-				language === "Hebrew"
-			) {
-				return language;
-			}
-		} catch {
-			return undefined;
-		}
-	}
-
-	return undefined;
-}
-
 function validateSnapshotShape<L extends SupportedLang>(
 	snapshot: ReadableDictionarySnapshot<L>,
 	mode: SnapshotValidationMode,
-): DumdictResult<SupportedLang | undefined> {
+): DumdictResult<L> {
 	if (snapshot.authority === "write" && snapshot.completeness !== "full") {
 		return err(
 			makeError(
@@ -138,21 +85,7 @@ function validateSnapshotShape<L extends SupportedLang>(
 		);
 	}
 
-	const inferredLanguage = inferSnapshotLanguage(snapshot);
-	if (!inferredLanguage && isEmptySnapshot(snapshot)) {
-		return ok(undefined);
-	}
-
-	if (!inferredLanguage) {
-		return err(
-			makeError(
-				"InvariantViolation",
-				"Could not infer snapshot language from non-empty snapshot contents.",
-			),
-		);
-	}
-
-	return ok(inferredLanguage);
+	return ok(snapshot.language);
 }
 
 function validatePendingRef<L extends SupportedLang>(
@@ -181,11 +114,8 @@ function validateSnapshotInternal<L extends SupportedLang>(
 	}
 
 	const language = shapeResult.value;
-	if (!language) {
-		return ok(undefined);
-	}
-
 	const lemmaIds = new Set<DumlingId<"Lemma", L>>();
+	const lemmasById = new Map<DumlingId<"Lemma", L>, typeof snapshot.lemmas[number]>();
 	for (const lemmaEntry of snapshot.lemmas) {
 		const lemmaResult = validateLemmaEntry(language as L, lemmaEntry);
 		if (lemmaResult.isErr()) {
@@ -202,6 +132,7 @@ function validateSnapshotInternal<L extends SupportedLang>(
 		}
 
 		lemmaIds.add(lemmaEntry.id);
+		lemmasById.set(lemmaEntry.id, lemmaEntry);
 	}
 
 	const surfaceIds = new Set<DumlingId<"ResolvedSurface", L>>();
@@ -386,6 +317,19 @@ function validateSnapshotInternal<L extends SupportedLang>(
 							),
 						);
 					}
+
+					const targetEntry = lemmasById.get(targetLemmaId);
+					const inverseRelation = getInverseLexicalRelation(relation);
+					if (
+						!targetEntry?.lexicalRelations[inverseRelation]?.includes(lemmaEntry.id)
+					) {
+						return err(
+							makeError(
+								"InvariantViolation",
+								`Lexical relation ${lemmaEntry.id} --${relation}-> ${targetLemmaId} is missing reciprocal ${targetLemmaId} --${inverseRelation}-> ${lemmaEntry.id}.`,
+							),
+						);
+					}
 				}
 			}
 
@@ -406,6 +350,21 @@ function validateSnapshotInternal<L extends SupportedLang>(
 							makeError(
 								"RelationTargetNotFound",
 								`Morphological relation target ${targetLemmaId} is missing from the snapshot.`,
+							),
+						);
+					}
+
+					const targetEntry = lemmasById.get(targetLemmaId);
+					const inverseRelation = getInverseMorphologicalRelation(relation);
+					if (
+						!targetEntry?.morphologicalRelations[inverseRelation]?.includes(
+							lemmaEntry.id,
+						)
+					) {
+						return err(
+							makeError(
+								"InvariantViolation",
+								`Morphological relation ${lemmaEntry.id} --${relation}-> ${targetLemmaId} is missing reciprocal ${targetLemmaId} --${inverseRelation}-> ${lemmaEntry.id}.`,
 							),
 						);
 					}
@@ -437,17 +396,7 @@ export function hydrateSnapshot<L extends SupportedLang>(
 		return err(validationResult.error);
 	}
 
-	const language = inferSnapshotLanguage(snapshot) as L | undefined;
-	if (!language) {
-		return err(
-			makeError(
-				"InvariantViolation",
-				"Cannot hydrate an empty authoritative snapshot without an inferable language.",
-			),
-		);
-	}
-
-	const dict = makeDumdict(language);
+	const dict = makeDumdict(snapshot.language);
 	for (const lemmaEntry of snapshot.lemmas.toSorted((left, right) =>
 		left.id.localeCompare(right.id),
 	)) {
@@ -563,22 +512,17 @@ export function exportSnapshot<L extends SupportedLang>(
 	dict: Dumdict<L>,
 	revision: string,
 ): DumdictResult<AuthoritativeWriteSnapshot<L>> {
-	if (!(dict instanceof InMemoryDumdict)) {
-		return err(
-			makeError(
-				"InvariantViolation",
-				"Snapshot export is currently supported only for the bundled in-memory dumdict implementation.",
-			),
-		);
+	const snapshotResult = dict.exportAuthoritativeSnapshot(revision);
+	if (snapshotResult.isErr()) {
+		return err(snapshotResult.error);
 	}
 
-	const snapshot = dict.exportAuthoritativeSnapshot(revision);
-	const validationResult = validateAuthoritativeWriteSnapshot(snapshot);
+	const validationResult = validateAuthoritativeWriteSnapshot(snapshotResult.value);
 	if (validationResult.isErr()) {
 		return err(validationResult.error);
 	}
 
-	return ok(snapshot);
+	return ok(snapshotResult.value);
 }
 
 export function lookupBySurface<L extends SupportedLang>(
@@ -731,6 +675,7 @@ function checkPrecondition<L extends SupportedLang>(
 export function applyPlannedChanges<L extends SupportedLang>(
 	snapshot: AuthoritativeWriteSnapshot<L>,
 	changes: PlannedChangeOp<L>[],
+	options?: { nextRevision?: string },
 ): DumdictResult<AuthoritativeWriteSnapshot<L>> {
 	const validationResult = validateAuthoritativeWriteSnapshot(snapshot);
 	if (validationResult.isErr()) {
@@ -866,7 +811,10 @@ export function applyPlannedChanges<L extends SupportedLang>(
 		}
 	}
 
-	const exportResult = exportSnapshot(dict, snapshot.revision);
+	const exportResult = exportSnapshot(
+		dict,
+		options?.nextRevision ?? snapshot.revision,
+	);
 	if (exportResult.isErr()) {
 		return err(exportResult.error);
 	}
@@ -946,6 +894,15 @@ export function plan<L extends SupportedLang>(
 		];
 
 		for (const ownedSurface of intent.ownedSurfaces ?? []) {
+			if (ownedSurface.ownerLemmaId !== lemmaId) {
+				return err(
+					makeError(
+						"InvariantViolation",
+						`insertLemma owned surface ${getSurfaceNormalizedFullSurface(ownedSurface.surface)} must belong to the inserted lemma ${lemmaId}, not ${ownedSurface.ownerLemmaId}.`,
+					),
+				);
+			}
+
 			const surfaceId = dumling.idCodec
 				.forLanguage(language)
 				.makeDumlingIdFor(ownedSurface.surface) as DumlingId<
@@ -958,7 +915,7 @@ export function plan<L extends SupportedLang>(
 				entry: {
 					id: surfaceId,
 					surface: ownedSurface.surface,
-					ownerLemmaId: ownedSurface.ownerLemmaId,
+					ownerLemmaId: lemmaId,
 					attestedTranslations: ownedSurface.attestedTranslations,
 					attestations: ownedSurface.attestations,
 					notes: ownedSurface.notes,

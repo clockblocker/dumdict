@@ -75,6 +75,7 @@ export type LookupResult<L extends SupportedLang> = {
 };
 
 export type DictionarySnapshotData<L extends SupportedLang> = {
+	language: L;
 	revision: string;
 	lemmas: LemmaEntry<L>[];
 	surfaces: SurfaceEntry<L>[];
@@ -263,6 +264,9 @@ export type SurfaceEntryPatchOp<_L extends SupportedLang> =
 
 export type Dumdict<L extends SupportedLang> = {
 	readonly language: L;
+	exportAuthoritativeSnapshot(
+		revision: string,
+	): DumdictResult<AuthoritativeWriteSnapshot<L>>;
 	lookupBySurface(surface: string): DumdictResult<LookupResult<L>>;
 	lookupLemmasBySurface(
 		surface: string,

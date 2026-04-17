@@ -3,6 +3,7 @@ import { dumling, type Lemma, type ResolvedSurface } from "dumling";
 import type {
 	AuthoritativeWriteSnapshot,
 	ChangePrecondition,
+	Dumdict,
 	DumdictResult,
 	LemmaEntry,
 	MutationIntentV1,
@@ -279,10 +280,90 @@ describe("dumdict", () => {
 		});
 	});
 
+	it("hydrates empty authoritative snapshots when language is explicit", () => {
+		const snapshot = {
+			authority: "write",
+			completeness: "full",
+			language: "English",
+			revision: "revision-1",
+			lemmas: [],
+			surfaces: [],
+			pendingRefs: [],
+			pendingRelations: [],
+		} satisfies AuthoritativeWriteSnapshot<"English">;
+
+		unwrap(validateAuthoritativeWriteSnapshot(snapshot));
+
+		const hydrated = unwrap(hydrateSnapshot(snapshot));
+		const exported = unwrap(exportSnapshot(hydrated, "revision-1"));
+
+		expect(exported).toEqual(snapshot);
+	});
+
+	it("exports snapshots through the generic Dumdict interface hook", () => {
+		const inner = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+
+		unwrap(inner.upsertLemmaEntry(walkEntry));
+
+		const wrapped = {
+			language: inner.language,
+			exportAuthoritativeSnapshot: (revision: string) =>
+				inner.exportAuthoritativeSnapshot(revision),
+			lookupBySurface: (surface: string) => inner.lookupBySurface(surface),
+			lookupLemmasBySurface: (surface: string) =>
+				inner.lookupLemmasBySurface(surface),
+			getLemmaEntry: (id: LemmaEntry<"English">["id"]) => inner.getLemmaEntry(id),
+			getSurfaceEntry: (id: SurfaceEntry<"English">["id"]) =>
+				inner.getSurfaceEntry(id),
+			getOwnedSurfaceEntries: (lemmaId: LemmaEntry<"English">["id"]) =>
+				inner.getOwnedSurfaceEntries(lemmaId),
+			getPendingLemmaRef: (pendingId: PendingLemmaId<"English">) =>
+				inner.getPendingLemmaRef(pendingId),
+			listPendingLemmaRefs: () => inner.listPendingLemmaRefs(),
+			listPendingRelationsForLemma: (lemmaId: LemmaEntry<"English">["id"]) =>
+				inner.listPendingRelationsForLemma(lemmaId),
+			upsertLemmaEntry: (entry: LemmaEntry<"English">) =>
+				inner.upsertLemmaEntry(entry),
+			upsertSurfaceEntry: (entry: SurfaceEntry<"English">) =>
+				inner.upsertSurfaceEntry(entry),
+			patchLemmaEntry: (
+				id: LemmaEntry<"English">["id"],
+				ops: Parameters<typeof inner.patchLemmaEntry>[1],
+			) => inner.patchLemmaEntry(id, ops),
+			patchSurfaceEntry: (
+				id: SurfaceEntry<"English">["id"],
+				ops: Parameters<typeof inner.patchSurfaceEntry>[1],
+			) => inner.patchSurfaceEntry(id, ops),
+			removePendingRelation: (edge: Parameters<typeof inner.removePendingRelation>[0]) =>
+				inner.removePendingRelation(edge),
+			resolvePendingLemma: (
+				pendingId: PendingLemmaId<"English">,
+				lemmaId: LemmaEntry<"English">["id"],
+			) => inner.resolvePendingLemma(pendingId, lemmaId),
+			deleteLemmaEntry: (id: LemmaEntry<"English">["id"]) =>
+				inner.deleteLemmaEntry(id),
+			deleteSurfaceEntry: (id: SurfaceEntry<"English">["id"]) =>
+				inner.deleteSurfaceEntry(id),
+		} satisfies Dumdict<"English">;
+
+		const exported = unwrap(exportSnapshot(wrapped, "revision-1"));
+
+		expect(exported.language).toBe("English");
+		expect(exported.lemmas).toEqual([
+			{
+				...walkEntry,
+				attestedTranslations: [],
+				attestations: [],
+			},
+		]);
+	});
+
 	it("accepts partial read snapshots for reads and rejects them for write authority", () => {
 		const partialReadSnapshot = {
 			authority: "read",
 			completeness: "partial",
+			language: "English",
 			revision: "revision-1",
 			lemmas: [],
 			surfaces: [makeSurfaceEntry()],
@@ -321,6 +402,7 @@ describe("dumdict", () => {
 		const partialReadSnapshot = {
 			authority: "read",
 			completeness: "partial",
+			language: "English",
 			revision: "revision-2",
 			lemmas: [],
 			surfaces: [surfaceEntry],
@@ -336,6 +418,41 @@ describe("dumdict", () => {
 		expect(Object.keys(partialLookup.lemmas)).toEqual([]);
 		expect(Object.keys(partialLookup.surfaces)).toEqual([surfaceEntry.id]);
 		expect(Object.keys(partialLemmaLookup)).toEqual([]);
+	});
+
+	it("rejects authoritative snapshots with missing reciprocal resolved relations", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const runEntry = makeLemmaEntry(englishRunLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(dict.upsertLemmaEntry(runEntry));
+		unwrap(
+			dict.patchLemmaEntry(walkEntry.id, {
+				op: "addLexicalRelation",
+				relation: "synonym",
+				target: { kind: "existing", lemmaId: runEntry.id },
+			}),
+		);
+
+		const snapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const brokenSnapshot = {
+			...snapshot,
+			lemmas: snapshot.lemmas.map((entry) =>
+				entry.id === runEntry.id
+					? { ...entry, lexicalRelations: {} }
+					: entry,
+			),
+		} satisfies AuthoritativeWriteSnapshot<"English">;
+
+		const validation = validateAuthoritativeWriteSnapshot(brokenSnapshot);
+		const hydration = hydrateSnapshot(brokenSnapshot);
+
+		expect(validation.isErr()).toBe(true);
+		expect(hydration.isErr()).toBe(true);
+		if (validation.isErr()) {
+			expect(validation.error.code).toBe("InvariantViolation");
+		}
 	});
 
 	it("applies planned changes against authoritative snapshots", () => {
@@ -404,6 +521,44 @@ describe("dumdict", () => {
 		expect(unwrap(nextHydrated.getSurfaceEntry(walkSurface.id)).ownerLemmaId).toBe(
 			walkEntry.id,
 		);
+	});
+
+	it("applies planned changes with an explicit next revision", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const runEntry = makeLemmaEntry(englishRunLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const changes = [
+			{
+				type: "createLemma",
+				entry: runEntry,
+				preconditions: [
+					{
+						kind: "snapshotRevisionMatches",
+						revision: "revision-1",
+					} satisfies ChangePrecondition<"English">,
+					{
+						kind: "lemmaMissing",
+						lemmaId: runEntry.id,
+					} satisfies ChangePrecondition<"English">,
+				],
+			},
+		] satisfies PlannedChangeOp<"English">[];
+
+		const nextSnapshot = unwrap(
+			applyPlannedChanges(baseSnapshot, changes, {
+				nextRevision: "revision-2",
+			}),
+		);
+
+		expect(nextSnapshot.revision).toBe("revision-2");
+		expect(nextSnapshot.lemmas.map((entry) => entry.id)).toEqual([
+			runEntry.id,
+			walkEntry.id,
+		]);
 	});
 
 	it("rejects planned changes when a precondition fails", () => {
@@ -576,6 +731,41 @@ describe("dumdict", () => {
 		expect(unwrap(nextHydrated.getSurfaceEntry(runSurfaceId)).ownerLemmaId).toBe(
 			runLemmaId,
 		);
+	});
+
+	it("rejects insert-lemma intents whose owned surfaces do not belong to the inserted lemma", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const intent = {
+			version: "v1",
+			kind: "insertLemma",
+			entry: {
+				lemma: englishRunLemma,
+				attestedTranslations: [],
+				attestations: [],
+				notes: "",
+			},
+			ownedSurfaces: [
+				{
+					surface: englishWalkResolvedInflectionSurface,
+					ownerLemmaId: walkEntry.id,
+					attestedTranslations: [],
+					attestations: [],
+					notes: "",
+				},
+			],
+		} satisfies MutationIntentV1<"English">;
+
+		const result = plan(baseSnapshot, intent);
+
+		expect(result.isErr()).toBe(true);
+		if (result.isErr()) {
+			expect(result.error.code).toBe("InvariantViolation");
+		}
 	});
 
 	it("plans upsert-owned-surface intents into patch operations for existing surfaces", () => {

@@ -69,7 +69,7 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 
 	exportAuthoritativeSnapshot(
 		revision: string,
-	): AuthoritativeWriteSnapshot<L> {
+	): DumdictResult<AuthoritativeWriteSnapshot<L>> {
 		const state = cloneState(this.#state);
 		const lemmas = collectLemmaRecord(state, state.lemmasById.keys());
 		const surfaces = collectSurfaceRecord(state, state.surfacesById.keys());
@@ -89,15 +89,16 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 			),
 		);
 
-		return {
+		return ok({
 			authority: "write",
 			completeness: "full",
+			language: this.language,
 			revision,
 			lemmas: Object.values(lemmas),
 			surfaces: Object.values(surfaces),
 			pendingRefs: Object.values(pendingRefs),
 			pendingRelations,
-		};
+		});
 	}
 
 	lookupBySurface(surface: string) {
