@@ -423,6 +423,9 @@ They are not rejected.
 
 Pending refs and pending relations are first-class readable state.
 
+Pending refs are placeholders for future `LemmaEntry`s at `dumling` lemma
+identity granularity. They are not bare spelling-only stubs.
+
 ### Pending DTOs
 
 ```ts
@@ -453,7 +456,12 @@ Rules:
 - pending refs are not `LemmaEntry`s
 - pending refs are not keyed by `DumlingId<"Lemma">`
 - the caller must provide enough discriminators to create a pending ref
+- pending refs must preserve the identity granularity that `dumling` uses for real lemmas
+- pending refs stand for a future lemma identity, not just a future canonical spelling
 - pending refs are deduped by language plus `(canonicalLemma, lemmaKind, lemmaSubKind)`
+- `dumdict` does not infer semantic sufficiency beyond the pending-ref fields it is given
+- it is the caller's responsibility to supply discriminator fields that are specific enough for the intended future lemma identity
+- if `dumling` lemma identity later requires more discriminators, `PendingLemmaRefInput`, pending dedupe, and pending resolution validation must expand in lockstep
 - pending refs exist only while referenced by at least one pending relation
 
 ### Pending Resolution
@@ -468,7 +476,8 @@ resolvePendingLemma(
 Behavior:
 
 - creates or upserts the real lemma entry
-- validates `canonicalLemma`, `lemmaKind`, and `lemmaSubKind` against the pending ref before resolution
+- validates the resolved `entry.lemma` against the pending ref before resolution
+- v1 validation checks `canonicalLemma`, `lemmaKind`, and `lemmaSubKind`
 - mismatches return `PendingResolutionMismatch`
 - materializes pending inbound relations onto the real entry
 - materializes reciprocal relations onto other real entries
@@ -476,15 +485,24 @@ Behavior:
 
 ## Sense Granularity
 
-V1 is intentionally lemma-level and surface-level only.
+V1 does not introduce a separate `SenseEntry` entity.
 
 That means:
 
-- no separate sense entity
+- `dumdict` stores `LemmaEntry`s keyed by `dumling` lemma identity
+- `dumdict` stores `SurfaceEntry`s keyed by `dumling` resolved surface identity
 - translations are attached at lemma or surface level
 - notes are attached at lemma or surface level
+- relations are attached at lemma level
 
-This is knowingly lossy for polysemy, and that tradeoff is accepted in v1.
+If `dumling` distinguishes two meanings as different lemma identities, `dumdict`
+stores them as different `LemmaEntry`s.
+
+What v1 does not support is multiple separately patchable sub-senses nested
+inside one `LemmaEntry`.
+
+V1 is lossy only when multiple sub-senses share one `dumling` lemma identity,
+because `dumdict` does not add an extra sense layer on top.
 
 ## Error Model
 
