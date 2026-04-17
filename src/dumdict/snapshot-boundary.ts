@@ -22,7 +22,7 @@ import {
 	sortStrings,
 	toSortedRecord,
 } from "./domain/collections";
-import { makePendingRelationKey } from "./domain/pending";
+import { derivePendingLemmaId, makePendingRelationKey } from "./domain/pending";
 import { type DumdictResult, makeError } from "./errors";
 import type {
 	AuthoritativeWriteSnapshot,
@@ -101,7 +101,29 @@ function validatePendingRef<L extends SupportedLang>(
 		);
 	}
 
-	return assertPendingIdMatchesDictionaryLanguage(language, pendingRef.pendingId);
+	const pendingIdResult = assertPendingIdMatchesDictionaryLanguage(
+		language,
+		pendingRef.pendingId,
+	);
+	if (pendingIdResult.isErr()) {
+		return pendingIdResult;
+	}
+
+	const derivedPendingId = derivePendingLemmaId(language, {
+		canonicalLemma: pendingRef.canonicalLemma,
+		lemmaKind: pendingRef.lemmaKind,
+		lemmaSubKind: pendingRef.lemmaSubKind,
+	});
+	if (pendingRef.pendingId !== derivedPendingId) {
+		return err(
+			makeError(
+				"InvariantViolation",
+				`Pending lemma ref ${pendingRef.pendingId} does not match its identity tuple; expected ${derivedPendingId}.`,
+			),
+		);
+	}
+
+	return ok(undefined);
 }
 
 function validateSnapshotInternal<L extends SupportedLang>(
@@ -940,6 +962,7 @@ export function plan<L extends SupportedLang>(
 				revision: snapshot.revision,
 			},
 		];
+		const reciprocalChanges: PlannedChangeOp<L>[] = [];
 
 		for (const relation of intent.initialRelations ?? []) {
 			if (relation.relationFamily === "lexical") {
@@ -961,6 +984,34 @@ export function plan<L extends SupportedLang>(
 					kind: "lemmaExists",
 					lemmaId: relation.target.lemmaId,
 				});
+
+				reciprocalChanges.push({
+					type: "patchLemma",
+					lemmaId: relation.target.lemmaId,
+					ops: [
+						relation.relationFamily === "lexical"
+							? {
+									op: "addLexicalRelation",
+									relation: getInverseLexicalRelation(relation.relation),
+									target: { kind: "existing", lemmaId },
+								}
+							: {
+									op: "addMorphologicalRelation",
+									relation: getInverseMorphologicalRelation(relation.relation),
+									target: { kind: "existing", lemmaId },
+								},
+					],
+					preconditions: [
+						{
+							kind: "snapshotRevisionMatches",
+							revision: snapshot.revision,
+						},
+						{
+							kind: "lemmaExists",
+							lemmaId: relation.target.lemmaId,
+						},
+					],
+				});
 			}
 		}
 
@@ -972,6 +1023,7 @@ export function plan<L extends SupportedLang>(
 				preconditions: relationPreconditions,
 			});
 		}
+		changes.push(...reciprocalChanges);
 
 		return ok(changes);
 	}
@@ -1012,6 +1064,15 @@ export function plan<L extends SupportedLang>(
 					],
 				},
 			]);
+		}
+
+		if (existingSurface.ownerLemmaId !== intent.entry.ownerLemmaId) {
+			return err(
+				makeError(
+					"InvariantViolation",
+					`Surface ${surfaceId} is owned by ${existingSurface.ownerLemmaId}, not ${intent.entry.ownerLemmaId}.`,
+				),
+			);
 		}
 
 		const ops: SurfaceEntryPatchOp<L>[] = [];
@@ -1111,6 +1172,23 @@ export function plan<L extends SupportedLang>(
 		}
 
 		const changes: PlannedChangeOp<L>[] = [];
+		const resolvedTargetOps: LemmaEntryPatchOp<L>[] = [];
+		const resolvedTargetPreconditions: ChangePrecondition<L>[] = [
+			{
+				kind: "snapshotRevisionMatches",
+				revision: snapshot.revision,
+			},
+			{
+				kind: "pendingRefExists",
+				pendingId: intent.pendingId,
+			},
+			{
+				kind: "lemmaExists",
+				lemmaId: intent.lemmaId,
+			},
+		];
+		const seenResolvedSourceLemmaIds = new Set<DumlingId<"Lemma", L>>();
+		const deletions: PlannedChangeOp<L>[] = [];
 		for (const pendingRelation of pendingRelations) {
 			const patchOp: LemmaEntryPatchOp<L> =
 				pendingRelation.relationFamily === "lexical"
@@ -1148,7 +1226,39 @@ export function plan<L extends SupportedLang>(
 					},
 				],
 			});
-			changes.push({
+			if (!seenResolvedSourceLemmaIds.has(pendingRelation.sourceLemmaId)) {
+				resolvedTargetPreconditions.push({
+					kind: "lemmaExists",
+					lemmaId: pendingRelation.sourceLemmaId,
+				});
+				seenResolvedSourceLemmaIds.add(pendingRelation.sourceLemmaId);
+			}
+
+			resolvedTargetOps.push(
+				pendingRelation.relationFamily === "lexical"
+					? {
+							op: "addLexicalRelation",
+							relation: getInverseLexicalRelation(
+								pendingRelation.relation as LexicalRelation,
+							),
+							target: {
+								kind: "existing",
+								lemmaId: pendingRelation.sourceLemmaId,
+							},
+						}
+					: {
+							op: "addMorphologicalRelation",
+							relation: getInverseMorphologicalRelation(
+								pendingRelation.relation as MorphologicalRelation,
+							),
+							target: {
+								kind: "existing",
+								lemmaId: pendingRelation.sourceLemmaId,
+							},
+						},
+			);
+
+			deletions.push({
 				type: "deletePendingRelation",
 				relation: pendingRelation,
 				preconditions: [
@@ -1163,6 +1273,17 @@ export function plan<L extends SupportedLang>(
 				],
 			});
 		}
+
+		if (resolvedTargetOps.length > 0) {
+			changes.push({
+				type: "patchLemma",
+				lemmaId: intent.lemmaId,
+				ops: resolvedTargetOps,
+				preconditions: resolvedTargetPreconditions,
+			});
+		}
+
+		changes.push(...deletions);
 
 		return ok(changes);
 	}

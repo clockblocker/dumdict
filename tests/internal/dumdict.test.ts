@@ -718,6 +718,21 @@ describe("dumdict", () => {
 					{ kind: "lemmaExists", lemmaId: walkEntry.id },
 				],
 			},
+			{
+				type: "patchLemma",
+				lemmaId: walkEntry.id,
+				ops: [
+					{
+						op: "addLexicalRelation",
+						relation: "synonym",
+						target: { kind: "existing", lemmaId: runLemmaId },
+					},
+				],
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "lemmaExists", lemmaId: walkEntry.id },
+				],
+			},
 		]);
 		expect(unwrap(nextHydrated.getLemmaEntry(runLemmaId)).attestedTranslations).toEqual(
 			["courir"],
@@ -822,6 +837,37 @@ describe("dumdict", () => {
 		);
 	});
 
+	it("rejects upsert-owned-surface intents that target an existing surface owned by another lemma", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+		const runEntry = makeLemmaEntry(englishRunLemma);
+		const surfaceEntry = makeSurfaceEntry();
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(dict.upsertLemmaEntry(runEntry));
+		unwrap(dict.upsertSurfaceEntry(surfaceEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const intent = {
+			version: "v1",
+			kind: "upsertOwnedSurface",
+			entry: {
+				surface: englishWalkResolvedInflectionSurface,
+				ownerLemmaId: runEntry.id,
+				attestedTranslations: ["go on foot"],
+				attestations: ["They walk home together."],
+				notes: "updated surface note",
+			},
+		} satisfies MutationIntentV1<"English">;
+
+		const result = plan(baseSnapshot, intent);
+
+		expect(result.isErr()).toBe(true);
+		if (result.isErr()) {
+			expect(result.error.code).toBe("InvariantViolation");
+		}
+	});
+
 	it("plans resolve-pending-lemma intents into pending cleanup and relation materialization", () => {
 		const dict = makeDumdict("English");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
@@ -877,6 +923,23 @@ describe("dumdict", () => {
 					{ kind: "pendingRefExists", pendingId },
 					{ kind: "lemmaExists", lemmaId: walkEntry.id },
 					{ kind: "lemmaExists", lemmaId: strideEntry.id },
+				],
+			},
+			{
+				type: "patchLemma",
+				lemmaId: strideEntry.id,
+				ops: [
+					{
+						op: "addMorphologicalRelation",
+						relation: "sourceFor",
+						target: { kind: "existing", lemmaId: walkEntry.id },
+					},
+				],
+				preconditions: [
+					{ kind: "snapshotRevisionMatches", revision: "revision-1" },
+					{ kind: "pendingRefExists", pendingId },
+					{ kind: "lemmaExists", lemmaId: strideEntry.id },
+					{ kind: "lemmaExists", lemmaId: walkEntry.id },
 				],
 			},
 			{
@@ -1331,6 +1394,53 @@ describe("dumdict", () => {
 		}
 		if (foreignRemoveResult.isErr()) {
 			expect(foreignRemoveResult.error.code).toBe("LanguageMismatch");
+		}
+	});
+
+	it("rejects authoritative snapshots whose pending ids do not match the stored pending-ref tuple", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(
+			dict.patchLemmaEntry(walkEntry.id, {
+				op: "addLexicalRelation",
+				relation: "synonym",
+				target: {
+					kind: "pending",
+					ref: {
+						canonicalLemma: "stride",
+						lemmaKind: "Lexeme",
+						lemmaSubKind: "VERB",
+					},
+				},
+			}),
+		);
+
+		const snapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const pendingRef = snapshot.pendingRefs[0];
+		if (!pendingRef) {
+			throw new Error("Expected one pending ref in the base snapshot.");
+		}
+
+		const forgedPendingId =
+			"pending:v1:English:not-stride:Lexeme:VERB" as PendingLemmaId<"English">;
+		const forgedSnapshot = {
+			...snapshot,
+			pendingRefs: [{ ...pendingRef, pendingId: forgedPendingId }],
+			pendingRelations: snapshot.pendingRelations.map((relation) => ({
+				...relation,
+				targetPendingId: forgedPendingId,
+			})),
+		} satisfies AuthoritativeWriteSnapshot<"English">;
+
+		const validation = validateAuthoritativeWriteSnapshot(forgedSnapshot);
+		const hydration = hydrateSnapshot(forgedSnapshot);
+
+		expect(validation.isErr()).toBe(true);
+		expect(hydration.isErr()).toBe(true);
+		if (validation.isErr()) {
+			expect(validation.error.code).toBe("InvariantViolation");
 		}
 	});
 
