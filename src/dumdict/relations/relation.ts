@@ -78,4 +78,3 @@ export const LexicalRelationsSchema = z
 export const MorphologicalRelationsSchema = z
 	.object(morphologicalRelationsShape)
 	.strict() as unknown as z.ZodType<MorphologicalRelations>;
-

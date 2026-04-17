@@ -13,6 +13,8 @@ const lexicalRelations = [
 export const LexicalRelation = z.enum(lexicalRelations);
 export type LexicalRelation = z.infer<typeof LexicalRelation>;
 
+export const lexicalRelationKeys = [...LexicalRelation.options].sort();
+
 const inverseLexicalRelation = {
 	antonym: "antonym",
 	holonym: "meronym",
@@ -42,4 +44,3 @@ export function getInverseLexicalRelation(
 export function getReprForLexicalRelation(lexicalRelation: LexicalRelation) {
 	return reprForLexicalRelation[lexicalRelation];
 }
-
