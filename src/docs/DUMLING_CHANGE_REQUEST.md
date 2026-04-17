@@ -12,6 +12,11 @@ This document proposes a small set of public `dumling` additions around:
 These are linguistic-model concerns that downstream packages currently have to
 reconstruct themselves because `dumling` does not expose them directly.
 
+This document is intentionally about foundational public API gaps that block
+downstream packages such as `dumdict`. Broader caller-experience and ergonomic
+recommendations live in the companion document
+`src/docs/DUMLING_PUBLIC_SURFACE_ERGONOMICS.md`.
+
 ## Why These Additions Belong In `dumling`
 
 `dumling` already defines the canonical shapes and IDs for `Lemma`, `Surface`,
@@ -35,6 +40,10 @@ Highest-value additions:
 3. feature-bag type exports
 4. public type helpers preserving the relation between lemma kind and sub-kind
 
+These asks are meant to expose public model structure that `dumling` already
+owns internally. They are not meant to redesign the higher-level caller
+experience for ordinary application code.
+
 ## Requested Additions
 
 ## 1. Public Identity Helpers
@@ -47,6 +56,24 @@ Expose public helpers for reading the stable identity shape of `Lemma` and
 Suggested API:
 
 ```ts
+export function getLemmaIdentity<L extends SupportedLang>(
+	lemma: Lemma<L>,
+): LemmaIdentityForLanguage<L>;
+
+export function getSurfaceLanguage<L extends SupportedLang>(
+	surface: Surface<L>,
+): L;
+
+export function getSurfaceNormalizedFullSurface<L extends SupportedLang>(
+	surface: Surface<L>,
+): string;
+
+export function getSurfaceOwnerLemmaId<L extends SupportedLang>(
+	surface: Surface<L>,
+): DumlingId<"Lemma", L>;
+
+// Optional convenience helpers. These are weaker than getLemmaIdentity(...)
+// because they do not preserve the relation between kind and discriminator.
 export function getLemmaCanonicalLemma<L extends SupportedLang>(
 	lemma: Lemma<L>,
 ): string;
@@ -62,14 +89,6 @@ export function getLemmaKind<L extends SupportedLang>(
 export function getLemmaSubKind<L extends SupportedLang>(
 	lemma: Lemma<L>,
 ): LemmaDiscriminatorFor<L, LemmaKindFor<L>>;
-
-export function getSurfaceLanguage<L extends SupportedLang>(
-	surface: Surface<L>,
-): L;
-
-export function getSurfaceNormalizedFullSurface<L extends SupportedLang>(
-	surface: Surface<L>,
-): string;
 ```
 
 Preferred higher-level API:
@@ -84,6 +103,12 @@ export type LemmaIdentityInput<
 	lemmaKind: LK;
 	lemmaSubKind: D;
 };
+
+export type LemmaIdentityInputForLanguage<L extends SupportedLang> = {
+	[LK in LemmaKindFor<L>]: {
+		[D in LemmaDiscriminatorFor<L, LK>]: LemmaIdentityInput<L, LK, D>;
+	}[LemmaDiscriminatorFor<L, LK>];
+}[LemmaKindFor<L>];
 
 export type LemmaIdentity<
 	L extends SupportedLang,
@@ -104,15 +129,16 @@ export function getLemmaIdentity<L extends SupportedLang>(
 ): LemmaIdentityForLanguage<L>;
 ```
 
+`getLemmaIdentity(...)` should be treated as the primary typed identity API.
 A narrower overloaded form that preserves exact `LK` / `D` when the input lemma
 is already narrower would be even better.
 
-For surfaces, `dumdict` does not strictly need a brand-new `getSurfaceLemma(...)`
-capability. The useful ask is either:
+For surfaces, the downstream need is stable ownership introspection, not a
+public promise that `Surface` exposes an embedded full lemma payload. The useful
+ask is:
 
-- promote `operation.extract.lemma.fromSurface(...)` as a stable public
-  ergonomic export
-- or do not add a new surface-to-lemma helper at all
+- add a small stable helper such as `getSurfaceOwnerLemmaId(...)`
+- or expose a comparably narrow helper such as `getSurfaceLemmaIdentity(...)`
 
 ### Why this matters
 
@@ -142,6 +168,12 @@ export type LemmaIdentityInput<
 	lemmaKind: LK;
 	lemmaSubKind: D;
 };
+
+export type LemmaIdentityInputForLanguage<L extends SupportedLang> = {
+	[LK in LemmaKindFor<L>]: {
+		[D in LemmaDiscriminatorFor<L, LK>]: LemmaIdentityInput<L, LK, D>;
+	}[LemmaDiscriminatorFor<L, LK>];
+}[LemmaKindFor<L>];
 ```
 
 The field name `lemmaSubKind` is fine for DTO readability, but the type helper
@@ -149,6 +181,17 @@ names should align with `dumling`'s existing discriminator terminology.
 
 This should preserve the relationship between kind and discriminator inside an
 already language-bound context.
+
+This request is about the current v1 lemma identity model used by `dumdict`.
+If `dumling` lemma identity later requires more discriminators, these public
+types should expand in lockstep rather than freezing today's field list as a
+permanent final shape.
+
+In the common "any lemma identity input for language `L`" case, downstream code
+should be able to use `LemmaIdentityInputForLanguage<L>` rather than writing
+`LemmaIdentityInput<L, LemmaKindFor<L>, LemmaDiscriminatorFor<L, LemmaKindFor<L>>>`,
+which would collapse the relationship between `lemmaKind` and `lemmaSubKind`
+back into a weak cross-product.
 
 For standalone fully-qualified identity DTOs, `LemmaIdentity<...>` should carry
 the `language` field. `LemmaIdentityInput<...>` should stay language-bound, so
@@ -193,11 +236,25 @@ having to try every supported language manually.
 Suggested API:
 
 ```ts
+export type InspectedDumlingIdForLanguage<L extends SupportedLang> = {
+	kind: "Lemma" | "Surface" | "Selection";
+	language: L;
+};
+
+export type InspectedDumlingId = {
+	[L in SupportedLang]: InspectedDumlingIdForLanguage<L>;
+}[SupportedLang];
+
+export function inspectDumlingId(
+	id: string,
+): InspectedDumlingId | undefined;
+
+// Optional full decode helper if dumling wants to expose it too.
 export type ParsedDumlingIdForLanguage<L extends SupportedLang> =
 	| {
-			kind: "Lemma";
-			language: L;
-			value: Lemma<L>;
+				kind: "Lemma";
+				language: L;
+				value: Lemma<L>;
 	  }
 	| {
 			kind: "Surface";
@@ -215,15 +272,9 @@ export type ParsedDumlingId = {
 }[SupportedLang];
 
 export function parseDumlingId(id: string): Result<ParsedDumlingId, DumlingIdDecodeError>;
-
-export function inferDumlingIdLanguage(id: string): SupportedLang | undefined;
-
-export function inferDumlingIdKind(
-	id: string,
-): "Lemma" | "Surface" | "Selection" | undefined;
 ```
 
-If `parseDumlingId(...)` exists and is good, the smaller helper functions are
+`inspectDumlingId(...)` is the core ask. A full `parseDumlingId(...)` helper is
 optional.
 
 ### Why this matters
@@ -353,21 +404,28 @@ Example:
 
 ```ts
 import type {
-	AbstractFeatures,
-	InherentFeatures,
-	InflectionalFeatures,
 	LemmaDiscriminatorFor,
 	LemmaIdentity,
 	LemmaIdentityInput,
+	LemmaIdentityInputForLanguage,
 	LemmaKindFor,
-	UniversalFeatureValue,
 } from "dumling/identity";
 
 import {
 	getLemmaIdentity,
 } from "dumling/identity";
 
-import { parseDumlingId } from "dumling/introspection";
+import {
+	getSurfaceOwnerLemmaId,
+	inspectDumlingId,
+} from "dumling/introspection";
+
+import type {
+	AbstractFeatures,
+	InherentFeatures,
+	InflectionalFeatures,
+	UniversalFeatureValue,
+} from "dumling/features";
 ```
 
 ### Why this matters
@@ -399,8 +457,8 @@ If `LemmaIdentityInput` exists, helpers like this would be useful:
 
 ```ts
 export function sameLemmaIdentity<L extends SupportedLang>(
-	left: Lemma<L> | LemmaIdentityInput<L, LemmaKindFor<L>, LemmaDiscriminatorFor<L, LemmaKindFor<L>>>,
-	right: Lemma<L> | LemmaIdentityInput<L, LemmaKindFor<L>, LemmaDiscriminatorFor<L, LemmaKindFor<L>>>,
+	left: Lemma<L> | LemmaIdentityInputForLanguage<L>,
+	right: Lemma<L> | LemmaIdentityInputForLanguage<L>,
 ): boolean;
 ```
 
@@ -428,20 +486,25 @@ Those belong in `dumdict`.
    `LemmaKindFor<...>`, `LemmaDiscriminatorFor<...>`,
    `SurfaceSurfaceKindFor<...>`, `SurfaceLemmaKindFor<...>`,
    `SurfaceDiscriminatorFor<...>`
-2. Add `LemmaIdentityInput<...>`, `LemmaIdentity<...>`, and
-   `LemmaIdentityForLanguage<...>`
-3. Add `getLemmaIdentity(...)` and the lower-level lemma/surface accessors
-4. Add `parseDumlingId(...)` or equivalent ID introspection helper
-5. Add public feature exports:
+2. Add `LemmaIdentityInput<...>`, `LemmaIdentityInputForLanguage<...>`,
+   `LemmaIdentity<...>`, and `LemmaIdentityForLanguage<...>`
+3. Add `getLemmaIdentity(...)` as the primary typed API, plus any approved
+   convenience accessors
+4. Add `inspectDumlingId(...)` or equivalent kind/language introspection helper
+5. Add a stable narrow surface ownership helper such as
+   `getSurfaceOwnerLemmaId(...)`
+6. Optionally add `parseDumlingId(...)` if `dumling` wants a public full decode
+   API
+7. Add public feature exports:
    `AbstractFeatures`, `UniversalFeatureValue<K>`,
    `InherentFeatures<...>`, `InflectionalFeatures<...>`
-6. Expose the approved APIs through stable public entrypoints
+8. Expose the approved APIs through stable public entrypoints
 
 ## Expected Downstream Impact On `dumdict`
 
 If the above lands, `dumdict` should be able to remove or simplify:
 
-- `src/dumdict/domain/runtime-accessors.ts`
+- private lemma/surface identity casting in `src/dumdict/domain/runtime-accessors.ts`
 - language-probing ID inference logic in `src/dumdict/domain/validation.ts`
 - language-probing ID checks in `src/dumdict/relations/relation.ts`
 - weak identity shapes currently used for pending lemma targets
