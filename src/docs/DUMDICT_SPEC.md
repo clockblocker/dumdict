@@ -172,6 +172,12 @@ type MorphologicalInverseMap = {
 };
 ```
 
+Examples:
+
+- if lemma `A` morphologically consists of lemma `B`, store `A --consistsOf-> B`
+- the reciprocal stored edge is `B --usedIn-> A`
+- for example, `"handbag"` may `consistsOf` `"bag"`, and `"bag"` is `usedIn` `"handbag"`
+
 ### Relation Rules
 
 - Reciprocity is maintained automatically by `dumdict`.
@@ -183,6 +189,7 @@ type MorphologicalInverseMap = {
 - Every `SurfaceEntry` wraps a `ResolvedSurface<L>`.
 - Every `SurfaceEntry` has exactly one `ownerLemmaId`.
 - `ownerLemmaId` must match the lemma encoded inside `surface.lemma`.
+- `ownerLemmaId` is stored explicitly so `dumdict` can maintain owner-based indexes and reads without re-deriving ownership from `surface`
 - Multiple `SurfaceEntry`s may share the same spelling string.
 - A `SurfaceEntry` cannot have multiple owners.
 - `surface` is immutable after creation.
@@ -208,7 +215,9 @@ Inflectional and orthographic facts are represented through surface ownership an
 Current v1 lookup normalization:
 
 ```ts
-makeLookupKey(input: string) = input.normalize("NFC").toLowerCase()
+normalizeLowercase(input: string) = input.normalize("NFC").toLowerCase()
+
+makeLookupKey(input: string) = normalizeLowercase(input)
 ```
 
 This is a known v1 limitation and is not claimed to be linguistically complete
@@ -287,11 +296,23 @@ listPendingRelationsForLemma(
 ): DumdictResult<PendingLemmaRelation<L>[]>;
 ```
 
+Behavior:
+
+- `getLemmaEntry` returns `LemmaEntryNotFound` if the lemma does not exist
+- `getSurfaceEntry` returns `SurfaceEntryNotFound` if the surface does not exist
+- `getOwnedSurfaceEntries` returns `LemmaEntryNotFound` if the owner lemma does not exist
+- `getOwnedSurfaceEntries` returns an empty record if the owner lemma exists but owns no surfaces
+- `getPendingLemmaRef` returns `PendingRefNotFound` if the pending ref does not exist
+- `listPendingLemmaRefs` returns an empty record when there are no pending refs
+- `listPendingRelationsForLemma` returns `LemmaEntryNotFound` if the lemma does not exist
+- `listPendingRelationsForLemma` returns an empty array if the lemma exists but has no pending relations
+
 ## Write API
 
 ### Upsert
 
-Upsert is full replacement.
+Upsert replaces one entry's own stored fields and its resolved relation
+projection.
 
 ```ts
 upsertLemmaEntry(entry: LemmaEntry<L>): DumdictResult<LemmaEntry<L>>;
@@ -304,9 +325,14 @@ Rules:
 - identity-bearing fields must be internally consistent
 - `upsertLemmaEntry` is a full replacement of the `LemmaEntry` DTO only
 - `upsertLemmaEntry` is graph-aware for resolved lemma relations
+- `upsertLemmaEntry` may reference only existing resolved lemma IDs in its relation fields
+- if any resolved relation target ID does not exist, return `RelationTargetNotFound`
+- `upsertLemmaEntry` does not convert missing resolved IDs into pending refs
+- if the caller wants a pending target, it must use `patchLemmaEntry` with `target.kind === "pending"`
 - replacing a lemma's resolved relation sets also removes stale inverse edges from previously related lemmas
 - resolved relation rewrites are atomic across the affected lemma graph
 - pending relation state is separate from `LemmaEntry` and is not replaced by `upsertLemmaEntry`
+- `upsertLemmaEntry` therefore does not replace the lemma's full pending-plus-resolved relation state in one operation
 - `upsertSurfaceEntry` must enforce `ownerLemmaId` consistency against `surface.lemma`
 - `upsertSurfaceEntry` requires the owner lemma to already exist
 - if the owner lemma does not exist, return `OwnerLemmaNotFound`
@@ -335,6 +361,8 @@ Rules:
 - duplicate add is a no-op
 - remove-missing is a no-op
 - patch may not mutate identity-bearing fields by generic merge
+- if a lemma patch op uses `target.kind === "existing"` and that target lemma ID does not exist, return `RelationTargetNotFound`
+- `patchLemmaEntry` is the only API that can create new pending relation refs from lemma relation writes
 
 ### Pending Relation Write API
 
@@ -413,6 +441,8 @@ Behavior:
 - deleting a `LemmaEntry` removes inbound and outbound lemma relations
 - deleting a `LemmaEntry` removes pending relations where `sourceLemmaId` is that lemma
 - deleting those edges also removes now-unreferenced pending refs
+- deleting a missing lemma returns `LemmaEntryNotFound`
+- deleting a missing surface returns `SurfaceEntryNotFound`
 - deleting a `SurfaceEntry` only deletes that surface entry
 
 ## Pending Unresolved Targets
@@ -459,6 +489,8 @@ Rules:
 - pending refs must preserve the identity granularity that `dumling` uses for real lemmas
 - pending refs stand for a future lemma identity, not just a future canonical spelling
 - pending refs are deduped by language plus `(canonicalLemma, lemmaKind, lemmaSubKind)`
+- pending-ref dedupe uses exact field equality over the stored pending-ref fields
+- lookup normalization does not apply to pending-ref identity or dedupe
 - `dumdict` does not infer semantic sufficiency beyond the pending-ref fields it is given
 - it is the caller's responsibility to supply discriminator fields that are specific enough for the intended future lemma identity
 - if `dumling` lemma identity later requires more discriminators, `PendingLemmaRefInput`, pending dedupe, and pending resolution validation must expand in lockstep
@@ -469,16 +501,18 @@ Rules:
 ```ts
 resolvePendingLemma(
   pendingId: PendingLemmaId<L>,
-  entry: LemmaEntry<L>,
+  lemmaId: DumlingId<"Lemma", L>,
 ): DumdictResult<LemmaEntry<L>>;
 ```
 
 Behavior:
 
-- creates or upserts the real lemma entry
-- validates the resolved `entry.lemma` against the pending ref before resolution
+- resolves the pending ref onto an already-existing lemma entry
+- returns `LemmaEntryNotFound` if the target lemma does not exist
+- validates the target lemma's `lemma` against the pending ref before resolution
 - v1 validation checks `canonicalLemma`, `lemmaKind`, and `lemmaSubKind`
 - mismatches return `PendingResolutionMismatch`
+- resolution does not overwrite the target lemma's notes, attestations, translations, or existing resolved relations beyond adding materialized edges from the pending ref
 - materializes pending inbound relations onto the real entry
 - materializes reciprocal relations onto other real entries
 - removes the resolved pending ref and its pending edges
@@ -512,10 +546,12 @@ Use `neverthrow`.
 type DumdictResult<T> = Result<T, DumdictError>;
 
 type DumdictErrorCode =
-  | "EntryNotFound"
+  | "LemmaEntryNotFound"
+  | "SurfaceEntryNotFound"
   | "PendingRefNotFound"
   | "OwnerLemmaNotFound"
   | "PendingRelationNotFound"
+  | "RelationTargetNotFound"
   | "PendingResolutionMismatch"
   | "LanguageMismatch"
   | "InvalidOwnership"
