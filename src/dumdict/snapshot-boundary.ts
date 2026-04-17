@@ -804,7 +804,7 @@ export function applyPlannedChanges<L extends SupportedLang>(
 				return err(
 					makeError(
 						"InvariantViolation",
-						`Planned change type ${change.type} is not implemented yet in applyPlannedChanges(...).`,
+						"deletePendingRef is not a valid standalone v1 change; pending refs are removed automatically when their last pending relation is deleted.",
 					),
 				);
 			case "createPendingRelation": {
@@ -877,7 +877,7 @@ export function applyPlannedChanges<L extends SupportedLang>(
 			return err(
 				makeError(
 					"InvariantViolation",
-					`Pending lemma ref ${pendingId} was created in changes but did not materialize in the resulting snapshot.`,
+					`Pending lemma ref ${pendingId} was created without any pending relation in the same batch; standalone pending refs are not valid in v1.`,
 				),
 			);
 		}

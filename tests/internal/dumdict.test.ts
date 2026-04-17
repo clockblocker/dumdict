@@ -977,6 +977,79 @@ describe("dumdict", () => {
 		}
 	});
 
+	it("rejects standalone create-pending-ref changes in v1", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const pendingId =
+			"pending:v1:English:stride:Lexeme:VERB" as PendingLemmaId<"English">;
+		const changes = [
+			{
+				type: "createPendingRef",
+				ref: {
+					pendingId,
+					language: "English",
+					canonicalLemma: "stride",
+					lemmaKind: "Lexeme",
+					lemmaSubKind: "VERB",
+				},
+			},
+		] satisfies PlannedChangeOp<"English">[];
+
+		const result = applyPlannedChanges(baseSnapshot, changes);
+
+		expect(result.isErr()).toBe(true);
+		if (result.isErr()) {
+			expect(result.error.code).toBe("InvariantViolation");
+			expect(result.error.message).toContain("standalone");
+		}
+	});
+
+	it("rejects delete-pending-ref changes in v1", () => {
+		const dict = makeDumdict("English");
+		const walkEntry = makeLemmaEntry(englishWalkLemma);
+
+		unwrap(dict.upsertLemmaEntry(walkEntry));
+		unwrap(
+			dict.patchLemmaEntry(walkEntry.id, {
+				op: "addMorphologicalRelation",
+				relation: "derivedFrom",
+				target: {
+					kind: "pending",
+					ref: {
+						canonicalLemma: "stride",
+						lemmaKind: "Lexeme",
+						lemmaSubKind: "VERB",
+					},
+				},
+			}),
+		);
+
+		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
+		const pendingId = baseSnapshot.pendingRefs[0]?.pendingId;
+		if (!pendingId) {
+			throw new Error("Expected one pending ref in the base snapshot.");
+		}
+
+		const changes = [
+			{
+				type: "deletePendingRef",
+				pendingId,
+			},
+		] satisfies PlannedChangeOp<"English">[];
+
+		const result = applyPlannedChanges(baseSnapshot, changes);
+
+		expect(result.isErr()).toBe(true);
+		if (result.isErr()) {
+			expect(result.error.code).toBe("InvariantViolation");
+			expect(result.error.message).toContain("removed automatically");
+		}
+	});
+
 	it("rejects pending self-relations at patch time", () => {
 		const dict = makeDumdict("English");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
