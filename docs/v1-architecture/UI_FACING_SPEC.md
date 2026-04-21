@@ -14,11 +14,11 @@ type DumdictService<L> = {
 
   addAttestation(
     request: AddAttestationRequest<L>,
-  ): Promise<MutationAppliedResult<L>>;
+  ): Promise<MutationResult<L>>;
 
   addNewNote(
     request: AddNewNoteRequest<L>,
-  ): Promise<MutationAppliedResult<L>>;
+  ): Promise<MutationResult<L>>;
 };
 ```
 
@@ -127,6 +127,15 @@ and `dumdict`/`dumling` derive the stable lemma ID from that DTO.
 - picking up old pending refs that match the inserted lemma
 - committing all semantic changes through the storage port
 
+If the loaded storage slice already contains a lemma with the ID derived from
+the draft lemma, `addNewNote` should reject the request with
+`lemmaAlreadyExists`. It should not silently merge the draft into the existing
+lemma.
+
+If the loaded slice says the lemma is missing, but commit fails because another
+writer inserted the same lemma first, the result should be `conflict`, not
+`rejected`.
+
 ## Entry Draft Shape
 
 LLMs and consumer applications should collect generated dictionary data into
@@ -166,19 +175,47 @@ structure to validate, normalize, and plan changes.
 ## Mutation Result
 
 Runtime mutation methods such as `addAttestation` and `addNewNote` should return
-a clean applied result after the storage port accepts the semantic changes.
+a typed mutation result.
 
 ```ts
-type MutationAppliedResult<L> = {
-  status: "applied";
-  baseRevision: StoreRevision;
-  nextRevision: StoreRevision;
-  affected: AffectedDictionaryEntities<L>;
-  summary: MutationSummary;
-  diagnostics?: DumdictDiagnostic[];
-};
+type MutationResult<L> =
+  | {
+      status: "applied";
+      baseRevision: StoreRevision;
+      nextRevision: StoreRevision;
+      affected: AffectedDictionaryEntities<L>;
+      summary: MutationSummary;
+      diagnostics?: DumdictDiagnostic[];
+    }
+  | {
+      status: "conflict";
+      code: MutationConflictCode;
+      baseRevision: StoreRevision;
+      latestRevision?: StoreRevision;
+      message?: string;
+      diagnostics?: DumdictDiagnostic[];
+    }
+  | {
+      status: "rejected";
+      code: MutationRejectedCode;
+      message?: string;
+      diagnostics?: DumdictDiagnostic[];
+    };
+
+type MutationConflictCode =
+  | "revisionConflict"
+  | "semanticPreconditionFailed";
+
+type MutationRejectedCode =
+  | "lemmaAlreadyExists"
+  | "lemmaMissing"
+  | "invalidDraft"
+  | "selfRelation"
+  | "relationTargetMissing"
+  | "semanticPreconditionFailed";
 ```
 
-Conflict or storage errors should be reported as service errors/results at this
-layer. The UI caller should not have to manually apply `PlannedChangeOp`s during
-ordinary operation.
+Expected semantic failures and storage conflicts should be returned through this
+result shape. Unexpected programmer/configuration errors may still throw typed
+errors. The UI caller should not have to manually apply `PlannedChangeOp`s
+during ordinary operation.

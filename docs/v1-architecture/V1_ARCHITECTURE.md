@@ -22,6 +22,8 @@ The intended consumers are:
   workflows.
 - [Storage-facing spec](./STORAGE_FACING_SPEC.md): the setup-time storage port
   a host must implement.
+- [Testing strategy](./TESTING_STRATEGY.md): fixture and in-memory storage
+  strategy for service tests.
 
 ## Intended Flow
 
@@ -120,7 +122,7 @@ The storage port contract is described in the
 - entry validation
 - lookup normalization
 - relation semantics
-- reciprocal relation maintenance
+- inverse-paired relation maintenance
 - pending unresolved targets
 - planning from high-level intents to low-level semantic changes
 
@@ -136,17 +138,21 @@ apply(slice, plan) -> nextSlice // reference/helper, not persistence
 `dumdict-core` can remain exported for tests and advanced consumers, but the
 main integration surface should be the configured service.
 
-### In-Memory Engine
+### In-Memory Storage
 
-The in-memory implementation remains useful as:
+An in-memory storage implementation should exist as internal infrastructure.
 
-- per-operation scratch state
-- a fast index built from a supplied slice
-- a reference implementation for applying plans
-- a test helper
+It should implement the same storage-facing port as real hosts, and may also
+have testing-only helpers such as `loadAll()`.
 
-It must not become the app session source of truth unless a host explicitly
-chooses a local-only mode.
+Its purpose is:
+
+- service-level tests without Obsidian, SQLite, or Electron infrastructure
+- fixtures for pending-ref pickup and relation behavior
+- a reference storage adapter for the v1 port contract
+- per-operation scratch/indexing where useful
+
+It is not part of the public product API.
 
 ## Semantic Model Notes
 
@@ -158,21 +164,8 @@ Unresolved references are not fake lemma entries. They are represented as:
 
 When a real lemma is inserted, `dumdict` checks whether existing pending refs
 match the new lemma identity tuple. Matching pending relations are materialized
-as resolved reciprocal lemma relations, then removed.
+as resolved inverse-paired lemma relations, then removed.
 
-This pickup is deterministic. It is based on the `dumling` lemma identity tuple,
-not LLM judgment and not spelling-only matching.
-
-## Admin APIs
-
-Full-corpus APIs may exist for maintenance:
-
-```ts
-exportAll()
-importAll()
-validateCorpus()
-rebuildIndexes()
-migrateSnapshot()
-```
-
-These APIs are not part of the normal lookup/mutation flow.
+This pickup is deterministic. Pending ID derivation and pending pickup must use
+the same canonical pending identity function. Pickup is not based on LLM
+judgment or spelling-only matching.

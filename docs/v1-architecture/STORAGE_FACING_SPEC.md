@@ -152,7 +152,16 @@ type CommitChangesRequest<L> = {
 
 type CommitChangesResult =
   | { status: "committed"; nextRevision: StoreRevision }
-  | { status: "conflict"; latestRevision: StoreRevision; reason: string };
+  | {
+      status: "conflict";
+      code: CommitConflictCode;
+      latestRevision?: StoreRevision;
+      message?: string;
+    };
+
+type CommitConflictCode =
+  | "revisionConflict"
+  | "semanticPreconditionFailed";
 ```
 
 Storage obligation:
@@ -185,6 +194,19 @@ type PlanMutationResult<L> = {
 };
 ```
 
+Each `PlannedChangeOp` carries its own semantic preconditions:
+
+```ts
+type PlannedChangeOp<L> = {
+  type: string;
+  preconditions: ChangePrecondition<L>[];
+  // op-specific payload
+};
+```
+
+For v1, preconditions are op-local. A future plan-level precondition list can be
+introduced if repeated preconditions, such as revision checks, become too noisy.
+
 The configured service consumes this plan and passes its semantic changes to
 the storage port. `dumdict-core` itself does not commit.
 
@@ -210,6 +232,22 @@ type PendingLemmaRelation<L> = {
   targetPendingId: PendingLemmaId<L>;
 };
 ```
+
+`PendingLemmaId` must be deterministic. It is derived from the canonical pending
+identity tuple:
+
+```ts
+type PendingLemmaIdentity<L> = {
+  language: L;
+  canonicalLemma: string;
+  lemmaKind: LemmaKindFor<L>;
+  lemmaSubKind: LemmaSubKindFor<L, any>;
+};
+```
+
+Pending ID derivation and pending pickup must use the same canonical pending
+identity function. That function may use `dumling` normalization internally, but
+the architecture treats it as one semantic function.
 
 Invariants:
 
@@ -248,7 +286,7 @@ refs match that lemma's identity tuple:
 ```
 
 For every matching pending ref, each incoming pending relation is materialized
-into resolved reciprocal lemma relations.
+into resolved inverse-paired lemma relations.
 
 Given:
 
@@ -271,10 +309,58 @@ ref disappears automatically.
 Pickup is deterministic. It is based on the `dumling` lemma identity tuple, not
 LLM judgment and not spelling-only matching.
 
+## Relation Inverse Rules
+
+All resolved lemma-lemma relations are stored as inverse pairs. This does not
+mean every relation is symmetric: `hypernym` and `hyponym` are different
+directed relations that form an inverse pair.
+
+Inverse rules are scoped by relation family:
+
+```ts
+type RelationInverseRule =
+  | {
+      family: "lexical";
+      relation: LexicalRelation;
+      inverse: LexicalRelation;
+    }
+  | {
+      family: "morphological";
+      relation: MorphologicalRelation;
+      inverse: MorphologicalRelation;
+    };
+```
+
+`dumdict` owns these inverse rules. Storage applies the semantic changes it is
+given; it does not invent relation inverses.
+
+Initial v1 inverse rules:
+
+```ts
+const lexicalRelationInverses = {
+  synonym: "synonym",
+  nearSynonym: "nearSynonym",
+  antonym: "antonym",
+  hypernym: "hyponym",
+  hyponym: "hypernym",
+  meronym: "holonym",
+  holonym: "meronym",
+} satisfies Record<LexicalRelation, LexicalRelation>;
+
+const morphologicalRelationInverses = {
+  consistsOf: "usedIn",
+  usedIn: "consistsOf",
+  derivedFrom: "sourceFor",
+  sourceFor: "derivedFrom",
+} satisfies Record<MorphologicalRelation, MorphologicalRelation>;
+```
+
 ## Semantic Preconditions
 
 Plans should carry semantic preconditions so hosts can detect conflicts without
 depending only on a coarse revision check.
+
+These preconditions live on each `PlannedChangeOp`.
 
 Examples:
 
