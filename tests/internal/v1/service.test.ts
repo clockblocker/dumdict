@@ -1,22 +1,24 @@
 import { describe, expect, test } from "bun:test";
 import {
 	createDumdictService,
-	derivePendingLemmaId,
 	DumdictLanguageMismatchError,
-	makeDumlingIdFor,
-	type Lemma,
 	type DumdictStoragePort,
-	type SurfaceEntry,
+	derivePendingLemmaId,
+	type Lemma,
+	makeDumlingIdFor,
 	type StoreRevision,
+	type SurfaceEntry,
 } from "../../../src/v1";
 import { getBootedUpDumdict } from "../../../src/v1/testing/boot";
 import {
+	englishRunLemma,
 	englishRunLemmaId,
 	englishSwimLemma,
 	englishSwimLemmaSurface,
 	englishWalkLemmaId,
 	enSerializedNotes,
 	enSerializedNotesWithPendingSwimRelation,
+	pendingSwimLemmaId,
 } from "../../fixtures/v1/en-notes";
 
 describe("v1 configured service", () => {
@@ -88,9 +90,7 @@ describe("v1 configured service", () => {
 			)?.lemmaEntry;
 
 		expect(result.status).toBe("applied");
-		expect(storedSwimNote?.attestations).toContain(
-			"They swim every morning.",
-		);
+		expect(storedSwimNote?.attestations).toContain("They swim every morning.");
 		expect(storedSwimNote?.notes).toBe(
 			"Move through water by moving the body.",
 		);
@@ -122,9 +122,7 @@ describe("v1 configured service", () => {
 
 		const storedSwimNote = storage
 			.loadAll()
-			.find(
-				({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim",
-			);
+			.find(({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim");
 
 		expect(result.status).toBe("applied");
 		expect(storedSwimNote?.ownedSurfaceEntries).toHaveLength(1);
@@ -138,10 +136,14 @@ describe("v1 configured service", () => {
 
 	test("addNewNote rejects duplicate lemmas", async () => {
 		const { dict } = getBootedUpDumdict("en", enSerializedNotes);
+		const existingWalkNote = enSerializedNotes[0];
+		if (!existingWalkNote) {
+			throw new Error("Expected English walk fixture.");
+		}
 
 		const result = await dict.addNewNote({
 			draft: {
-				lemma: enSerializedNotes[0]!.lemmaEntry.lemma,
+				lemma: existingWalkNote.lemmaEntry.lemma,
 				note: {
 					attestedTranslations: ["walk"],
 					attestations: ["We walk after dinner."],
@@ -219,6 +221,36 @@ describe("v1 configured service", () => {
 		expect(commitCalls).toBe(0);
 	});
 
+	test("addNewNote rejects self relations", async () => {
+		const { dict } = getBootedUpDumdict("en", enSerializedNotes);
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+				relations: [
+					{
+						relationFamily: "lexical",
+						relation: "nearSynonym",
+						target: {
+							kind: "existing",
+							lemmaId: makeDumlingIdFor("en", englishSwimLemma),
+						},
+					},
+				],
+			},
+		});
+
+		expect(result).toMatchObject({
+			status: "rejected",
+			code: "selfRelation",
+		});
+	});
+
 	test("addNewNote adds explicit inverse-paired relations to existing lemmas", async () => {
 		const { dict, storage } = getBootedUpDumdict("en", enSerializedNotes);
 
@@ -291,21 +323,74 @@ describe("v1 configured service", () => {
 
 		const storedSwim = storage
 			.loadAll()
-			.find(
-				({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim",
-			);
+			.find(({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim");
 
 		expect(result.status).toBe("applied");
-		expect(storedSwim?.pendingRefs?.[0]).toMatchObject({
+		if (!storedSwim) {
+			throw new Error("Expected stored swim note.");
+		}
+		expect(storedSwim.pendingRefs?.[0]).toMatchObject({
 			pendingId: pendingWalkFastId,
 			canonicalLemma: "walk fast",
 		});
-		expect(storedSwim?.lemmaEntry.id).toBeDefined();
-		expect(storedSwim?.pendingRelations).toContainEqual({
-			sourceLemmaId: storedSwim!.lemmaEntry.id,
+		expect(storedSwim.lemmaEntry.id).toBeDefined();
+		expect(storedSwim.pendingRelations).toContainEqual({
+			sourceLemmaId: storedSwim.lemmaEntry.id,
 			relationFamily: "lexical",
 			relation: "nearSynonym",
 			targetPendingId: pendingWalkFastId,
+		});
+	});
+
+	test("addNewNote reuses existing pending refs for proposed pending relation targets", async () => {
+		const { dict, storage } = getBootedUpDumdict(
+			"en",
+			enSerializedNotesWithPendingSwimRelation,
+		);
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishRunLemma,
+				note: {
+					attestedTranslations: ["run"],
+					attestations: ["They run every morning."],
+					notes: "Move quickly on foot.",
+				},
+				relations: [
+					{
+						relationFamily: "lexical",
+						relation: "nearSynonym",
+						target: {
+							kind: "pending",
+							ref: {
+								canonicalLemma: "swim",
+								lemmaKind: "Lexeme",
+								lemmaSubKind: "VERB",
+							},
+						},
+					},
+				],
+			},
+		});
+
+		const storedNotes = storage.loadAll();
+		const pendingRelations = storedNotes.flatMap(
+			({ pendingRelations }) => pendingRelations,
+		);
+		const pendingRefs = storedNotes.flatMap(
+			({ pendingRefs }) => pendingRefs ?? [],
+		);
+
+		expect(result.status).toBe("applied");
+		expect(pendingRefs).toHaveLength(2);
+		expect(
+			pendingRefs.every(({ pendingId }) => pendingId === pendingSwimLemmaId),
+		).toBe(true);
+		expect(pendingRelations).toContainEqual({
+			sourceLemmaId: englishRunLemmaId,
+			relationFamily: "lexical",
+			relation: "nearSynonym",
+			targetPendingId: pendingSwimLemmaId,
 		});
 	});
 
@@ -336,7 +421,9 @@ describe("v1 configured service", () => {
 		const pendingRelations = storedNotes.flatMap(
 			({ pendingRelations }) => pendingRelations,
 		);
-		const pendingRefs = storedNotes.flatMap(({ pendingRefs }) => pendingRefs ?? []);
+		const pendingRefs = storedNotes.flatMap(
+			({ pendingRefs }) => pendingRefs ?? [],
+		);
 
 		expect(result.status).toBe("applied");
 		expect(storedWalk?.lexicalRelations.nearSynonym).toContain(storedSwim?.id);
@@ -414,6 +501,65 @@ describe("v1 configured service", () => {
 			dict.addAttestation({
 				lemmaId: germanLemmaId,
 				attestation: "Wir gehen nach Hause.",
+			} as never),
+		).rejects.toThrow(DumdictLanguageMismatchError);
+
+		expect(storageCalls).toBe(0);
+	});
+
+	test("addNewNote rejects existing relation target language mismatch before storage is called", async () => {
+		const germanGehenLemma = {
+			canonicalLemma: "gehen",
+			inherentFeatures: {},
+			language: "de",
+			lemmaKind: "Lexeme",
+			lemmaSubKind: "VERB",
+			meaningInEmojis: "walk",
+		} satisfies Lemma<"de", "Lexeme", "VERB">;
+		const germanLemmaId = makeDumlingIdFor("de", germanGehenLemma);
+		let storageCalls = 0;
+		const storage = {
+			async findStoredLemmaSenses() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadLemmaForPatch() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadNewNoteContext() {
+				storageCalls += 1;
+				return {
+					revision: "never" as StoreRevision,
+					existingOwnedSurfaces: [],
+					explicitExistingRelationTargets: [],
+					existingPendingRefsForProposedPendingTargets: [],
+					matchingPendingRefsForNewLemma: [],
+					incomingPendingRelationsForNewLemma: [],
+					incomingPendingSourceLemmas: [],
+				};
+			},
+			async commitChanges() {
+				throw new Error("Unexpected storage call");
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		await expect(
+			dict.addNewNote({
+				draft: {
+					lemma: englishSwimLemma,
+					note: {
+						attestedTranslations: ["swim"],
+						attestations: ["They swim every morning."],
+						notes: "Move through water by moving the body.",
+					},
+					relations: [
+						{
+							relationFamily: "lexical",
+							relation: "nearSynonym",
+							target: { kind: "existing", lemmaId: germanLemmaId },
+						},
+					],
+				},
 			} as never),
 		).rejects.toThrow(DumdictLanguageMismatchError);
 

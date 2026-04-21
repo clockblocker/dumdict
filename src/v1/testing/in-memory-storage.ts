@@ -1,8 +1,12 @@
-import type { DumdictStoragePort } from "../storage";
+import { derivePendingLemmaId } from "../core/pending/identity";
+import type { PendingLemmaRelation, StoreRevision } from "../dto";
+import type { SupportedLanguage } from "../dumling";
+import { makeDumlingIdFor } from "../dumling";
 import type {
 	ChangePrecondition,
 	CommitChangesRequest,
 	CommitChangesResult,
+	DumdictStoragePort,
 	FindStoredLemmaSensesStorageRequest,
 	LemmaPatchSlice,
 	LoadLemmaForPatchRequest,
@@ -10,10 +14,6 @@ import type {
 	NewNoteSlice,
 	StoredLemmaSensesSlice,
 } from "../storage";
-import type { SupportedLanguage } from "../dumling";
-import { makeDumlingIdFor } from "../dumling";
-import type { PendingLemmaRelation, StoreRevision } from "../dto";
-import { derivePendingLemmaId } from "../core/pending/identity";
 import type { SerializedDictionaryNote } from "./serialized-note";
 
 export type InMemoryTestStorage<L extends SupportedLanguage> =
@@ -125,8 +125,7 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 			request: LoadNewNoteContextRequest<L>,
 		): Promise<NewNoteSlice<L>> {
 			const draftLemmaId = makeDumlingIdFor(language, request.draft.lemma);
-			const existingLemma =
-				findStoredNoteByLemmaId(draftLemmaId)?.lemmaEntry;
+			const existingLemma = findStoredNoteByLemmaId(draftLemmaId)?.lemmaEntry;
 			const matchingPendingId = derivePendingLemmaId({
 				language,
 				canonicalLemma: request.draft.lemma.canonicalLemma,
@@ -155,6 +154,20 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 							: undefined,
 					)
 					.filter((lemmaId) => lemmaId !== undefined) ?? [];
+			const proposedPendingTargetIds =
+				request.draft.relations
+					?.filter((relation) => relation.target.kind === "pending")
+					.map((relation) =>
+						relation.target.kind === "pending"
+							? derivePendingLemmaId({
+									language,
+									canonicalLemma: relation.target.ref.canonicalLemma,
+									lemmaKind: relation.target.ref.lemmaKind,
+									lemmaSubKind: relation.target.ref.lemmaSubKind,
+								})
+							: undefined,
+					)
+					.filter((pendingId) => pendingId !== undefined) ?? [];
 
 			return {
 				revision: currentRevision(),
@@ -165,12 +178,15 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 				explicitExistingRelationTargets: explicitExistingRelationTargetIds
 					.map((lemmaId) => findStoredNoteByLemmaId(lemmaId)?.lemmaEntry)
 					.filter((lemmaEntry) => lemmaEntry !== undefined),
-				existingPendingRefsForProposedPendingTargets: [],
+				existingPendingRefsForProposedPendingTargets: proposedPendingTargetIds
+					.map((pendingId) => findStoredPendingRefById(pendingId))
+					.filter((pendingRef) => pendingRef !== undefined),
 				matchingPendingRefsForNewLemma: matchingPendingRefs,
 				incomingPendingRelationsForNewLemma: incomingPendingRelations,
 				incomingPendingSourceLemmas: incomingPendingRelations
-					.map((relation) =>
-						findStoredNoteByLemmaId(relation.sourceLemmaId)?.lemmaEntry,
+					.map(
+						(relation) =>
+							findStoredNoteByLemmaId(relation.sourceLemmaId)?.lemmaEntry,
 					)
 					.filter((lemmaEntry) => lemmaEntry !== undefined),
 			};
@@ -210,9 +226,7 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 								latestRevision: currentRevision(),
 							};
 						}
-						storedNote.ownedSurfaceEntries.push(
-							structuredClone(change.entry),
-						);
+						storedNote.ownedSurfaceEntries.push(structuredClone(change.entry));
 						break;
 					}
 					case "createPendingRef": {
@@ -230,9 +244,7 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 								latestRevision: currentRevision(),
 							};
 						}
-						storedNote.pendingRelations.push(
-							structuredClone(change.relation),
-						);
+						storedNote.pendingRelations.push(structuredClone(change.relation));
 						break;
 					}
 					case "deletePendingRelation": {
@@ -249,13 +261,10 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 						storedNote.pendingRelations = storedNote.pendingRelations.filter(
 							(relation) =>
 								!(
-									relation.sourceLemmaId ===
-										change.relation.sourceLemmaId &&
-									relation.relationFamily ===
-										change.relation.relationFamily &&
+									relation.sourceLemmaId === change.relation.sourceLemmaId &&
+									relation.relationFamily === change.relation.relationFamily &&
 									relation.relation === change.relation.relation &&
-									relation.targetPendingId ===
-										change.relation.targetPendingId
+									relation.targetPendingId === change.relation.targetPendingId
 								),
 						);
 						break;
@@ -295,13 +304,11 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 									}
 								} else {
 									const existingTargets =
-										storedNote.lemmaEntry.morphologicalRelations[
-											op.relation
-										] ?? [];
+										storedNote.lemmaEntry.morphologicalRelations[op.relation] ??
+										[];
 									if (!existingTargets.includes(op.targetLemmaId)) {
-										storedNote.lemmaEntry.morphologicalRelations[
-											op.relation
-										] = [...existingTargets, op.targetLemmaId];
+										storedNote.lemmaEntry.morphologicalRelations[op.relation] =
+											[...existingTargets, op.targetLemmaId];
 									}
 								}
 							}
