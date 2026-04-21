@@ -1,4 +1,4 @@
-import type { V0Surface } from "../../../../src/v0/dumling-compat";
+import type { V0Surface } from "../../../src/v0/dumling-compat";
 import {
 	hebrewKatavLemma,
 	hebrewShanaLemma,

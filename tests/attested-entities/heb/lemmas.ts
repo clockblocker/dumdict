@@ -1,4 +1,4 @@
-import type { V0Lemma } from "../../../../src/v0/dumling-compat";
+import type { V0Lemma } from "../../../src/v0/dumling-compat";
 
 // Attestation: "הוא [כתב] מכתב."
 export const hebrewKatavLemma = {

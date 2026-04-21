@@ -1,4 +1,4 @@
-import { dumling, type V0Selection } from "../../../../src/v0/dumling-compat";
+import { dumling, type V0Selection } from "../../../src/v0/dumling-compat";
 import { germanAufJedenFallLemma, germanBVGLemma } from "./lemmas";
 
 // Attestation: "Ich komme [auf jeden Fall] morgen."

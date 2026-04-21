@@ -1,4 +1,4 @@
-import type { V0Selection } from "../../../../src/v0/dumling-compat";
+import type { V0Selection } from "../../../src/v0/dumling-compat";
 import {
 	hebrewKatvuUnresolvedInflectionSurface,
 	hebrewShanaResolvedLemmaSurface,
