@@ -1,5 +1,6 @@
 import type { DumdictStoragePort } from "../storage";
 import type {
+	ChangePrecondition,
 	CommitChangesRequest,
 	CommitChangesResult,
 	FindStoredLemmaSensesStorageRequest,
@@ -25,6 +26,30 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 	const storedNotes = structuredClone(notes) as SerializedDictionaryNote<L>[];
 
 	const currentRevision = () => `mem-${revisionNumber}` as StoreRevision;
+	const findStoredNoteByLemmaId = (lemmaId: string) =>
+		storedNotes.find(({ lemmaEntry }) => lemmaEntry.id === lemmaId);
+
+	const preconditionFails = (
+		precondition: ChangePrecondition<L>,
+		baseRevision: StoreRevision,
+	) => {
+		switch (precondition.kind) {
+			case "revisionMatches":
+				return precondition.revision !== baseRevision;
+			case "lemmaExists":
+				return !findStoredNoteByLemmaId(precondition.lemmaId);
+			case "lemmaMissing":
+				return Boolean(findStoredNoteByLemmaId(precondition.lemmaId));
+			case "lemmaAttestationMissing":
+				return Boolean(
+					findStoredNoteByLemmaId(
+						precondition.lemmaId,
+					)?.lemmaEntry.attestations.includes(precondition.value),
+				);
+			default:
+				return false;
+		}
+	};
 
 	return {
 		async findStoredLemmaSenses(
@@ -54,9 +79,7 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 		): Promise<LemmaPatchSlice<L>> {
 			return {
 				revision: currentRevision(),
-				lemma: storedNotes.find(
-					({ lemmaEntry }) => lemmaEntry.id === request.lemmaId,
-				)?.lemmaEntry,
+				lemma: findStoredNoteByLemmaId(request.lemmaId)?.lemmaEntry,
 			};
 		},
 
@@ -86,14 +109,47 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 		},
 
 		async commitChanges(
-			_request: CommitChangesRequest<L>,
+			request: CommitChangesRequest<L>,
 		): Promise<CommitChangesResult> {
+			for (const change of request.changes) {
+				if (
+					change.preconditions.some((precondition) =>
+						preconditionFails(precondition, request.baseRevision),
+					)
+				) {
+					return {
+						status: "conflict",
+						code: "semanticPreconditionFailed",
+						latestRevision: currentRevision(),
+					};
+				}
+			}
+
+			for (const change of request.changes) {
+				if (change.type !== "patchLemma") {
+					continue;
+				}
+
+				const storedNote = findStoredNoteByLemmaId(change.lemmaId);
+				if (!storedNote) {
+					return {
+						status: "conflict",
+						code: "semanticPreconditionFailed",
+						latestRevision: currentRevision(),
+					};
+				}
+
+				for (const op of change.ops) {
+					if (op.kind === "addAttestation") {
+						storedNote.lemmaEntry.attestations.push(op.value);
+					}
+				}
+			}
+
 			revisionNumber += 1;
 			return {
-				status: "conflict",
-				code: "semanticPreconditionFailed",
-				latestRevision: currentRevision(),
-				message: "v1 in-memory commit is not implemented yet",
+				status: "committed",
+				nextRevision: currentRevision(),
 			};
 		},
 
@@ -102,4 +158,3 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 		},
 	};
 }
-
