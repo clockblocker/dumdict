@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	createDumdictService,
+	derivePendingLemmaId,
 	DumdictLanguageMismatchError,
 	makeDumlingIdFor,
 	type Lemma,
@@ -15,6 +16,7 @@ import {
 	englishSwimLemmaSurface,
 	englishWalkLemmaId,
 	enSerializedNotes,
+	enSerializedNotesWithPendingSwimRelation,
 } from "../../fixtures/v1/en-notes";
 
 describe("v1 configured service", () => {
@@ -251,6 +253,98 @@ describe("v1 configured service", () => {
 			englishWalkLemmaId,
 		);
 		expect(storedWalk?.lexicalRelations.nearSynonym).toContain(storedSwim?.id);
+	});
+
+	test("addNewNote creates pending refs and pending relations for missing relation targets", async () => {
+		const { dict, storage } = getBootedUpDumdict("en", enSerializedNotes);
+		const pendingWalkFastId = derivePendingLemmaId({
+			language: "en",
+			canonicalLemma: "walk fast",
+			lemmaKind: "Lexeme",
+			lemmaSubKind: "VERB",
+		});
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+				relations: [
+					{
+						relationFamily: "lexical",
+						relation: "nearSynonym",
+						target: {
+							kind: "pending",
+							ref: {
+								canonicalLemma: "walk fast",
+								lemmaKind: "Lexeme",
+								lemmaSubKind: "VERB",
+							},
+						},
+					},
+				],
+			},
+		});
+
+		const storedSwim = storage
+			.loadAll()
+			.find(
+				({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim",
+			);
+
+		expect(result.status).toBe("applied");
+		expect(storedSwim?.pendingRefs?.[0]).toMatchObject({
+			pendingId: pendingWalkFastId,
+			canonicalLemma: "walk fast",
+		});
+		expect(storedSwim?.lemmaEntry.id).toBeDefined();
+		expect(storedSwim?.pendingRelations).toContainEqual({
+			sourceLemmaId: storedSwim!.lemmaEntry.id,
+			relationFamily: "lexical",
+			relation: "nearSynonym",
+			targetPendingId: pendingWalkFastId,
+		});
+	});
+
+	test("addNewNote picks up matching pending refs for the inserted lemma", async () => {
+		const { dict, storage } = getBootedUpDumdict(
+			"en",
+			enSerializedNotesWithPendingSwimRelation,
+		);
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+			},
+		});
+
+		const storedNotes = storage.loadAll();
+		const storedWalk = storedNotes.find(
+			({ lemmaEntry }) => lemmaEntry.id === englishWalkLemmaId,
+		)?.lemmaEntry;
+		const storedSwim = storedNotes.find(
+			({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim",
+		)?.lemmaEntry;
+		const pendingRelations = storedNotes.flatMap(
+			({ pendingRelations }) => pendingRelations,
+		);
+		const pendingRefs = storedNotes.flatMap(({ pendingRefs }) => pendingRefs ?? []);
+
+		expect(result.status).toBe("applied");
+		expect(storedWalk?.lexicalRelations.nearSynonym).toContain(storedSwim?.id);
+		expect(storedSwim?.lexicalRelations.nearSynonym).toContain(
+			englishWalkLemmaId,
+		);
+		expect(pendingRelations).toHaveLength(0);
+		expect(pendingRefs).toHaveLength(0);
 	});
 
 	test("findStoredLemmaSenses rejects language mismatch before storage is called", async () => {

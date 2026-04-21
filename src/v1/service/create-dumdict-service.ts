@@ -1,9 +1,12 @@
 import type { SupportedLanguage } from "../dumling";
 import { makeDumlingIdFor } from "../dumling";
 import { inverseRelationFor } from "../core/relations/inverse-rules";
+import { makePendingLemmaRef } from "../core/pending/identity";
 import type {
 	LexicalRelations,
 	MorphologicalRelations,
+	PendingLemmaRef,
+	PendingLemmaRelation,
 } from "../dto";
 import type {
 	AddAttestationRequest,
@@ -144,6 +147,10 @@ export function createDumdictService<L extends SupportedLanguage>(
 				request.draft.relations?.filter(
 					(relation) => relation.target.kind === "existing",
 				) ?? [];
+			const pendingRelations =
+				request.draft.relations?.filter(
+					(relation) => relation.target.kind === "pending",
+				) ?? [];
 			const existingRelationTargetIds = new Set(
 				slice.explicitExistingRelationTargets.map(({ id }) => id),
 			);
@@ -163,6 +170,120 @@ export function createDumdictService<L extends SupportedLanguage>(
 
 			const lexicalRelations: LexicalRelations<L> = {};
 			const morphologicalRelations: MorphologicalRelations<L> = {};
+			const pendingRefsById = new Map<string, PendingLemmaRef<L>>();
+			const pendingRelationEntries: PendingLemmaRelation<L>[] =
+				pendingRelations.map((relation) => {
+				if (relation.target.kind !== "pending") {
+					throw new Error("Unexpected existing relation target");
+				}
+
+				const pendingRef = makePendingLemmaRef({
+					language: options.language,
+					canonicalLemma: relation.target.ref.canonicalLemma,
+					lemmaKind: relation.target.ref.lemmaKind,
+					lemmaSubKind: relation.target.ref.lemmaSubKind,
+				});
+				pendingRefsById.set(pendingRef.pendingId, pendingRef);
+
+				if (relation.relationFamily === "lexical") {
+					return {
+						sourceLemmaId: lemmaId,
+						relationFamily: "lexical",
+						relation: relation.relation,
+						targetPendingId: pendingRef.pendingId,
+					};
+				}
+
+				return {
+					sourceLemmaId: lemmaId,
+					relationFamily: "morphological",
+					relation: relation.relation,
+					targetPendingId: pendingRef.pendingId,
+				};
+			});
+			const pickupRelationPatches = slice.incomingPendingRelationsForNewLemma.map(
+				(relation) => {
+					if (relation.relationFamily === "lexical") {
+						const lexicalRelation = relation.relation;
+						lexicalRelations[
+							inverseRelationFor(relation.relationFamily, lexicalRelation)
+						] = [
+							...(lexicalRelations[
+								inverseRelationFor(relation.relationFamily, lexicalRelation)
+							] ?? []),
+							relation.sourceLemmaId,
+						];
+						return {
+							type: "patchLemma" as const,
+							lemmaId: relation.sourceLemmaId,
+							ops: [
+								{
+									kind: "addRelation" as const,
+									family: "lexical" as const,
+									relation: lexicalRelation,
+									targetLemmaId: lemmaId,
+								},
+							],
+							preconditions: [
+								{ kind: "revisionMatches" as const, revision: slice.revision },
+								{ kind: "lemmaExists" as const, lemmaId: relation.sourceLemmaId },
+							],
+						};
+					}
+
+					const morphologicalRelation = relation.relation;
+					morphologicalRelations[
+						inverseRelationFor(relation.relationFamily, morphologicalRelation)
+					] = [
+						...(morphologicalRelations[
+							inverseRelationFor(
+								relation.relationFamily,
+								morphologicalRelation,
+							)
+						] ?? []),
+						relation.sourceLemmaId,
+					];
+					return {
+						type: "patchLemma" as const,
+						lemmaId: relation.sourceLemmaId,
+						ops: [
+							{
+								kind: "addRelation" as const,
+								family: "morphological" as const,
+								relation: morphologicalRelation,
+								targetLemmaId: lemmaId,
+							},
+						],
+						preconditions: [
+							{ kind: "revisionMatches" as const, revision: slice.revision },
+							{ kind: "lemmaExists" as const, lemmaId: relation.sourceLemmaId },
+						],
+					};
+				},
+			);
+			const deletePendingRelationOps =
+				slice.incomingPendingRelationsForNewLemma.map((relation) => ({
+					type: "deletePendingRelation" as const,
+					relation,
+					preconditions: [
+						{ kind: "revisionMatches" as const, revision: slice.revision },
+						{ kind: "pendingRelationExists" as const, relation },
+					],
+				}));
+			const deletePendingRefOps = slice.matchingPendingRefsForNewLemma.map(
+				(ref) => ({
+					type: "deletePendingRef" as const,
+					pendingId: ref.pendingId,
+					preconditions: [
+						{ kind: "revisionMatches" as const, revision: slice.revision },
+						{ kind: "pendingRefExists" as const, pendingId: ref.pendingId },
+						{
+							kind: "pendingRefHasNoIncomingRelations" as const,
+							pendingId: ref.pendingId,
+						},
+					],
+				}),
+			);
 			const inverseRelationPatches = explicitExistingRelations.map(
 				(relation) => {
 					if (relation.target.kind !== "existing") {
@@ -249,7 +370,34 @@ export function createDumdictService<L extends SupportedLanguage>(
 							{ kind: "lemmaMissing", lemmaId },
 						],
 					},
+					...pickupRelationPatches,
 					...inverseRelationPatches,
+					...Array.from(pendingRefsById.values()).map((ref) => ({
+						type: "createPendingRef" as const,
+						ref,
+						preconditions: [
+							{ kind: "revisionMatches" as const, revision: slice.revision },
+							{
+								kind: "pendingRefMissing" as const,
+								pendingId: ref.pendingId,
+							},
+						],
+					})),
+					...pendingRelationEntries.map((relation) => ({
+						type: "createPendingRelation" as const,
+						relation,
+						preconditions: [
+							{ kind: "revisionMatches" as const, revision: slice.revision },
+							{ kind: "lemmaExists" as const, lemmaId },
+							{
+								kind: "pendingRefExists" as const,
+								pendingId: relation.targetPendingId,
+							},
+							{ kind: "pendingRelationMissing" as const, relation },
+						],
+					})),
+					...deletePendingRelationOps,
+					...deletePendingRefOps,
 					...ownedSurfaceEntries.map((entry) => ({
 						type: "createOwnedSurface" as const,
 						entry,

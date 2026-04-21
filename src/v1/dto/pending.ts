@@ -3,11 +3,7 @@ import type {
 	LemmaSubKindFor,
 	SupportedLanguage,
 } from "../dumling";
-import type {
-	LexicalRelation,
-	MorphologicalRelation,
-	RelationFamily,
-} from "./relations";
+import type { LexicalRelation, MorphologicalRelation } from "./relations";
 import type { DumlingId } from "../dumling";
 
 export type PendingLemmaId<L extends SupportedLanguage> = string & {
@@ -26,10 +22,16 @@ export type PendingLemmaRef<L extends SupportedLanguage> = PendingLemmaIdentity<
 	pendingId: PendingLemmaId<L>;
 };
 
-export type PendingLemmaRelation<L extends SupportedLanguage> = {
-	sourceLemmaId: DumlingId<"Lemma", L>;
-	relationFamily: RelationFamily;
-	relation: LexicalRelation | MorphologicalRelation;
-	targetPendingId: PendingLemmaId<L>;
-};
-
+export type PendingLemmaRelation<L extends SupportedLanguage> =
+	| {
+			sourceLemmaId: DumlingId<"Lemma", L>;
+			relationFamily: "lexical";
+			relation: LexicalRelation;
+			targetPendingId: PendingLemmaId<L>;
+	  }
+	| {
+			sourceLemmaId: DumlingId<"Lemma", L>;
+			relationFamily: "morphological";
+			relation: MorphologicalRelation;
+			targetPendingId: PendingLemmaId<L>;
+	  };

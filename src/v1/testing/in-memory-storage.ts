@@ -12,7 +12,8 @@ import type {
 } from "../storage";
 import type { SupportedLanguage } from "../dumling";
 import { makeDumlingIdFor } from "../dumling";
-import type { StoreRevision } from "../dto";
+import type { PendingLemmaRelation, StoreRevision } from "../dto";
+import { derivePendingLemmaId } from "../core/pending/identity";
 import type { SerializedDictionaryNote } from "./serialized-note";
 
 export type InMemoryTestStorage<L extends SupportedLanguage> =
@@ -26,6 +27,9 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 ): InMemoryTestStorage<L> {
 	let revisionNumber = 1;
 	const storedNotes = structuredClone(notes) as SerializedDictionaryNote<L>[];
+	const storedPendingRefs = storedNotes.flatMap(
+		({ pendingRefs }) => pendingRefs ?? [],
+	);
 
 	const currentRevision = () => `mem-${revisionNumber}` as StoreRevision;
 	const findStoredNoteByLemmaId = (lemmaId: string) =>
@@ -34,6 +38,18 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 		storedNotes
 			.flatMap(({ ownedSurfaceEntries }) => ownedSurfaceEntries)
 			.find(({ id }) => id === surfaceId);
+	const allPendingRelations = () =>
+		storedNotes.flatMap(({ pendingRelations }) => pendingRelations);
+	const findStoredPendingRefById = (pendingId: string) =>
+		storedPendingRefs.find(({ pendingId: id }) => id === pendingId);
+	const hasPendingRelation = (relation: PendingLemmaRelation<L>) =>
+		allPendingRelations().some(
+			(storedRelation) =>
+				storedRelation.sourceLemmaId === relation.sourceLemmaId &&
+				storedRelation.relationFamily === relation.relationFamily &&
+				storedRelation.relation === relation.relation &&
+				storedRelation.targetPendingId === relation.targetPendingId,
+		);
 
 	const preconditionFails = (
 		precondition: ChangePrecondition<L>,
@@ -50,6 +66,18 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 				return !findStoredSurfaceById(precondition.surfaceId);
 			case "surfaceMissing":
 				return Boolean(findStoredSurfaceById(precondition.surfaceId));
+			case "pendingRefExists":
+				return !findStoredPendingRefById(precondition.pendingId);
+			case "pendingRefMissing":
+				return Boolean(findStoredPendingRefById(precondition.pendingId));
+			case "pendingRelationExists":
+				return !hasPendingRelation(precondition.relation);
+			case "pendingRelationMissing":
+				return hasPendingRelation(precondition.relation);
+			case "pendingRefHasNoIncomingRelations":
+				return allPendingRelations().some(
+					(relation) => relation.targetPendingId === precondition.pendingId,
+				);
 			case "lemmaAttestationMissing":
 				return Boolean(
 					findStoredNoteByLemmaId(
@@ -99,6 +127,21 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 			const draftLemmaId = makeDumlingIdFor(language, request.draft.lemma);
 			const existingLemma =
 				findStoredNoteByLemmaId(draftLemmaId)?.lemmaEntry;
+			const matchingPendingId = derivePendingLemmaId({
+				language,
+				canonicalLemma: request.draft.lemma.canonicalLemma,
+				lemmaKind: request.draft.lemma.lemmaKind,
+				lemmaSubKind: request.draft.lemma.lemmaSubKind,
+			});
+			const matchingPendingRefs = storedPendingRefs.filter(
+				(ref) => ref.pendingId === matchingPendingId,
+			);
+			const matchingPendingIds = new Set(
+				matchingPendingRefs.map(({ pendingId }) => pendingId),
+			);
+			const incomingPendingRelations = allPendingRelations().filter(
+				(relation) => matchingPendingIds.has(relation.targetPendingId),
+			);
 			const draftSurfaceIds =
 				request.draft.ownedSurfaces?.map(({ surface }) =>
 					makeDumlingIdFor(language, surface),
@@ -123,9 +166,13 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 					.map((lemmaId) => findStoredNoteByLemmaId(lemmaId)?.lemmaEntry)
 					.filter((lemmaEntry) => lemmaEntry !== undefined),
 				existingPendingRefsForProposedPendingTargets: [],
-				matchingPendingRefsForNewLemma: [],
-				incomingPendingRelationsForNewLemma: [],
-				incomingPendingSourceLemmas: [],
+				matchingPendingRefsForNewLemma: matchingPendingRefs,
+				incomingPendingRelationsForNewLemma: incomingPendingRelations,
+				incomingPendingSourceLemmas: incomingPendingRelations
+					.map((relation) =>
+						findStoredNoteByLemmaId(relation.sourceLemmaId)?.lemmaEntry,
+					)
+					.filter((lemmaEntry) => lemmaEntry !== undefined),
 			};
 		},
 
@@ -166,6 +213,60 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 						storedNote.ownedSurfaceEntries.push(
 							structuredClone(change.entry),
 						);
+						break;
+					}
+					case "createPendingRef": {
+						storedPendingRefs.push(structuredClone(change.ref));
+						break;
+					}
+					case "createPendingRelation": {
+						const storedNote = findStoredNoteByLemmaId(
+							change.relation.sourceLemmaId,
+						);
+						if (!storedNote) {
+							return {
+								status: "conflict",
+								code: "semanticPreconditionFailed",
+								latestRevision: currentRevision(),
+							};
+						}
+						storedNote.pendingRelations.push(
+							structuredClone(change.relation),
+						);
+						break;
+					}
+					case "deletePendingRelation": {
+						const storedNote = findStoredNoteByLemmaId(
+							change.relation.sourceLemmaId,
+						);
+						if (!storedNote) {
+							return {
+								status: "conflict",
+								code: "semanticPreconditionFailed",
+								latestRevision: currentRevision(),
+							};
+						}
+						storedNote.pendingRelations = storedNote.pendingRelations.filter(
+							(relation) =>
+								!(
+									relation.sourceLemmaId ===
+										change.relation.sourceLemmaId &&
+									relation.relationFamily ===
+										change.relation.relationFamily &&
+									relation.relation === change.relation.relation &&
+									relation.targetPendingId ===
+										change.relation.targetPendingId
+								),
+						);
+						break;
+					}
+					case "deletePendingRef": {
+						const refIndex = storedPendingRefs.findIndex(
+							({ pendingId }) => pendingId === change.pendingId,
+						);
+						if (refIndex >= 0) {
+							storedPendingRefs.splice(refIndex, 1);
+						}
 						break;
 					}
 					case "patchLemma": {
@@ -218,7 +319,17 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 		},
 
 		loadAll() {
-			return structuredClone(storedNotes) as SerializedDictionaryNote<L>[];
+			const clonedNotes = structuredClone(
+				storedNotes,
+			) as SerializedDictionaryNote<L>[];
+			return clonedNotes.map((note) => ({
+				...note,
+				pendingRefs: storedPendingRefs.filter((ref) =>
+					note.pendingRelations.some(
+						(relation) => relation.targetPendingId === ref.pendingId,
+					),
+				),
+			}));
 		},
 	};
 }

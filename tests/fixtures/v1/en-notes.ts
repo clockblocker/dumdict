@@ -1,5 +1,5 @@
 import type { Lemma, Surface } from "../../../src/v1";
-import { makeDumlingIdFor } from "../../../src/v1";
+import { derivePendingLemmaId, makeDumlingIdFor } from "../../../src/v1";
 import type { SerializedDictionaryNote } from "../../../src/v1/testing/serialized-note";
 
 export const englishWalkLemma = {
@@ -53,5 +53,44 @@ export const enSerializedNotes = [
 		},
 		ownedSurfaceEntries: [],
 		pendingRelations: [],
+	},
+] satisfies SerializedDictionaryNote<"en">[];
+
+export const pendingSwimLemmaId = derivePendingLemmaId({
+	language: "en",
+	canonicalLemma: "swim",
+	lemmaKind: "Lexeme",
+	lemmaSubKind: "VERB",
+});
+
+export const enSerializedNotesWithPendingSwimRelation = [
+	{
+		lemmaEntry: {
+			id: englishWalkLemmaId,
+			lemma: englishWalkLemma,
+			lexicalRelations: {},
+			morphologicalRelations: {},
+			attestedTranslations: ["walk"],
+			attestations: ["They walk home together."],
+			notes: "Move at a regular pace by lifting and setting down each foot.",
+		},
+		ownedSurfaceEntries: [],
+		pendingRefs: [
+			{
+				pendingId: pendingSwimLemmaId,
+				language: "en",
+				canonicalLemma: "swim",
+				lemmaKind: "Lexeme",
+				lemmaSubKind: "VERB",
+			},
+		],
+		pendingRelations: [
+			{
+				sourceLemmaId: englishWalkLemmaId,
+				relationFamily: "lexical",
+				relation: "nearSynonym",
+				targetPendingId: pendingSwimLemmaId,
+			},
+		],
 	},
 ] satisfies SerializedDictionaryNote<"en">[];

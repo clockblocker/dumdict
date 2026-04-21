@@ -12,4 +12,3 @@ export type SerializedDictionaryNote<L extends SupportedLanguage> = {
 	pendingRefs?: PendingLemmaRef<L>[];
 	pendingRelations: PendingLemmaRelation<L>[];
 };
-
