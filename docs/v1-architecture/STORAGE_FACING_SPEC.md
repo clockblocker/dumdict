@@ -233,8 +233,8 @@ type PendingLemmaRelation<L> = {
 };
 ```
 
-`PendingLemmaId` must be deterministic. It is derived from the canonical pending
-identity tuple:
+`PendingLemmaId` must be deterministic. It is derived by `dumling` from the
+pending lemma identity tuple:
 
 ```ts
 type PendingLemmaIdentity<L> = {
@@ -245,9 +245,11 @@ type PendingLemmaIdentity<L> = {
 };
 ```
 
-Pending ID derivation and pending pickup must use the same canonical pending
-identity function. That function may use `dumling` normalization internally, but
-the architecture treats it as one semantic function.
+Pending ID derivation and pending pickup must use the same `dumling` lemma
+identity rules. If two pending targets produce the same `dumling` pending ID,
+they represent the same unresolved lemma target. When an inserted lemma has the
+same `dumling` identity as a pending target, pickup materializes the pending
+relations for that target.
 
 Invariants:
 
@@ -306,8 +308,8 @@ deletePendingRelation(sourceLemma -> pendingTarget)
 If that was the last pending relation pointing at the pending ref, the pending
 ref disappears automatically.
 
-Pickup is deterministic. It is based on the `dumling` lemma identity tuple, not
-LLM judgment and not spelling-only matching.
+Pickup is deterministic. It is based on the `dumling` lemma identity, not LLM
+judgment and not spelling-only matching.
 
 ## Relation Inverse Rules
 

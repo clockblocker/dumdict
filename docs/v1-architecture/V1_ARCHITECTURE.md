@@ -166,6 +166,6 @@ When a real lemma is inserted, `dumdict` checks whether existing pending refs
 match the new lemma identity tuple. Matching pending relations are materialized
 as resolved inverse-paired lemma relations, then removed.
 
-This pickup is deterministic. Pending ID derivation and pending pickup must use
-the same canonical pending identity function. Pickup is not based on LLM
-judgment or spelling-only matching.
+This pickup is deterministic. Pending ID derivation and pending pickup both use
+the `dumling` lemma identity rules. Pickup is not based on LLM judgment or
+spelling-only matching.

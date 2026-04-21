@@ -211,8 +211,7 @@ type MutationRejectedCode =
   | "lemmaMissing"
   | "invalidDraft"
   | "selfRelation"
-  | "relationTargetMissing"
-  | "semanticPreconditionFailed";
+  | "relationTargetMissing";
 ```
 
 Expected semantic failures and storage conflicts should be returned through this
