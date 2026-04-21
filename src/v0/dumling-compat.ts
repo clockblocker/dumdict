@@ -15,19 +15,19 @@ import type {
 
 export { dumling };
 
-export type SupportedLang = DumlingSupportedLanguage;
+export type V0SupportedLang = DumlingSupportedLanguage;
 
-export const supportedLanguages = ["de", "en", "he"] as const satisfies readonly SupportedLang[];
+export const v0SupportedLanguages = ["de", "en", "he"] as const satisfies readonly V0SupportedLang[];
 
 type EntityKind = "Lemma" | "Selection" | "Surface";
 
-type LanguageApiFor<L extends SupportedLang> = L extends "de"
+type LanguageApiFor<L extends V0SupportedLang> = L extends "de"
 	? typeof dumling.de
 	: L extends "en"
 		? typeof dumling.en
 		: typeof dumling.he;
 
-export function getLanguageApi<L extends SupportedLang>(
+export function getLanguageApi<L extends V0SupportedLang>(
 	language: L,
 ): LanguageApiFor<L> {
 	switch (language) {
@@ -40,74 +40,74 @@ export function getLanguageApi<L extends SupportedLang>(
 	}
 }
 
-export type UniversalLemmaKind = DumlingLemmaKind;
+export type V0UniversalLemmaKind = DumlingLemmaKind;
 
-export type UniversalLemmaSubKind = DumlingLemmaSubKind;
+export type V0UniversalLemmaSubKind = DumlingLemmaSubKind;
 
-export type LemmaKindFor<L extends SupportedLang> = DumlingLemmaKindFor<L>;
+export type V0LemmaKindFor<L extends V0SupportedLang> = DumlingLemmaKindFor<L>;
 
-export type LemmaSubKindFor<
-	L extends SupportedLang,
-	LK extends LemmaKindFor<L>,
+export type V0LemmaSubKindFor<
+	L extends V0SupportedLang,
+	LK extends V0LemmaKindFor<L>,
 > = DumlingLemmaSubKindFor<L, LK>;
 
-export type InherentFeaturesFor<
-	L extends SupportedLang,
-	LK extends LemmaKindFor<L>,
-	LSK extends LemmaSubKindFor<L, LK>,
+export type V0InherentFeaturesFor<
+	L extends V0SupportedLang,
+	LK extends V0LemmaKindFor<L>,
+	LSK extends V0LemmaSubKindFor<L, LK>,
 > = DumlingInherentFeaturesFor<L, LK, LSK>;
 
-export type InflectionalFeaturesFor<
-	L extends SupportedLang,
-	LK extends LemmaKindFor<L>,
-	LSK extends LemmaSubKindFor<L, LK>,
+export type V0InflectionalFeaturesFor<
+	L extends V0SupportedLang,
+	LK extends V0LemmaKindFor<L>,
+	LSK extends V0LemmaSubKindFor<L, LK>,
 > = DumlingInflectionalFeaturesFor<L, LK, LSK>;
 
-export type DumlingId<
+export type V0DumlingId<
 	K extends EntityKind = EntityKind,
-	L extends SupportedLang = SupportedLang,
+	L extends V0SupportedLang = V0SupportedLang,
 > = string & {
 	readonly __dumlingIdKind?: K;
 	readonly __dumlingIdLanguage?: L;
 };
 
-export type Lemma<
-	L extends SupportedLang = SupportedLang,
-	LK extends LemmaKindFor<L> = LemmaKindFor<L>,
-	LSK extends LemmaSubKindFor<L, LK> = LemmaSubKindFor<L, LK>,
+export type V0Lemma<
+	L extends V0SupportedLang = V0SupportedLang,
+	LK extends V0LemmaKindFor<L> = V0LemmaKindFor<L>,
+	LSK extends V0LemmaSubKindFor<L, LK> = V0LemmaSubKindFor<L, LK>,
 > = DumlingLemma<L, LK, LSK>;
 
-export type Surface<
-	L extends SupportedLang = SupportedLang,
+export type V0Surface<
+	L extends V0SupportedLang = V0SupportedLang,
 	SK extends string = string,
-	LK extends LemmaKindFor<L> = LemmaKindFor<L>,
-	LSK extends LemmaSubKindFor<L, LK> = LemmaSubKindFor<L, LK>,
+	LK extends V0LemmaKindFor<L> = V0LemmaKindFor<L>,
+	LSK extends V0LemmaSubKindFor<L, LK> = V0LemmaSubKindFor<L, LK>,
 > = DumlingSurface<L> & {
 	language: L;
 	surfaceKind: SK;
-	lemma: Lemma<L, LK, LSK>;
+	lemma: V0Lemma<L, LK, LSK>;
 };
 
-export type Selection<
-	L extends SupportedLang = SupportedLang,
+export type V0Selection<
+	L extends V0SupportedLang = V0SupportedLang,
 	OS extends string = string,
 	SK extends string = string,
-	LK extends LemmaKindFor<L> = LemmaKindFor<L>,
-	LSK extends LemmaSubKindFor<L, LK> = LemmaSubKindFor<L, LK>,
+	LK extends V0LemmaKindFor<L> = V0LemmaKindFor<L>,
+	LSK extends V0LemmaSubKindFor<L, LK> = V0LemmaSubKindFor<L, LK>,
 > = DumlingSelection<L> & {
 	language: L;
 	orthographicStatus: OS;
-	surface: Surface<L, SK, LK, LSK>;
+	surface: V0Surface<L, SK, LK, LSK>;
 };
 
 type EntityForKind<
 	K extends EntityKind,
-	L extends SupportedLang,
+	L extends V0SupportedLang,
 > = K extends "Lemma"
-	? Lemma<L>
+	? V0Lemma<L>
 	: K extends "Surface"
-		? Surface<L>
-		: Selection<L>;
+		? V0Surface<L>
+		: V0Selection<L>;
 
 function isIdDecodeErrorWithCode(
 	error: IdDecodeError,
@@ -116,32 +116,32 @@ function isIdDecodeErrorWithCode(
 	return error.code === code;
 }
 
-export function makeDumlingIdFor<L extends SupportedLang>(
+export function makeDumlingIdFor<L extends V0SupportedLang>(
 	language: L,
-	value: Lemma<L>,
-): DumlingId<"Lemma", L>;
-export function makeDumlingIdFor<L extends SupportedLang>(
+	value: V0Lemma<L>,
+): V0DumlingId<"Lemma", L>;
+export function makeDumlingIdFor<L extends V0SupportedLang>(
 	language: L,
-	value: Surface<L>,
-): DumlingId<"Surface", L>;
-export function makeDumlingIdFor<L extends SupportedLang>(
+	value: V0Surface<L>,
+): V0DumlingId<"Surface", L>;
+export function makeDumlingIdFor<L extends V0SupportedLang>(
 	language: L,
-	value: Selection<L>,
-): DumlingId<"Selection", L>;
-export function makeDumlingIdFor<L extends SupportedLang>(
+	value: V0Selection<L>,
+): V0DumlingId<"Selection", L>;
+export function makeDumlingIdFor<L extends V0SupportedLang>(
 	language: L,
-	value: Lemma<L> | Surface<L> | Selection<L>,
+	value: V0Lemma<L> | V0Surface<L> | V0Selection<L>,
 ) {
 	const languageApi = getLanguageApi(language) as {
 		id: {
 			encode(value: unknown): string;
 		};
 	};
-	return languageApi.id.encode(value) as DumlingId<EntityKind, L>;
+	return languageApi.id.encode(value) as V0DumlingId<EntityKind, L>;
 }
 
 export function decodeDumlingIdAs<
-	L extends SupportedLang,
+	L extends V0SupportedLang,
 	K extends EntityKind,
 >(language: L, kind: K, id: string): EntityForKind<K, L> | undefined {
 	const result = getLanguageApi(language).id.decodeAs(kind, id);
@@ -151,10 +151,10 @@ export function decodeDumlingIdAs<
 export function inspectDumlingId(id: string):
 	| {
 			kind: EntityKind;
-			language: SupportedLang;
+			language: V0SupportedLang;
 	  }
 	| undefined {
-	for (const language of supportedLanguages) {
+	for (const language of v0SupportedLanguages) {
 		const result = getLanguageApi(language).id.decode(id);
 		if (result.success) {
 			return {

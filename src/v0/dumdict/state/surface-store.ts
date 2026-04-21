@@ -1,14 +1,14 @@
-import type { DumlingId, SupportedLang } from "../../dumling-compat";
+import type { V0DumlingId, V0SupportedLang } from "../../dumling-compat";
 import { makeLookupKey } from "../domain/collections";
 import { getSurfaceNormalizedFullSurface } from "../domain/runtime-accessors";
-import type { SurfaceEntry } from "../public";
+import type { V0SurfaceEntry } from "../public";
 import { cloneSurfaceEntry } from "./clone";
 import { addLookupValue, removeLookupValue } from "./indexes";
-import type { InternalState } from "./state";
+import type { V0InternalState } from "./state";
 
-export function replaceSurfaceEntryDirect<L extends SupportedLang>(
-	state: InternalState<L>,
-	entry: SurfaceEntry<L>,
+export function replaceSurfaceEntryDirect<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	entry: V0SurfaceEntry<L>,
 ) {
 	const canonicalEntry = cloneSurfaceEntry(entry);
 	const existing = state.surfacesById.get(canonicalEntry.id);
@@ -42,9 +42,9 @@ export function replaceSurfaceEntryDirect<L extends SupportedLang>(
 	state.surfaceIdsByOwnerLemmaId.set(canonicalEntry.ownerLemmaId, ownerBucket);
 }
 
-export function deleteSurfaceEntryDirect<L extends SupportedLang>(
-	state: InternalState<L>,
-	surfaceId: DumlingId<"Surface", L>,
+export function deleteSurfaceEntryDirect<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	surfaceId: V0DumlingId<"Surface", L>,
 ) {
 	const existing = state.surfacesById.get(surfaceId);
 	if (!existing) {

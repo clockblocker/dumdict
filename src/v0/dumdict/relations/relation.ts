@@ -1,13 +1,13 @@
-import { type DumlingId, inspectDumlingId } from "../../dumling-compat";
+import { type V0DumlingId, inspectDumlingId } from "../../dumling-compat";
 import { z } from "zod/v3";
-import type { LexicalRelation } from "./lexical";
-import type { MorphologicalRelation } from "./morphological";
+import type { V0LexicalRelation } from "./lexical";
+import type { V0MorphologicalRelation } from "./morphological";
 
 type Prettify<T> = {
 	[K in keyof T]: T[K];
 } & {};
 
-function isLemmaDumlingId(value: string): value is DumlingId<"Lemma"> {
+function isLemmaDumlingId(value: string): value is V0DumlingId<"Lemma"> {
 	return inspectDumlingId(value)?.kind === "Lemma";
 }
 
@@ -21,49 +21,49 @@ const LemmaDumlingIdSchema = z.string().superRefine((value, ctx) => {
 				: "Malformed relation Dumling ID",
 		});
 	}
-}) as unknown as z.ZodType<DumlingId<"Lemma">>;
+}) as unknown as z.ZodType<V0DumlingId<"Lemma">>;
 
-export const RelationTargetDumlingIdsSchema = z.array(
+export const V0RelationTargetDumlingIdsSchema = z.array(
 	LemmaDumlingIdSchema,
-) as unknown as z.ZodType<RelationTargetDumlingIds>;
+) as unknown as z.ZodType<V0RelationTargetDumlingIds>;
 
-export type RelationTargetDumlingIds = DumlingId<"Lemma">[];
+export type V0RelationTargetDumlingIds = V0DumlingId<"Lemma">[];
 
-export type LexicalRelations = Prettify<
-	Partial<Record<LexicalRelation, RelationTargetDumlingIds>>
+export type V0LexicalRelations = Prettify<
+	Partial<Record<V0LexicalRelation, V0RelationTargetDumlingIds>>
 >;
 
-export type MorphologicalRelations = Prettify<
-	Partial<Record<MorphologicalRelation, RelationTargetDumlingIds>>
+export type V0MorphologicalRelations = Prettify<
+	Partial<Record<V0MorphologicalRelation, V0RelationTargetDumlingIds>>
 >;
 
 const lexicalRelationsShape = {
-	antonym: RelationTargetDumlingIdsSchema.optional(),
-	holonym: RelationTargetDumlingIdsSchema.optional(),
-	hypernym: RelationTargetDumlingIdsSchema.optional(),
-	hyponym: RelationTargetDumlingIdsSchema.optional(),
-	meronym: RelationTargetDumlingIdsSchema.optional(),
-	nearSynonym: RelationTargetDumlingIdsSchema.optional(),
-	synonym: RelationTargetDumlingIdsSchema.optional(),
+	antonym: V0RelationTargetDumlingIdsSchema.optional(),
+	holonym: V0RelationTargetDumlingIdsSchema.optional(),
+	hypernym: V0RelationTargetDumlingIdsSchema.optional(),
+	hyponym: V0RelationTargetDumlingIdsSchema.optional(),
+	meronym: V0RelationTargetDumlingIdsSchema.optional(),
+	nearSynonym: V0RelationTargetDumlingIdsSchema.optional(),
+	synonym: V0RelationTargetDumlingIdsSchema.optional(),
 } satisfies Record<
-	LexicalRelation,
-	z.ZodOptional<typeof RelationTargetDumlingIdsSchema>
+	V0LexicalRelation,
+	z.ZodOptional<typeof V0RelationTargetDumlingIdsSchema>
 >;
 
 const morphologicalRelationsShape = {
-	consistsOf: RelationTargetDumlingIdsSchema.optional(),
-	derivedFrom: RelationTargetDumlingIdsSchema.optional(),
-	sourceFor: RelationTargetDumlingIdsSchema.optional(),
-	usedIn: RelationTargetDumlingIdsSchema.optional(),
+	consistsOf: V0RelationTargetDumlingIdsSchema.optional(),
+	derivedFrom: V0RelationTargetDumlingIdsSchema.optional(),
+	sourceFor: V0RelationTargetDumlingIdsSchema.optional(),
+	usedIn: V0RelationTargetDumlingIdsSchema.optional(),
 } satisfies Record<
-	MorphologicalRelation,
-	z.ZodOptional<typeof RelationTargetDumlingIdsSchema>
+	V0MorphologicalRelation,
+	z.ZodOptional<typeof V0RelationTargetDumlingIdsSchema>
 >;
 
-export const LexicalRelationsSchema = z
+export const V0LexicalRelationsSchema = z
 	.object(lexicalRelationsShape)
-	.strict() as unknown as z.ZodType<LexicalRelations>;
+	.strict() as unknown as z.ZodType<V0LexicalRelations>;
 
-export const MorphologicalRelationsSchema = z
+export const V0MorphologicalRelationsSchema = z
 	.object(morphologicalRelationsShape)
-	.strict() as unknown as z.ZodType<MorphologicalRelations>;
+	.strict() as unknown as z.ZodType<V0MorphologicalRelations>;

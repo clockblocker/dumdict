@@ -7,11 +7,11 @@ const morphologicalRelations = [
 	"sourceFor",
 ] as const;
 
-export const MorphologicalRelation = z.enum(morphologicalRelations);
-export type MorphologicalRelation = z.infer<typeof MorphologicalRelation>;
+export const V0MorphologicalRelation = z.enum(morphologicalRelations);
+export type V0MorphologicalRelation = z.infer<typeof V0MorphologicalRelation>;
 
-export const morphologicalRelationKeys = [
-	...MorphologicalRelation.options,
+export const v0MorphologicalRelationKeys = [
+	...V0MorphologicalRelation.options,
 ].sort();
 
 const inverseMorphologicalRelation = {
@@ -19,23 +19,23 @@ const inverseMorphologicalRelation = {
 	derivedFrom: "sourceFor",
 	sourceFor: "derivedFrom",
 	usedIn: "consistsOf",
-} as const satisfies Record<MorphologicalRelation, MorphologicalRelation>;
+} as const satisfies Record<V0MorphologicalRelation, V0MorphologicalRelation>;
 
 const reprForMorphologicalRelation = {
 	consistsOf: "⊃",
 	derivedFrom: "<-",
 	sourceFor: "->",
 	usedIn: "⊂",
-} as const satisfies Record<MorphologicalRelation, string>;
+} as const satisfies Record<V0MorphologicalRelation, string>;
 
 export function getInverseMorphologicalRelation(
-	morphologicalRelation: MorphologicalRelation,
-): MorphologicalRelation {
+	morphologicalRelation: V0MorphologicalRelation,
+): V0MorphologicalRelation {
 	return inverseMorphologicalRelation[morphologicalRelation];
 }
 
 export function getReprForMorphologicalRelation(
-	morphologicalRelation: MorphologicalRelation,
+	morphologicalRelation: V0MorphologicalRelation,
 ) {
 	return reprForMorphologicalRelation[morphologicalRelation];
 }

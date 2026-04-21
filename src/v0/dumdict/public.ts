@@ -1,228 +1,228 @@
 import type {
-	DumlingId,
-	LemmaKindFor,
-	LemmaSubKindFor,
-	Lemma,
-	Surface,
-	SupportedLang,
+	V0DumlingId,
+	V0LemmaKindFor,
+	V0LemmaSubKindFor,
+	V0Lemma,
+	V0Surface,
+	V0SupportedLang,
 } from "../dumling-compat";
-import type { DumdictResult } from "./errors";
-import type { LexicalRelation } from "./relations/lexical";
-import type { MorphologicalRelation } from "./relations/morphological";
+import type { V0DumdictResult } from "./errors";
+import type { V0LexicalRelation } from "./relations/lexical";
+import type { V0MorphologicalRelation } from "./relations/morphological";
 
 type Prettify<T> = {
 	[K in keyof T]: T[K];
 } & {};
 
-export type RelationFamily = "lexical" | "morphological";
+export type V0RelationFamily = "lexical" | "morphological";
 
-export type PendingLemmaId<L extends SupportedLang> = string & {
+export type V0PendingLemmaId<L extends V0SupportedLang> = string & {
 	readonly __pendingLemmaIdBrand: unique symbol;
 	readonly __language?: L;
 };
 
-export type LexicalRelations<L extends SupportedLang> = Prettify<
-	Partial<Record<LexicalRelation, DumlingId<"Lemma", L>[]>>
+export type V0LexicalRelations<L extends V0SupportedLang> = Prettify<
+	Partial<Record<V0LexicalRelation, V0DumlingId<"Lemma", L>[]>>
 >;
 
-export type MorphologicalRelations<L extends SupportedLang> = Prettify<
-	Partial<Record<MorphologicalRelation, DumlingId<"Lemma", L>[]>>
+export type V0MorphologicalRelations<L extends V0SupportedLang> = Prettify<
+	Partial<Record<V0MorphologicalRelation, V0DumlingId<"Lemma", L>[]>>
 >;
 
-export type LemmaEntry<L extends SupportedLang> = {
-	id: DumlingId<"Lemma", L>;
-	lemma: Lemma<L>;
-	lexicalRelations: LexicalRelations<L>;
-	morphologicalRelations: MorphologicalRelations<L>;
+export type V0LemmaEntry<L extends V0SupportedLang> = {
+	id: V0DumlingId<"Lemma", L>;
+	lemma: V0Lemma<L>;
+	lexicalRelations: V0LexicalRelations<L>;
+	morphologicalRelations: V0MorphologicalRelations<L>;
 	attestedTranslations: string[];
 	attestations: string[];
 	notes: string;
 };
 
-export type SurfaceEntry<L extends SupportedLang> = {
-	id: DumlingId<"Surface", L>;
-	surface: Surface<L>;
-	ownerLemmaId: DumlingId<"Lemma", L>;
+export type V0SurfaceEntry<L extends V0SupportedLang> = {
+	id: V0DumlingId<"Surface", L>;
+	surface: V0Surface<L>;
+	ownerLemmaId: V0DumlingId<"Lemma", L>;
 	attestedTranslations: string[];
 	attestations: string[];
 	notes: string;
 };
 
-export type PendingLemmaRefInputCase<
-	L extends SupportedLang,
-	LK extends LemmaKindFor<L>,
-	LSK extends LemmaSubKindFor<L, LK>,
+export type V0PendingLemmaRefInputCase<
+	L extends V0SupportedLang,
+	LK extends V0LemmaKindFor<L>,
+	LSK extends V0LemmaSubKindFor<L, LK>,
 > = {
 	canonicalLemma: string;
 	lemmaKind: LK;
 	lemmaSubKind: LSK;
 };
 
-export type PendingLemmaRefInput<L extends SupportedLang> = {
-	[LK in LemmaKindFor<L>]: {
-		[LSK in LemmaSubKindFor<L, LK>]: PendingLemmaRefInputCase<L, LK, LSK>;
-	}[LemmaSubKindFor<L, LK>];
-}[LemmaKindFor<L>];
+export type V0PendingLemmaRefInput<L extends V0SupportedLang> = {
+	[LK in V0LemmaKindFor<L>]: {
+		[LSK in V0LemmaSubKindFor<L, LK>]: V0PendingLemmaRefInputCase<L, LK, LSK>;
+	}[V0LemmaSubKindFor<L, LK>];
+}[V0LemmaKindFor<L>];
 
-export type PendingLemmaRef<L extends SupportedLang> = PendingLemmaRefInput<L> & {
-	pendingId: PendingLemmaId<L>;
+export type V0PendingLemmaRef<L extends V0SupportedLang> = V0PendingLemmaRefInput<L> & {
+	pendingId: V0PendingLemmaId<L>;
 	language: L;
 };
 
-export type PendingLemmaRelation<L extends SupportedLang> = {
-	sourceLemmaId: DumlingId<"Lemma", L>;
-	relationFamily: RelationFamily;
-	relation: LexicalRelation | MorphologicalRelation;
-	targetPendingId: PendingLemmaId<L>;
+export type V0PendingLemmaRelation<L extends V0SupportedLang> = {
+	sourceLemmaId: V0DumlingId<"Lemma", L>;
+	relationFamily: V0RelationFamily;
+	relation: V0LexicalRelation | V0MorphologicalRelation;
+	targetPendingId: V0PendingLemmaId<L>;
 };
 
-export type LookupResult<L extends SupportedLang> = {
-	lemmas: Record<DumlingId<"Lemma", L>, LemmaEntry<L>>;
-	surfaces: Record<DumlingId<"Surface", L>, SurfaceEntry<L>>;
+export type V0LookupResult<L extends V0SupportedLang> = {
+	lemmas: Record<V0DumlingId<"Lemma", L>, V0LemmaEntry<L>>;
+	surfaces: Record<V0DumlingId<"Surface", L>, V0SurfaceEntry<L>>;
 };
 
-export type DictionarySnapshotData<L extends SupportedLang> = {
+export type V0DictionarySnapshotData<L extends V0SupportedLang> = {
 	language: L;
 	revision: string;
-	lemmas: LemmaEntry<L>[];
-	surfaces: SurfaceEntry<L>[];
-	pendingRefs: PendingLemmaRef<L>[];
-	pendingRelations: PendingLemmaRelation<L>[];
+	lemmas: V0LemmaEntry<L>[];
+	surfaces: V0SurfaceEntry<L>[];
+	pendingRefs: V0PendingLemmaRef<L>[];
+	pendingRelations: V0PendingLemmaRelation<L>[];
 };
 
-export type ReadDictionarySnapshot<L extends SupportedLang> =
-	DictionarySnapshotData<L> & {
+export type V0ReadDictionarySnapshot<L extends V0SupportedLang> =
+	V0DictionarySnapshotData<L> & {
 		authority: "read";
 		completeness: "partial" | "full";
 	};
 
-export type AuthoritativeWriteSnapshot<L extends SupportedLang> =
-	DictionarySnapshotData<L> & {
+export type V0AuthoritativeWriteSnapshot<L extends V0SupportedLang> =
+	V0DictionarySnapshotData<L> & {
 		authority: "write";
 		completeness: "full";
 	};
 
-export type ReadableDictionarySnapshot<L extends SupportedLang> =
-	| ReadDictionarySnapshot<L>
-	| AuthoritativeWriteSnapshot<L>;
+export type V0ReadableDictionarySnapshot<L extends V0SupportedLang> =
+	| V0ReadDictionarySnapshot<L>
+	| V0AuthoritativeWriteSnapshot<L>;
 
-export type ChangePrecondition<L extends SupportedLang> =
+export type V0ChangePrecondition<L extends V0SupportedLang> =
 	| { kind: "snapshotRevisionMatches"; revision: string }
-	| { kind: "lemmaExists"; lemmaId: DumlingId<"Lemma", L> }
-	| { kind: "lemmaMissing"; lemmaId: DumlingId<"Lemma", L> }
-	| { kind: "surfaceExists"; surfaceId: DumlingId<"Surface", L> }
-	| { kind: "surfaceMissing"; surfaceId: DumlingId<"Surface", L> }
-	| { kind: "pendingRefExists"; pendingId: PendingLemmaId<L> }
-	| { kind: "pendingRefMissing"; pendingId: PendingLemmaId<L> };
+	| { kind: "lemmaExists"; lemmaId: V0DumlingId<"Lemma", L> }
+	| { kind: "lemmaMissing"; lemmaId: V0DumlingId<"Lemma", L> }
+	| { kind: "surfaceExists"; surfaceId: V0DumlingId<"Surface", L> }
+	| { kind: "surfaceMissing"; surfaceId: V0DumlingId<"Surface", L> }
+	| { kind: "pendingRefExists"; pendingId: V0PendingLemmaId<L> }
+	| { kind: "pendingRefMissing"; pendingId: V0PendingLemmaId<L> };
 
-export type PlannedChangeOp<L extends SupportedLang> =
+export type V0PlannedChangeOp<L extends V0SupportedLang> =
 	| {
 			type: "createLemma";
-			entry: LemmaEntry<L>;
-			preconditions?: ChangePrecondition<L>[];
+			entry: V0LemmaEntry<L>;
+			preconditions?: V0ChangePrecondition<L>[];
 	  }
 	| {
 			type: "patchLemma";
-			lemmaId: DumlingId<"Lemma", L>;
-			ops: LemmaEntryPatchOp<L>[];
-			preconditions?: ChangePrecondition<L>[];
+			lemmaId: V0DumlingId<"Lemma", L>;
+			ops: V0LemmaEntryPatchOp<L>[];
+			preconditions?: V0ChangePrecondition<L>[];
 	  }
 	| {
 			type: "deleteLemma";
-			id: DumlingId<"Lemma", L>;
-			preconditions?: ChangePrecondition<L>[];
+			id: V0DumlingId<"Lemma", L>;
+			preconditions?: V0ChangePrecondition<L>[];
 	  }
 	| {
 			type: "createSurface";
-			entry: SurfaceEntry<L>;
-			preconditions?: ChangePrecondition<L>[];
+			entry: V0SurfaceEntry<L>;
+			preconditions?: V0ChangePrecondition<L>[];
 	  }
 	| {
 			type: "patchSurface";
-			surfaceId: DumlingId<"Surface", L>;
-			ops: SurfaceEntryPatchOp<L>[];
-			preconditions?: ChangePrecondition<L>[];
+			surfaceId: V0DumlingId<"Surface", L>;
+			ops: V0SurfaceEntryPatchOp<L>[];
+			preconditions?: V0ChangePrecondition<L>[];
 	  }
 	| {
 			type: "deleteSurface";
-			id: DumlingId<"Surface", L>;
-			preconditions?: ChangePrecondition<L>[];
+			id: V0DumlingId<"Surface", L>;
+			preconditions?: V0ChangePrecondition<L>[];
 	  }
 	| {
 			type: "createPendingRef";
-			ref: PendingLemmaRef<L>;
-			preconditions?: ChangePrecondition<L>[];
+			ref: V0PendingLemmaRef<L>;
+			preconditions?: V0ChangePrecondition<L>[];
 	  }
 	| {
 			type: "deletePendingRef";
-			pendingId: PendingLemmaId<L>;
-			preconditions?: ChangePrecondition<L>[];
+			pendingId: V0PendingLemmaId<L>;
+			preconditions?: V0ChangePrecondition<L>[];
 	  }
 	| {
 			type: "createPendingRelation";
-			relation: PendingLemmaRelation<L>;
-			preconditions?: ChangePrecondition<L>[];
+			relation: V0PendingLemmaRelation<L>;
+			preconditions?: V0ChangePrecondition<L>[];
 	  }
 	| {
 			type: "deletePendingRelation";
-			relation: PendingLemmaRelation<L>;
-			preconditions?: ChangePrecondition<L>[];
+			relation: V0PendingLemmaRelation<L>;
+			preconditions?: V0ChangePrecondition<L>[];
 	  };
 
-export type NewLemmaPayload<L extends SupportedLang> = {
-	lemma: Lemma<L>;
+export type V0NewLemmaPayload<L extends V0SupportedLang> = {
+	lemma: V0Lemma<L>;
 	attestedTranslations: string[];
 	attestations: string[];
 	notes: string;
 };
 
-export type OwnedSurfacePayload<L extends SupportedLang> = {
-	surface: Surface<L>;
-	ownerLemmaId: DumlingId<"Lemma", L>;
+export type V0OwnedSurfacePayload<L extends V0SupportedLang> = {
+	surface: V0Surface<L>;
+	ownerLemmaId: V0DumlingId<"Lemma", L>;
 	attestedTranslations: string[];
 	attestations: string[];
 	notes: string;
 };
 
-export type IntentRelationTarget<L extends SupportedLang> =
-	| { kind: "existing"; lemmaId: DumlingId<"Lemma", L> }
-	| { kind: "pending"; ref: PendingLemmaRefInput<L> };
+export type V0IntentRelationTarget<L extends V0SupportedLang> =
+	| { kind: "existing"; lemmaId: V0DumlingId<"Lemma", L> }
+	| { kind: "pending"; ref: V0PendingLemmaRefInput<L> };
 
-export type MutationIntentV1<L extends SupportedLang> =
+export type V0MutationIntentV1<L extends V0SupportedLang> =
 	| {
 			version: "v1";
 			kind: "appendLemmaAttestation";
-			lemmaId: DumlingId<"Lemma", L>;
+			lemmaId: V0DumlingId<"Lemma", L>;
 			attestation: string;
 	  }
 	| {
 			version: "v1";
 			kind: "insertLemma";
-			entry: NewLemmaPayload<L>;
-			ownedSurfaces?: OwnedSurfacePayload<L>[];
+			entry: V0NewLemmaPayload<L>;
+			ownedSurfaces?: V0OwnedSurfacePayload<L>[];
 			initialRelations?: Array<
 				| {
 						relationFamily: "lexical";
-						relation: LexicalRelation;
-						target: IntentRelationTarget<L>;
+						relation: V0LexicalRelation;
+						target: V0IntentRelationTarget<L>;
 				  }
 				| {
 						relationFamily: "morphological";
-						relation: MorphologicalRelation;
-						target: IntentRelationTarget<L>;
+						relation: V0MorphologicalRelation;
+						target: V0IntentRelationTarget<L>;
 				  }
 			>;
 	  }
 	| {
 			version: "v1";
 			kind: "resolvePendingLemma";
-			pendingId: PendingLemmaId<L>;
-			lemmaId: DumlingId<"Lemma", L>;
+			pendingId: V0PendingLemmaId<L>;
+			lemmaId: V0DumlingId<"Lemma", L>;
 	  }
 	| {
 			version: "v1";
 			kind: "upsertOwnedSurface";
-			entry: OwnedSurfacePayload<L>;
+			entry: V0OwnedSurfacePayload<L>;
 	  }
 	| {
 			version: "v1-extension";
@@ -231,11 +231,11 @@ export type MutationIntentV1<L extends SupportedLang> =
 			payload: unknown;
 	  };
 
-export type LemmaRelationTarget<L extends SupportedLang> =
-	| { kind: "existing"; lemmaId: DumlingId<"Lemma", L> }
-	| { kind: "pending"; ref: PendingLemmaRefInput<L> };
+export type V0LemmaRelationTarget<L extends V0SupportedLang> =
+	| { kind: "existing"; lemmaId: V0DumlingId<"Lemma", L> }
+	| { kind: "pending"; ref: V0PendingLemmaRefInput<L> };
 
-export type LemmaEntryPatchOp<L extends SupportedLang> =
+export type V0LemmaEntryPatchOp<L extends V0SupportedLang> =
 	| { op: "addTranslation"; value: string }
 	| { op: "removeTranslation"; value: string }
 	| { op: "addAttestation"; value: string }
@@ -243,72 +243,72 @@ export type LemmaEntryPatchOp<L extends SupportedLang> =
 	| { op: "setNotes"; value: string }
 	| {
 			op: "addLexicalRelation";
-			relation: LexicalRelation;
-			target: LemmaRelationTarget<L>;
+			relation: V0LexicalRelation;
+			target: V0LemmaRelationTarget<L>;
 	  }
 	| {
 			op: "removeLexicalRelation";
-			relation: LexicalRelation;
-			target: LemmaRelationTarget<L>;
+			relation: V0LexicalRelation;
+			target: V0LemmaRelationTarget<L>;
 	  }
 	| {
 			op: "addMorphologicalRelation";
-			relation: MorphologicalRelation;
-			target: LemmaRelationTarget<L>;
+			relation: V0MorphologicalRelation;
+			target: V0LemmaRelationTarget<L>;
 	  }
 	| {
 			op: "removeMorphologicalRelation";
-			relation: MorphologicalRelation;
-			target: LemmaRelationTarget<L>;
+			relation: V0MorphologicalRelation;
+			target: V0LemmaRelationTarget<L>;
 	  };
 
-export type SurfaceEntryPatchOp<_L extends SupportedLang> =
+export type V0SurfaceEntryPatchOp<_L extends V0SupportedLang> =
 	| { op: "addTranslation"; value: string }
 	| { op: "removeTranslation"; value: string }
 	| { op: "addAttestation"; value: string }
 	| { op: "removeAttestation"; value: string }
 	| { op: "setNotes"; value: string };
 
-export type Dumdict<L extends SupportedLang> = {
+export type V0Dumdict<L extends V0SupportedLang> = {
 	readonly language: L;
 	exportAuthoritativeSnapshot(
 		revision: string,
-	): DumdictResult<AuthoritativeWriteSnapshot<L>>;
-	lookupBySurface(surface: string): DumdictResult<LookupResult<L>>;
+	): V0DumdictResult<V0AuthoritativeWriteSnapshot<L>>;
+	lookupBySurface(surface: string): V0DumdictResult<V0LookupResult<L>>;
 	lookupLemmasBySurface(
 		surface: string,
-	): DumdictResult<Record<DumlingId<"Lemma", L>, LemmaEntry<L>>>;
-	getLemmaEntry(id: DumlingId<"Lemma", L>): DumdictResult<LemmaEntry<L>>;
+	): V0DumdictResult<Record<V0DumlingId<"Lemma", L>, V0LemmaEntry<L>>>;
+	getLemmaEntry(id: V0DumlingId<"Lemma", L>): V0DumdictResult<V0LemmaEntry<L>>;
 	getSurfaceEntry(
-		id: DumlingId<"Surface", L>,
-	): DumdictResult<SurfaceEntry<L>>;
+		id: V0DumlingId<"Surface", L>,
+	): V0DumdictResult<V0SurfaceEntry<L>>;
 	getOwnedSurfaceEntries(
-		lemmaId: DumlingId<"Lemma", L>,
-	): DumdictResult<Record<DumlingId<"Surface", L>, SurfaceEntry<L>>>;
+		lemmaId: V0DumlingId<"Lemma", L>,
+	): V0DumdictResult<Record<V0DumlingId<"Surface", L>, V0SurfaceEntry<L>>>;
 	getPendingLemmaRef(
-		pendingId: PendingLemmaId<L>,
-	): DumdictResult<PendingLemmaRef<L>>;
-	listPendingLemmaRefs(): DumdictResult<
-		Record<PendingLemmaId<L>, PendingLemmaRef<L>>
+		pendingId: V0PendingLemmaId<L>,
+	): V0DumdictResult<V0PendingLemmaRef<L>>;
+	listPendingLemmaRefs(): V0DumdictResult<
+		Record<V0PendingLemmaId<L>, V0PendingLemmaRef<L>>
 	>;
 	listPendingRelationsForLemma(
-		lemmaId: DumlingId<"Lemma", L>,
-	): DumdictResult<PendingLemmaRelation<L>[]>;
-	upsertLemmaEntry(entry: LemmaEntry<L>): DumdictResult<LemmaEntry<L>>;
-	upsertSurfaceEntry(entry: SurfaceEntry<L>): DumdictResult<SurfaceEntry<L>>;
+		lemmaId: V0DumlingId<"Lemma", L>,
+	): V0DumdictResult<V0PendingLemmaRelation<L>[]>;
+	upsertLemmaEntry(entry: V0LemmaEntry<L>): V0DumdictResult<V0LemmaEntry<L>>;
+	upsertSurfaceEntry(entry: V0SurfaceEntry<L>): V0DumdictResult<V0SurfaceEntry<L>>;
 	patchLemmaEntry(
-		id: DumlingId<"Lemma", L>,
-		ops: LemmaEntryPatchOp<L> | LemmaEntryPatchOp<L>[],
-	): DumdictResult<LemmaEntry<L>>;
+		id: V0DumlingId<"Lemma", L>,
+		ops: V0LemmaEntryPatchOp<L> | V0LemmaEntryPatchOp<L>[],
+	): V0DumdictResult<V0LemmaEntry<L>>;
 	patchSurfaceEntry(
-		id: DumlingId<"Surface", L>,
-		ops: SurfaceEntryPatchOp<L> | SurfaceEntryPatchOp<L>[],
-	): DumdictResult<SurfaceEntry<L>>;
-	removePendingRelation(edge: PendingLemmaRelation<L>): DumdictResult<void>;
+		id: V0DumlingId<"Surface", L>,
+		ops: V0SurfaceEntryPatchOp<L> | V0SurfaceEntryPatchOp<L>[],
+	): V0DumdictResult<V0SurfaceEntry<L>>;
+	removePendingRelation(edge: V0PendingLemmaRelation<L>): V0DumdictResult<void>;
 	resolvePendingLemma(
-		pendingId: PendingLemmaId<L>,
-		lemmaId: DumlingId<"Lemma", L>,
-	): DumdictResult<LemmaEntry<L>>;
-	deleteLemmaEntry(id: DumlingId<"Lemma", L>): DumdictResult<void>;
-	deleteSurfaceEntry(id: DumlingId<"Surface", L>): DumdictResult<void>;
+		pendingId: V0PendingLemmaId<L>,
+		lemmaId: V0DumlingId<"Lemma", L>,
+	): V0DumdictResult<V0LemmaEntry<L>>;
+	deleteLemmaEntry(id: V0DumlingId<"Lemma", L>): V0DumdictResult<void>;
+	deleteSurfaceEntry(id: V0DumlingId<"Surface", L>): V0DumdictResult<void>;
 };

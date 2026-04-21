@@ -1,4 +1,4 @@
-import type { Lemma } from "../../../../src/dumling-compat";
+import type { V0Lemma } from "../../../../src/v0/dumling-compat";
 
 // Attestation: "They [walk] home together."
 export const englishWalkLemma = {
@@ -8,7 +8,7 @@ export const englishWalkLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🚶",
 	lemmaSubKind: "VERB",
-} satisfies Lemma<"en", "Lexeme", "VERB">;
+} satisfies V0Lemma<"en", "Lexeme", "VERB">;
 
 // Attestation: "Mark gave [up] on it."
 export const englishGiveUpLemma = {
@@ -20,4 +20,4 @@ export const englishGiveUpLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🙅",
 	lemmaSubKind: "VERB",
-} satisfies Lemma<"en", "Lexeme", "VERB">;
+} satisfies V0Lemma<"en", "Lexeme", "VERB">;

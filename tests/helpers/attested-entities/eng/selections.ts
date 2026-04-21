@@ -1,4 +1,4 @@
-import type { Selection } from "../../../../src/dumling-compat";
+import type { V0Selection } from "../../../../src/v0/dumling-compat";
 import {
 	englishGiveUpTypoUnresolvedInflectionSurface,
 	englishWalkResolvedLemmaSurface,
@@ -13,7 +13,7 @@ export const englishWalkStandardFullSelection = {
 	spelledSelection: "walk",
 	spellingRelation: "Canonical",
 	surface: englishWalkUnresolvedInflectionSurface,
-} satisfies Selection<"en", "Standard", "Inflection", "Lexeme", "VERB">;
+} satisfies V0Selection<"en", "Standard", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkResolvedLemmaSelection = {
@@ -23,7 +23,7 @@ export const englishWalkResolvedLemmaSelection = {
 	spelledSelection: "walk",
 	spellingRelation: "Canonical",
 	surface: englishWalkResolvedLemmaSurface,
-} satisfies Selection<"en", "Standard", "Lemma", "Lexeme", "VERB">;
+} satisfies V0Selection<"en", "Standard", "Lemma", "Lexeme", "VERB">;
 
 // Attestation: "Mark gvae [up] on it."
 export const englishGiveUpTypoPartialUpSelection = {
@@ -33,7 +33,7 @@ export const englishGiveUpTypoPartialUpSelection = {
 	spelledSelection: "up",
 	spellingRelation: "Canonical",
 	surface: englishGiveUpTypoUnresolvedInflectionSurface,
-} satisfies Selection<"en", "Typo", "Inflection", "Lexeme", "VERB">;
+} satisfies V0Selection<"en", "Typo", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "Mark [gvae] up on it."
 export const englishGiveUpTypoPartialGvaeSelection = {
@@ -43,4 +43,4 @@ export const englishGiveUpTypoPartialGvaeSelection = {
 	spelledSelection: "gvae",
 	spellingRelation: "Variant",
 	surface: englishGiveUpTypoUnresolvedInflectionSurface,
-} satisfies Selection<"en", "Typo", "Inflection", "Lexeme", "VERB">;
+} satisfies V0Selection<"en", "Typo", "Inflection", "Lexeme", "VERB">;

@@ -6,8 +6,8 @@ Dictionary storage, lookup indexes, and relation helpers built on top of `dumlin
 
 `dumdict` keeps three concerns separate:
 
-- `LemmaEntry`: the stored dictionary node
-- `SurfaceEntry`: the owned resolved surface entry
+- `V0LemmaEntry`: the stored dictionary node
+- `V0SurfaceEntry`: the owned resolved surface entry
 - pending lemma refs: unresolved relation targets that can be linked later
 
 ## Core idea
@@ -18,45 +18,45 @@ A `dumdict` instance is bound to one language:
 const dict = makeDumdict("en");
 ```
 
-A `LemmaEntry` stores the stable lemma payload plus graph-level dictionary metadata:
+A `V0LemmaEntry` stores the stable lemma payload plus graph-level dictionary metadata:
 
 ```ts
 const walkEntry = {
-	id: dumling.en.id.encode(walkLemma) as LemmaEntry<"en">["id"],
+	id: dumling.en.id.encode(walkLemma) as V0LemmaEntry<"en">["id"],
 	lemma: walkLemma,
 	lexicalRelations: {},
 	morphologicalRelations: {},
 	attestedTranslations: ["caminar", "gehen"],
 	attestations: ["They walk home together."],
 	notes: "Core motion verb.",
-} satisfies LemmaEntry<"en">;
+} satisfies V0LemmaEntry<"en">;
 ```
 
-A `SurfaceEntry` stores a resolved surface plus an explicit owning lemma ID:
+A `V0SurfaceEntry` stores a resolved surface plus an explicit owning lemma ID:
 
 ```ts
 const walkSurfaceEntry = {
-	id: dumling.en.id.encode(walkSurface) as SurfaceEntry<"en">["id"],
+	id: dumling.en.id.encode(walkSurface) as V0SurfaceEntry<"en">["id"],
 	surface: walkSurface,
 	ownerLemmaId: walkEntry.id,
 	attestedTranslations: ["walk"],
 	attestations: ["They walk home together."],
 	notes: "Present finite surface.",
-} satisfies SurfaceEntry<"en">;
+} satisfies V0SurfaceEntry<"en">;
 ```
 
 Reciprocal lemma-to-lemma edges are maintained automatically:
 
 ```ts
 const runEntry = {
-	id: dumling.en.id.encode(runLemma) as LemmaEntry<"en">["id"],
+	id: dumling.en.id.encode(runLemma) as V0LemmaEntry<"en">["id"],
 	lemma: runLemma,
 	lexicalRelations: {},
 	morphologicalRelations: {},
 	attestedTranslations: [],
 	attestations: [],
 	notes: "",
-} satisfies LemmaEntry<"en">;
+} satisfies V0LemmaEntry<"en">;
 
 const dictForRelations = makeDumdict("en");
 unwrap(dictForRelations.upsertLemmaEntry(walkEntry));
@@ -98,8 +98,8 @@ const foundSurfaceIds = Object.keys(lookup.surfaces);
 The root export is intentionally small:
 
 - `makeDumdict`: creates a language-bound in-memory dictionary
-- `Relations`: enum, inverse, and repr helpers for lexical and morphological links
-- `LexicalRelationsSchema`, `MorphologicalRelationsSchema`, and `RelationTargetDumlingIdsSchema`: validation helpers for relation payloads
+- `V0Relations`: enum, inverse, and repr helpers for lexical and morphological links
+- `V0LexicalRelationsSchema`, `V0MorphologicalRelationsSchema`, and `V0RelationTargetDumlingIdsSchema`: validation helpers for relation payloads
 
 ## Scope
 

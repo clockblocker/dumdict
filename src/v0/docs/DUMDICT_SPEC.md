@@ -32,7 +32,7 @@ consumer-facing mutation intents.
 
 - One `dumdict` instance is bound to exactly one language.
 - All public APIs are the same for every language.
-- All dictionary DTOs are parameterized by `L extends SupportedLang`.
+- All dictionary DTOs are parameterized by `L extends V0SupportedLang`.
 
 ## Status
 
@@ -85,7 +85,7 @@ const heDict = makeDumdict("Hebrew");
 ```
 
 ```ts
-declare function makeDumdict<L extends SupportedLang>(language: L): Dumdict<L>;
+declare function makeDumdict<L extends V0SupportedLang>(language: L): Dumdict<L>;
 ```
 
 ## Core Model
@@ -102,7 +102,7 @@ There are two entry kinds in v1:
 ### `LemmaEntry`
 
 ```ts
-type LemmaEntry<L extends SupportedLang> = {
+type LemmaEntry<L extends V0SupportedLang> = {
   id: DumlingId<"Lemma", L>;
   lemma: Lemma<L>;
   lexicalRelations: LexicalRelations<L>;
@@ -116,7 +116,7 @@ type LemmaEntry<L extends SupportedLang> = {
 ### `SurfaceEntry`
 
 ```ts
-type SurfaceEntry<L extends SupportedLang> = {
+type SurfaceEntry<L extends V0SupportedLang> = {
   id: DumlingId<"Surface", L>;
   surface: Surface<L>;
   ownerLemmaId: DumlingId<"Lemma", L>;
@@ -175,10 +175,10 @@ type MorphologicalRelation =
 ### Relation Maps
 
 ```ts
-type LexicalRelations<L extends SupportedLang> =
+type LexicalRelations<L extends V0SupportedLang> =
   Partial<Record<LexicalRelation, DumlingId<"Lemma", L>[]>>;
 
-type MorphologicalRelations<L extends SupportedLang> =
+type MorphologicalRelations<L extends V0SupportedLang> =
   Partial<Record<MorphologicalRelation, DumlingId<"Lemma", L>[]>>;
 ```
 
@@ -284,7 +284,7 @@ for all supported languages.
 ### `lookupBySurface`
 
 ```ts
-type LookupResult<L extends SupportedLang> = {
+type LookupResult<L extends V0SupportedLang> = {
   lemmas: Record<DumlingId<"Lemma", L>, LemmaEntry<L>>;
   surfaces: Record<DumlingId<"Surface", L>, SurfaceEntry<L>>;
 };
@@ -463,11 +463,11 @@ Rules:
 ### Lemma Patch Operations
 
 ```ts
-type LemmaRelationTarget<L extends SupportedLang> =
+type LemmaRelationTarget<L extends V0SupportedLang> =
   | { kind: "existing"; lemmaId: DumlingId<"Lemma", L> }
   | { kind: "pending"; ref: PendingLemmaRefInput<L> };
 
-type LemmaEntryPatchOp<L extends SupportedLang> =
+type LemmaEntryPatchOp<L extends V0SupportedLang> =
   | { op: "addTranslation"; value: string }
   | { op: "removeTranslation"; value: string }
   | { op: "addAttestation"; value: string }
@@ -498,7 +498,7 @@ type LemmaEntryPatchOp<L extends SupportedLang> =
 ### Surface Patch Operations
 
 ```ts
-type SurfaceEntryPatchOp<L extends SupportedLang> =
+type SurfaceEntryPatchOp<L extends V0SupportedLang> =
   | { op: "addTranslation"; value: string }
   | { op: "removeTranslation"; value: string }
   | { op: "addAttestation"; value: string }
@@ -544,18 +544,18 @@ identity granularity. They are not bare spelling-only stubs.
 ### Pending DTOs
 
 ```ts
-type PendingLemmaId<L extends SupportedLang> = string & {
+type PendingLemmaId<L extends V0SupportedLang> = string & {
   readonly __brand: "PendingLemmaId";
   readonly __language: L;
 };
 
-type PendingLemmaRefInput<L extends SupportedLang> = {
+type PendingLemmaRefInput<L extends V0SupportedLang> = {
   canonicalLemma: string;
   lemmaKind: UniversalLemmaKind;
   lemmaSubKind: UniversalLemmaSubKind;
 };
 
-type PendingLemmaRef<L extends SupportedLang> = {
+type PendingLemmaRef<L extends V0SupportedLang> = {
   pendingId: PendingLemmaId<L>;
   language: L;
   canonicalLemma: string;
@@ -563,7 +563,7 @@ type PendingLemmaRef<L extends SupportedLang> = {
   lemmaSubKind: UniversalLemmaSubKind;
 };
 
-type PendingLemmaRelation<L extends SupportedLang> = {
+type PendingLemmaRelation<L extends V0SupportedLang> = {
   sourceLemmaId: DumlingId<"Lemma", L>;
   relationFamily: "lexical" | "morphological";
   relation: LexicalRelation | MorphologicalRelation;
@@ -585,7 +585,7 @@ type PendingLemmaIdV1 =
 ```
 
 - each encoded segment is `encodeURIComponent(...)` of the corresponding raw field value
-- `language` is the exact `SupportedLang` discriminant string
+- `language` is the exact `V0SupportedLang` discriminant string
 - `canonicalLemma`, `lemmaKind`, and `lemmaSubKind` use exact field values with no lookup normalization
 - the separator is literal `:`
 - the prefix is literal `pending:v1:`
@@ -751,7 +751,7 @@ current exports.
 Minimal shape:
 
 ```ts
-type DictionarySnapshotData<L extends SupportedLang> = {
+type DictionarySnapshotData<L extends V0SupportedLang> = {
   revision: string;
   lemmas: LemmaEntry<L>[];
   surfaces: SurfaceEntry<L>[];
@@ -759,30 +759,30 @@ type DictionarySnapshotData<L extends SupportedLang> = {
   pendingRelations: PendingLemmaRelation<L>[];
 };
 
-type ReadDictionarySnapshot<L extends SupportedLang> =
+type ReadDictionarySnapshot<L extends V0SupportedLang> =
   DictionarySnapshotData<L> & {
     authority: "read";
     completeness: "partial" | "full";
   };
 
-type AuthoritativeWriteSnapshot<L extends SupportedLang> =
+type AuthoritativeWriteSnapshot<L extends V0SupportedLang> =
   DictionarySnapshotData<L> & {
     authority: "write";
     completeness: "full";
   };
 
-type ReadableDictionarySnapshot<L extends SupportedLang> =
+type ReadableDictionarySnapshot<L extends V0SupportedLang> =
   | ReadDictionarySnapshot<L>
   | AuthoritativeWriteSnapshot<L>;
 
-type NewLemmaPayload<L extends SupportedLang> = {
+type NewLemmaPayload<L extends V0SupportedLang> = {
   lemma: Lemma<L>;
   attestedTranslations: string[];
   attestations: string[];
   notes: string;
 };
 
-type OwnedSurfacePayload<L extends SupportedLang> = {
+type OwnedSurfacePayload<L extends V0SupportedLang> = {
   surface: Surface<L>;
   ownerLemmaId: DumlingId<"Lemma", L>;
   attestedTranslations: string[];
@@ -790,11 +790,11 @@ type OwnedSurfacePayload<L extends SupportedLang> = {
   notes: string;
 };
 
-type IntentRelationTarget<L extends SupportedLang> =
+type IntentRelationTarget<L extends V0SupportedLang> =
   | { kind: "existing"; lemmaId: DumlingId<"Lemma", L> }
   | { kind: "pending"; ref: PendingLemmaRefInput<L> };
 
-type MutationIntentV1<L extends SupportedLang> =
+type MutationIntentV1<L extends V0SupportedLang> =
   | {
       version: "v1";
       kind: "appendLemmaAttestation";
@@ -837,7 +837,7 @@ type MutationIntentV1<L extends SupportedLang> =
       payload: unknown;
     };
 
-type ChangePrecondition<L extends SupportedLang> =
+type ChangePrecondition<L extends V0SupportedLang> =
   | { kind: "snapshotRevisionMatches"; revision: string }
   | { kind: "lemmaExists"; lemmaId: DumlingId<"Lemma", L> }
   | { kind: "lemmaMissing"; lemmaId: DumlingId<"Lemma", L> }
@@ -846,7 +846,7 @@ type ChangePrecondition<L extends SupportedLang> =
   | { kind: "pendingRefExists"; pendingId: PendingLemmaId<L> }
   | { kind: "pendingRefMissing"; pendingId: PendingLemmaId<L> };
 
-type PlannedChangeOp<L extends SupportedLang> =
+type PlannedChangeOp<L extends V0SupportedLang> =
   | {
       type: "createLemma";
       entry: LemmaEntry<L>;
@@ -900,7 +900,7 @@ type PlannedChangeOp<L extends SupportedLang> =
       preconditions?: ChangePrecondition<L>[];
     };
 
-interface DumdictSnapshotBoundary<L extends SupportedLang> {
+interface DumdictSnapshotBoundary<L extends V0SupportedLang> {
   validateReadableSnapshot(
     snapshot: ReadableDictionarySnapshot<L>,
   ): DumdictResult<void>;
@@ -920,7 +920,7 @@ interface DumdictSnapshotBoundary<L extends SupportedLang> {
   ): DumdictResult<AuthoritativeWriteSnapshot<L>>;
 }
 
-interface DumdictPlanningBoundary<L extends SupportedLang>
+interface DumdictPlanningBoundary<L extends V0SupportedLang>
   extends DumdictSnapshotBoundary<L> {
   lookupBySurface(
     snapshot: ReadableDictionarySnapshot<L>,
@@ -1038,7 +1038,7 @@ small persistence contract around snapshots and planned changes.
 Minimal shape:
 
 ```ts
-interface DumdictHost<L extends SupportedLang> {
+interface DumdictHost<L extends V0SupportedLang> {
   readonly language: L;
   loadSnapshot(
     mode: "read",

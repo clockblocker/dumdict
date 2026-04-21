@@ -1,14 +1,14 @@
-import type { DumlingId, SupportedLang } from "../../dumling-compat";
+import type { V0DumlingId, V0SupportedLang } from "../../dumling-compat";
 import { makeLookupKey } from "../domain/collections";
 import { getLemmaCanonicalLemma } from "../domain/runtime-accessors";
-import type { LemmaEntry } from "../public";
+import type { V0LemmaEntry } from "../public";
 import { cloneLemmaEntry } from "./clone";
 import { addLookupValue, removeLookupValue } from "./indexes";
-import type { InternalState } from "./state";
+import type { V0InternalState } from "./state";
 
-export function replaceLemmaEntryDirect<L extends SupportedLang>(
-	state: InternalState<L>,
-	entry: LemmaEntry<L>,
+export function replaceLemmaEntryDirect<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	entry: V0LemmaEntry<L>,
 ) {
 	const canonicalEntry = cloneLemmaEntry(entry);
 	const existing = state.lemmasById.get(canonicalEntry.id);
@@ -28,9 +28,9 @@ export function replaceLemmaEntryDirect<L extends SupportedLang>(
 	);
 }
 
-export function deleteLemmaEntryDirect<L extends SupportedLang>(
-	state: InternalState<L>,
-	lemmaId: DumlingId<"Lemma", L>,
+export function deleteLemmaEntryDirect<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	lemmaId: V0DumlingId<"Lemma", L>,
 ) {
 	const existing = state.lemmasById.get(lemmaId);
 	if (!existing) {
@@ -45,9 +45,9 @@ export function deleteLemmaEntryDirect<L extends SupportedLang>(
 	);
 }
 
-export function getMutableLemmaEntry<L extends SupportedLang>(
-	state: InternalState<L>,
-	lemmaId: DumlingId<"Lemma", L>,
+export function getMutableLemmaEntry<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	lemmaId: V0DumlingId<"Lemma", L>,
 ) {
 	return state.lemmasById.get(lemmaId);
 }

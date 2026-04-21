@@ -1,7 +1,7 @@
 import {
-	type DumlingId,
+	type V0DumlingId,
 	makeDumlingIdFor,
-	type SupportedLang,
+	type V0SupportedLang,
 } from "../dumling-compat";
 import { err, ok } from "neverthrow";
 import { makeDumdict } from "./impl/make-dumdict";
@@ -27,34 +27,34 @@ import {
 	toSortedRecord,
 } from "./domain/collections";
 import { derivePendingLemmaId, makePendingRelationKey } from "./domain/pending";
-import { type DumdictResult, makeError } from "./errors";
+import { type V0DumdictResult, makeError } from "./errors";
 import type {
-	AuthoritativeWriteSnapshot,
-	ChangePrecondition,
-	Dumdict,
-	LemmaEntryPatchOp,
-	LookupResult,
-	MutationIntentV1,
-	PendingLemmaRef,
-	PendingLemmaRelation,
-	PlannedChangeOp,
-	ReadableDictionarySnapshot,
-	SurfaceEntryPatchOp,
+	V0AuthoritativeWriteSnapshot,
+	V0ChangePrecondition,
+	V0Dumdict,
+	V0LemmaEntryPatchOp,
+	V0LookupResult,
+	V0MutationIntentV1,
+	V0PendingLemmaRef,
+	V0PendingLemmaRelation,
+	V0PlannedChangeOp,
+	V0ReadableDictionarySnapshot,
+	V0SurfaceEntryPatchOp,
 } from "./public";
 import { getInverseLexicalRelation } from "./relations/lexical";
-import { lexicalRelationKeys } from "./relations/lexical";
-import type { LexicalRelation } from "./relations/lexical";
+import { v0LexicalRelationKeys } from "./relations/lexical";
+import type { V0LexicalRelation } from "./relations/lexical";
 import { getInverseMorphologicalRelation } from "./relations/morphological";
-import { morphologicalRelationKeys } from "./relations/morphological";
-import type { MorphologicalRelation } from "./relations/morphological";
+import { v0MorphologicalRelationKeys } from "./relations/morphological";
+import type { V0MorphologicalRelation } from "./relations/morphological";
 import { sortPendingRelations } from "./state/pending-store";
 
 type SnapshotValidationMode = "readable" | "authoritative-write";
 
-function validateSnapshotShape<L extends SupportedLang>(
-	snapshot: ReadableDictionarySnapshot<L>,
+function validateSnapshotShape<L extends V0SupportedLang>(
+	snapshot: V0ReadableDictionarySnapshot<L>,
 	mode: SnapshotValidationMode,
-): DumdictResult<L> {
+): V0DumdictResult<L> {
 	if (snapshot.authority === "write" && snapshot.completeness !== "full") {
 		return err(
 			makeError(
@@ -92,10 +92,10 @@ function validateSnapshotShape<L extends SupportedLang>(
 	return ok(snapshot.language);
 }
 
-function validatePendingRef<L extends SupportedLang>(
+function validatePendingRef<L extends V0SupportedLang>(
 	language: L,
-	pendingRef: PendingLemmaRef<L>,
-): DumdictResult<void> {
+	pendingRef: V0PendingLemmaRef<L>,
+): V0DumdictResult<void> {
 	if (pendingRef.language !== language) {
 		return err(
 			makeError(
@@ -130,18 +130,18 @@ function validatePendingRef<L extends SupportedLang>(
 	return ok(undefined);
 }
 
-function validateSnapshotInternal<L extends SupportedLang>(
-	snapshot: ReadableDictionarySnapshot<L>,
+function validateSnapshotInternal<L extends V0SupportedLang>(
+	snapshot: V0ReadableDictionarySnapshot<L>,
 	mode: SnapshotValidationMode,
-): DumdictResult<void> {
+): V0DumdictResult<void> {
 	const shapeResult = validateSnapshotShape(snapshot, mode);
 	if (shapeResult.isErr()) {
 		return err(shapeResult.error);
 	}
 
 	const language = shapeResult.value;
-	const lemmaIds = new Set<DumlingId<"Lemma", L>>();
-	const lemmasById = new Map<DumlingId<"Lemma", L>, typeof snapshot.lemmas[number]>();
+	const lemmaIds = new Set<V0DumlingId<"Lemma", L>>();
+	const lemmasById = new Map<V0DumlingId<"Lemma", L>, typeof snapshot.lemmas[number]>();
 	for (const lemmaEntry of snapshot.lemmas) {
 		const lemmaResult = validateLemmaEntry(language as L, lemmaEntry);
 		if (lemmaResult.isErr()) {
@@ -161,7 +161,7 @@ function validateSnapshotInternal<L extends SupportedLang>(
 		lemmasById.set(lemmaEntry.id, lemmaEntry);
 	}
 
-	const surfaceIds = new Set<DumlingId<"Surface", L>>();
+	const surfaceIds = new Set<V0DumlingId<"Surface", L>>();
 	for (const surfaceEntry of snapshot.surfaces) {
 		const surfaceResult = validateSurfaceEntry(language as L, surfaceEntry);
 		if (surfaceResult.isErr()) {
@@ -184,7 +184,7 @@ function validateSnapshotInternal<L extends SupportedLang>(
 			return err(
 				makeError(
 					"OwnerLemmaNotFound",
-					`Surface entry ${surfaceEntry.id} references missing owner lemma ${surfaceEntry.ownerLemmaId}.`,
+					`V0Surface entry ${surfaceEntry.id} references missing owner lemma ${surfaceEntry.ownerLemmaId}.`,
 				),
 			);
 		}
@@ -193,7 +193,7 @@ function validateSnapshotInternal<L extends SupportedLang>(
 	}
 
 	const pendingIds = new Set<string>();
-	const pendingRefsById = new Map<string, PendingLemmaRef<L>>();
+	const pendingRefsById = new Map<string, V0PendingLemmaRef<L>>();
 	for (const pendingRef of snapshot.pendingRefs) {
 		const pendingResult = validatePendingRef(language as L, pendingRef);
 		if (pendingResult.isErr()) {
@@ -278,14 +278,14 @@ function validateSnapshotInternal<L extends SupportedLang>(
 			return err(
 				makeError(
 					"SelfRelationForbidden",
-					`Lemma ${pendingRelation.sourceLemmaId} cannot relate to its own pending identity tuple.`,
+					`V0Lemma ${pendingRelation.sourceLemmaId} cannot relate to its own pending identity tuple.`,
 				),
 			);
 		}
 
 		if (
 			pendingRelation.relationFamily === "lexical" &&
-			!lexicalRelationKeys.includes(pendingRelation.relation as LexicalRelation)
+			!v0LexicalRelationKeys.includes(pendingRelation.relation as V0LexicalRelation)
 		) {
 			return err(
 				makeError(
@@ -297,8 +297,8 @@ function validateSnapshotInternal<L extends SupportedLang>(
 
 		if (
 			pendingRelation.relationFamily === "morphological" &&
-			!morphologicalRelationKeys.includes(
-				pendingRelation.relation as MorphologicalRelation,
+			!v0MorphologicalRelationKeys.includes(
+				pendingRelation.relation as V0MorphologicalRelation,
 			)
 		) {
 			return err(
@@ -325,7 +325,7 @@ function validateSnapshotInternal<L extends SupportedLang>(
 
 	if (mode === "authoritative-write" || snapshot.completeness === "full") {
 		for (const lemmaEntry of snapshot.lemmas) {
-			for (const relation of lexicalRelationKeys) {
+			for (const relation of v0LexicalRelationKeys) {
 				for (const targetLemmaId of lemmaEntry.lexicalRelations[relation] ?? []) {
 					const targetResult = assertLemmaIdMatchesDictionaryLanguage(
 						language as L,
@@ -359,7 +359,7 @@ function validateSnapshotInternal<L extends SupportedLang>(
 				}
 			}
 
-			for (const relation of morphologicalRelationKeys) {
+			for (const relation of v0MorphologicalRelationKeys) {
 				for (const targetLemmaId of lemmaEntry.morphologicalRelations[
 					relation
 				] ?? []) {
@@ -402,21 +402,21 @@ function validateSnapshotInternal<L extends SupportedLang>(
 	return ok(undefined);
 }
 
-export function validateReadableSnapshot<L extends SupportedLang>(
-	snapshot: ReadableDictionarySnapshot<L>,
+export function validateReadableSnapshot<L extends V0SupportedLang>(
+	snapshot: V0ReadableDictionarySnapshot<L>,
 ) {
 	return validateSnapshotInternal(snapshot, "readable");
 }
 
-export function validateAuthoritativeWriteSnapshot<L extends SupportedLang>(
-	snapshot: AuthoritativeWriteSnapshot<L>,
+export function validateAuthoritativeWriteSnapshot<L extends V0SupportedLang>(
+	snapshot: V0AuthoritativeWriteSnapshot<L>,
 ) {
 	return validateSnapshotInternal(snapshot, "authoritative-write");
 }
 
-export function hydrateSnapshot<L extends SupportedLang>(
-	snapshot: AuthoritativeWriteSnapshot<L>,
-): DumdictResult<Dumdict<L>> {
+export function hydrateSnapshot<L extends V0SupportedLang>(
+	snapshot: V0AuthoritativeWriteSnapshot<L>,
+): V0DumdictResult<V0Dumdict<L>> {
 	const validationResult = validateAuthoritativeWriteSnapshot(snapshot);
 	if (validationResult.isErr()) {
 		return err(validationResult.error);
@@ -448,8 +448,8 @@ export function hydrateSnapshot<L extends SupportedLang>(
 	for (const lemmaEntry of snapshot.lemmas.toSorted((left, right) =>
 		left.id.localeCompare(right.id),
 	)) {
-		const ops: LemmaEntryPatchOp<L>[] = [];
-		for (const relation of lexicalRelationKeys) {
+		const ops: V0LemmaEntryPatchOp<L>[] = [];
+		for (const relation of v0LexicalRelationKeys) {
 			for (const targetLemmaId of sortIds(
 				lemmaEntry.lexicalRelations[relation] ?? [],
 			)) {
@@ -461,7 +461,7 @@ export function hydrateSnapshot<L extends SupportedLang>(
 			}
 		}
 
-		for (const relation of morphologicalRelationKeys) {
+		for (const relation of v0MorphologicalRelationKeys) {
 			for (const targetLemmaId of sortIds(
 				lemmaEntry.morphologicalRelations[relation] ?? [],
 			)) {
@@ -498,11 +498,11 @@ export function hydrateSnapshot<L extends SupportedLang>(
 			);
 		}
 
-		const op: LemmaEntryPatchOp<L> =
+		const op: V0LemmaEntryPatchOp<L> =
 			pendingRelation.relationFamily === "lexical"
 				? {
 						op: "addLexicalRelation",
-						relation: pendingRelation.relation as LexicalRelation,
+						relation: pendingRelation.relation as V0LexicalRelation,
 						target: {
 							kind: "pending",
 							ref: {
@@ -514,7 +514,7 @@ export function hydrateSnapshot<L extends SupportedLang>(
 					}
 				: {
 						op: "addMorphologicalRelation",
-						relation: pendingRelation.relation as MorphologicalRelation,
+						relation: pendingRelation.relation as V0MorphologicalRelation,
 						target: {
 							kind: "pending",
 							ref: {
@@ -534,10 +534,10 @@ export function hydrateSnapshot<L extends SupportedLang>(
 	return ok(dict);
 }
 
-export function exportSnapshot<L extends SupportedLang>(
-	dict: Dumdict<L>,
+export function exportSnapshot<L extends V0SupportedLang>(
+	dict: V0Dumdict<L>,
 	revision: string,
-): DumdictResult<AuthoritativeWriteSnapshot<L>> {
+): V0DumdictResult<V0AuthoritativeWriteSnapshot<L>> {
 	const snapshotResult = dict.exportAuthoritativeSnapshot(revision);
 	if (snapshotResult.isErr()) {
 		return err(snapshotResult.error);
@@ -551,10 +551,10 @@ export function exportSnapshot<L extends SupportedLang>(
 	return ok(snapshotResult.value);
 }
 
-export function lookupBySurface<L extends SupportedLang>(
-	snapshot: ReadableDictionarySnapshot<L>,
+export function lookupBySurface<L extends V0SupportedLang>(
+	snapshot: V0ReadableDictionarySnapshot<L>,
 	surface: string,
-): DumdictResult<LookupResult<L>> {
+): V0DumdictResult<V0LookupResult<L>> {
 	const validationResult = validateReadableSnapshot(snapshot);
 	if (validationResult.isErr()) {
 		return err(validationResult.error);
@@ -580,10 +580,10 @@ export function lookupBySurface<L extends SupportedLang>(
 	});
 }
 
-export function lookupLemmasBySurface<L extends SupportedLang>(
-	snapshot: ReadableDictionarySnapshot<L>,
+export function lookupLemmasBySurface<L extends V0SupportedLang>(
+	snapshot: V0ReadableDictionarySnapshot<L>,
 	surface: string,
-): DumdictResult<Record<DumlingId<"Lemma", L>, (typeof snapshot.lemmas)[number]>> {
+): V0DumdictResult<Record<V0DumlingId<"Lemma", L>, (typeof snapshot.lemmas)[number]>> {
 	const lookupResult = lookupBySurface(snapshot, surface);
 	if (lookupResult.isErr()) {
 		return err(lookupResult.error);
@@ -601,18 +601,18 @@ export function lookupLemmasBySurface<L extends SupportedLang>(
 	return ok(
 		toSortedRecord(
 			[...lemmaEntries.entries()].map(([lemmaId, entry]) => [
-				lemmaId as DumlingId<"Lemma", L>,
+				lemmaId as V0DumlingId<"Lemma", L>,
 				entry,
 			]),
 		),
 	);
 }
 
-function checkPrecondition<L extends SupportedLang>(
-	snapshot: AuthoritativeWriteSnapshot<L>,
-	precondition: ChangePrecondition<L>,
-	stagedPendingRefs?: ReadonlyMap<string, PendingLemmaRef<L>>,
-): DumdictResult<void> {
+function checkPrecondition<L extends V0SupportedLang>(
+	snapshot: V0AuthoritativeWriteSnapshot<L>,
+	precondition: V0ChangePrecondition<L>,
+	stagedPendingRefs?: ReadonlyMap<string, V0PendingLemmaRef<L>>,
+): V0DumdictResult<void> {
 	switch (precondition.kind) {
 		case "snapshotRevisionMatches":
 			if (snapshot.revision !== precondition.revision) {
@@ -631,7 +631,7 @@ function checkPrecondition<L extends SupportedLang>(
 			return err(
 				makeError(
 					"LemmaEntryNotFound",
-					`Lemma entry ${precondition.lemmaId} was not found in the snapshot.`,
+					`V0Lemma entry ${precondition.lemmaId} was not found in the snapshot.`,
 				),
 			);
 		case "lemmaMissing":
@@ -641,7 +641,7 @@ function checkPrecondition<L extends SupportedLang>(
 			return err(
 				makeError(
 					"InvariantViolation",
-					`Lemma entry ${precondition.lemmaId} already exists in the snapshot.`,
+					`V0Lemma entry ${precondition.lemmaId} already exists in the snapshot.`,
 				),
 			);
 		case "surfaceExists":
@@ -653,7 +653,7 @@ function checkPrecondition<L extends SupportedLang>(
 			return err(
 				makeError(
 					"SurfaceEntryNotFound",
-					`Surface entry ${precondition.surfaceId} was not found in the snapshot.`,
+					`V0Surface entry ${precondition.surfaceId} was not found in the snapshot.`,
 				),
 			);
 		case "surfaceMissing":
@@ -665,7 +665,7 @@ function checkPrecondition<L extends SupportedLang>(
 			return err(
 				makeError(
 					"InvariantViolation",
-					`Surface entry ${precondition.surfaceId} already exists in the snapshot.`,
+					`V0Surface entry ${precondition.surfaceId} already exists in the snapshot.`,
 				),
 			);
 		case "pendingRefExists":
@@ -701,10 +701,10 @@ function checkPrecondition<L extends SupportedLang>(
 	}
 }
 
-function validateIntentAgainstSnapshot<L extends SupportedLang>(
-	snapshot: AuthoritativeWriteSnapshot<L>,
-	intent: MutationIntentV1<L>,
-): DumdictResult<void> {
+function validateIntentAgainstSnapshot<L extends V0SupportedLang>(
+	snapshot: V0AuthoritativeWriteSnapshot<L>,
+	intent: V0MutationIntentV1<L>,
+): V0DumdictResult<void> {
 	if (intent.version !== "v1") {
 		return ok(undefined);
 	}
@@ -721,7 +721,7 @@ function validateIntentAgainstSnapshot<L extends SupportedLang>(
 		const lemmaId = makeDumlingIdFor(
 			lemmaLanguage,
 			intent.entry.lemma,
-		) as DumlingId<"Lemma", L>;
+		) as V0DumlingId<"Lemma", L>;
 		const lemmaEntryResult = validateLemmaEntry(snapshot.language, {
 			id: lemmaId,
 			lemma: intent.entry.lemma,
@@ -740,7 +740,7 @@ function validateIntentAgainstSnapshot<L extends SupportedLang>(
 			const surfaceId = makeDumlingIdFor(
 				surfaceLanguage,
 				ownedSurface.surface,
-			) as DumlingId<"Surface", L>;
+			) as V0DumlingId<"Surface", L>;
 			const surfaceEntryResult = validateSurfaceEntry(snapshot.language, {
 				id: surfaceId,
 				surface: ownedSurface.surface,
@@ -776,7 +776,7 @@ function validateIntentAgainstSnapshot<L extends SupportedLang>(
 			return err(
 				makeError(
 					"LanguageMismatch",
-					`Surface entry payload language ${getSurfaceLanguage(intent.entry.surface)} does not match ${snapshot.language}.`,
+					`V0Surface entry payload language ${getSurfaceLanguage(intent.entry.surface)} does not match ${snapshot.language}.`,
 				),
 			);
 		}
@@ -823,18 +823,18 @@ function validateIntentAgainstSnapshot<L extends SupportedLang>(
 	return ok(undefined);
 }
 
-export function applyPlannedChanges<L extends SupportedLang>(
-	snapshot: AuthoritativeWriteSnapshot<L>,
-	changes: PlannedChangeOp<L>[],
+export function applyPlannedChanges<L extends V0SupportedLang>(
+	snapshot: V0AuthoritativeWriteSnapshot<L>,
+	changes: V0PlannedChangeOp<L>[],
 	options?: { nextRevision?: string },
-): DumdictResult<AuthoritativeWriteSnapshot<L>> {
+): V0DumdictResult<V0AuthoritativeWriteSnapshot<L>> {
 	const validationResult = validateAuthoritativeWriteSnapshot(snapshot);
 	if (validationResult.isErr()) {
 		return err(validationResult.error);
 	}
 
 	let currentSnapshot = snapshot;
-	const stagedPendingRefs = new Map<string, PendingLemmaRef<L>>();
+	const stagedPendingRefs = new Map<string, V0PendingLemmaRef<L>>();
 
 	const dictResult = hydrateSnapshot(snapshot);
 	if (dictResult.isErr()) {
@@ -922,11 +922,11 @@ export function applyPlannedChanges<L extends SupportedLang>(
 					);
 				}
 
-				const op: LemmaEntryPatchOp<L> =
+				const op: V0LemmaEntryPatchOp<L> =
 					change.relation.relationFamily === "lexical"
 						? {
 								op: "addLexicalRelation",
-								relation: change.relation.relation as LexicalRelation,
+								relation: change.relation.relation as V0LexicalRelation,
 								target: {
 									kind: "pending",
 									ref: {
@@ -939,7 +939,7 @@ export function applyPlannedChanges<L extends SupportedLang>(
 						: {
 								op: "addMorphologicalRelation",
 								relation:
-									change.relation.relation as MorphologicalRelation,
+									change.relation.relation as V0MorphologicalRelation,
 								target: {
 									kind: "pending",
 									ref: {
@@ -1003,10 +1003,10 @@ export function applyPlannedChanges<L extends SupportedLang>(
 	return ok(nextSnapshot);
 }
 
-export function plan<L extends SupportedLang>(
-	snapshot: AuthoritativeWriteSnapshot<L>,
-	intent: MutationIntentV1<L>,
-): DumdictResult<PlannedChangeOp<L>[]> {
+export function plan<L extends V0SupportedLang>(
+	snapshot: V0AuthoritativeWriteSnapshot<L>,
+	intent: V0MutationIntentV1<L>,
+): V0DumdictResult<V0PlannedChangeOp<L>[]> {
 	const validationResult = validateAuthoritativeWriteSnapshot(snapshot);
 	if (validationResult.isErr()) {
 		return err(validationResult.error);
@@ -1039,11 +1039,11 @@ export function plan<L extends SupportedLang>(
 
 	if (intent.version === "v1" && intent.kind === "insertLemma") {
 		const language = getLemmaLanguage(intent.entry.lemma) as L;
-		const lemmaId = makeDumlingIdFor(language, intent.entry.lemma) as DumlingId<
+		const lemmaId = makeDumlingIdFor(language, intent.entry.lemma) as V0DumlingId<
 			"Lemma",
 			L
 		>;
-		const changes: PlannedChangeOp<L>[] = [
+		const changes: V0PlannedChangeOp<L>[] = [
 			{
 				type: "createLemma",
 				entry: {
@@ -1081,7 +1081,7 @@ export function plan<L extends SupportedLang>(
 			const surfaceId = makeDumlingIdFor(
 				language,
 				ownedSurface.surface,
-			) as DumlingId<
+			) as V0DumlingId<
 				"Surface",
 				L
 			>;
@@ -1109,14 +1109,14 @@ export function plan<L extends SupportedLang>(
 			});
 		}
 
-		const relationOps: LemmaEntryPatchOp<L>[] = [];
-		const relationPreconditions: ChangePrecondition<L>[] = [
+		const relationOps: V0LemmaEntryPatchOp<L>[] = [];
+		const relationPreconditions: V0ChangePrecondition<L>[] = [
 			{
 				kind: "snapshotRevisionMatches",
 				revision: snapshot.revision,
 			},
 		];
-		const reciprocalChanges: PlannedChangeOp<L>[] = [];
+		const reciprocalChanges: V0PlannedChangeOp<L>[] = [];
 
 		for (const relation of intent.initialRelations ?? []) {
 			if (relation.relationFamily === "lexical") {
@@ -1187,7 +1187,7 @@ export function plan<L extends SupportedLang>(
 		const surfaceId = makeDumlingIdFor(
 			language,
 			intent.entry.surface,
-		) as DumlingId<
+		) as V0DumlingId<
 			"Surface",
 			L
 		>;
@@ -1225,12 +1225,12 @@ export function plan<L extends SupportedLang>(
 			return err(
 				makeError(
 					"InvariantViolation",
-					`Surface ${surfaceId} is owned by ${existingSurface.ownerLemmaId}, not ${intent.entry.ownerLemmaId}.`,
+					`V0Surface ${surfaceId} is owned by ${existingSurface.ownerLemmaId}, not ${intent.entry.ownerLemmaId}.`,
 				),
 			);
 		}
 
-		const ops: SurfaceEntryPatchOp<L>[] = [];
+		const ops: V0SurfaceEntryPatchOp<L>[] = [];
 		for (const value of sortStrings(intent.entry.attestedTranslations)) {
 			if (!existingSurface.attestedTranslations.includes(value)) {
 				ops.push({ op: "addTranslation", value });
@@ -1296,7 +1296,7 @@ export function plan<L extends SupportedLang>(
 			return err(
 				makeError(
 					"LemmaEntryNotFound",
-					`Lemma entry ${intent.lemmaId} was not found in the snapshot.`,
+					`V0Lemma entry ${intent.lemmaId} was not found in the snapshot.`,
 				),
 			);
 		}
@@ -1326,9 +1326,9 @@ export function plan<L extends SupportedLang>(
 			}
 		}
 
-		const changes: PlannedChangeOp<L>[] = [];
-		const resolvedTargetOps: LemmaEntryPatchOp<L>[] = [];
-		const resolvedTargetPreconditions: ChangePrecondition<L>[] = [
+		const changes: V0PlannedChangeOp<L>[] = [];
+		const resolvedTargetOps: V0LemmaEntryPatchOp<L>[] = [];
+		const resolvedTargetPreconditions: V0ChangePrecondition<L>[] = [
 			{
 				kind: "snapshotRevisionMatches",
 				revision: snapshot.revision,
@@ -1342,19 +1342,19 @@ export function plan<L extends SupportedLang>(
 				lemmaId: intent.lemmaId,
 			},
 		];
-		const seenResolvedSourceLemmaIds = new Set<DumlingId<"Lemma", L>>();
-		const deletions: PlannedChangeOp<L>[] = [];
+		const seenResolvedSourceLemmaIds = new Set<V0DumlingId<"Lemma", L>>();
+		const deletions: V0PlannedChangeOp<L>[] = [];
 		for (const pendingRelation of pendingRelations) {
-			const patchOp: LemmaEntryPatchOp<L> =
+			const patchOp: V0LemmaEntryPatchOp<L> =
 				pendingRelation.relationFamily === "lexical"
 					? {
 							op: "addLexicalRelation",
-							relation: pendingRelation.relation as LexicalRelation,
+							relation: pendingRelation.relation as V0LexicalRelation,
 							target: { kind: "existing", lemmaId: intent.lemmaId },
 						}
 					: {
 							op: "addMorphologicalRelation",
-							relation: pendingRelation.relation as MorphologicalRelation,
+							relation: pendingRelation.relation as V0MorphologicalRelation,
 							target: { kind: "existing", lemmaId: intent.lemmaId },
 						};
 
@@ -1394,7 +1394,7 @@ export function plan<L extends SupportedLang>(
 					? {
 							op: "addLexicalRelation",
 							relation: getInverseLexicalRelation(
-								pendingRelation.relation as LexicalRelation,
+								pendingRelation.relation as V0LexicalRelation,
 							),
 							target: {
 								kind: "existing",
@@ -1404,7 +1404,7 @@ export function plan<L extends SupportedLang>(
 					: {
 							op: "addMorphologicalRelation",
 							relation: getInverseMorphologicalRelation(
-								pendingRelation.relation as MorphologicalRelation,
+								pendingRelation.relation as V0MorphologicalRelation,
 							),
 							target: {
 								kind: "existing",

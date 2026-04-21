@@ -1,4 +1,4 @@
-import type { Surface } from "../../../../src/dumling-compat";
+import type { V0Surface } from "../../../../src/v0/dumling-compat";
 import {
 	hebrewKatavLemma,
 	hebrewShanaLemma,
@@ -16,7 +16,7 @@ export const hebrewKatvuResolvedInflectionSurface = {
 	normalizedFullSurface: "כתבו",
 	surfaceKind: "Inflection",
 	lemma: hebrewKatavLemma,
-} satisfies Surface<"he", "Inflection", "Lexeme", "VERB">;
+} satisfies V0Surface<"he", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "הם [כתבו] מכתב."
 export const hebrewKatvuUnresolvedInflectionSurface = {
@@ -29,7 +29,7 @@ export const hebrewKatvuUnresolvedInflectionSurface = {
 	normalizedFullSurface: "כתבו",
 	surfaceKind: "Inflection",
 	lemma: hebrewKatavLemma,
-} satisfies Surface<"he", "Inflection", "Lexeme", "VERB">;
+} satisfies V0Surface<"he", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "עוד [שנה] עברה."
 export const hebrewShanaResolvedLemmaSurface = {
@@ -37,7 +37,7 @@ export const hebrewShanaResolvedLemmaSurface = {
 	normalizedFullSurface: "שנה",
 	surfaceKind: "Lemma",
 	lemma: hebrewShanaLemma,
-} satisfies Surface<"he", "Lemma", "Lexeme", "NOUN">;
+} satisfies V0Surface<"he", "Lemma", "Lexeme", "NOUN">;
 
 // Attestation: "[ארה״ב] הודיעה על צעד חדש."
 export const hebrewUsAbbreviationResolvedLemmaSurface = {
@@ -45,4 +45,4 @@ export const hebrewUsAbbreviationResolvedLemmaSurface = {
 	normalizedFullSurface: "ארה״ב",
 	surfaceKind: "Lemma",
 	lemma: hebrewUsAbbreviationLemma,
-} satisfies Surface<"he", "Lemma", "Lexeme", "PROPN">;
+} satisfies V0Surface<"he", "Lemma", "Lexeme", "PROPN">;

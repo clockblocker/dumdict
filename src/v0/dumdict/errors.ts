@@ -1,6 +1,6 @@
 import type { Result } from "neverthrow";
 
-export type DumdictErrorCode =
+export type V0DumdictErrorCode =
 	| "LemmaEntryNotFound"
 	| "SurfaceEntryNotFound"
 	| "PendingRefNotFound"
@@ -15,18 +15,18 @@ export type DumdictErrorCode =
 	| "InvariantViolation"
 	| "DecodeFailed";
 
-export type DumdictError = {
-	code: DumdictErrorCode;
+export type V0DumdictError = {
+	code: V0DumdictErrorCode;
 	message: string;
 	cause?: unknown;
 };
 
-export type DumdictResult<T> = Result<T, DumdictError>;
+export type V0DumdictResult<T> = Result<T, V0DumdictError>;
 
 export function makeError(
-	code: DumdictErrorCode,
+	code: V0DumdictErrorCode,
 	message: string,
 	cause?: unknown,
-): DumdictError {
+): V0DumdictError {
 	return { code, message, cause };
 }

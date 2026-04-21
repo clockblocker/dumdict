@@ -4,8 +4,8 @@ Dictionary storage, lookup indexes, and relation helpers built on top of `dumlin
 
 `dumdict` keeps three concerns separate:
 
-- `LemmaEntry`: the stored dictionary node
-- `SurfaceEntry`: the owned resolved surface entry
+- `V0LemmaEntry`: the stored dictionary node
+- `V0SurfaceEntry`: the owned resolved surface entry
 - pending lemma refs: unresolved relation targets that can be linked later
 
 ## Core idea
@@ -16,11 +16,11 @@ A `dumdict` instance is bound to one language:
 const dict = makeDumdict("en");
 ```
 
-A `LemmaEntry` stores the stable lemma payload plus graph-level dictionary metadata:
+A `V0LemmaEntry` stores the stable lemma payload plus graph-level dictionary metadata:
 
 <!-- README_BLOCK:english-walk-lemma-entry -->
 
-A `SurfaceEntry` stores a resolved surface plus an explicit owning lemma ID:
+A `V0SurfaceEntry` stores a resolved surface plus an explicit owning lemma ID:
 
 <!-- README_BLOCK:english-walk-surface-entry -->
 
@@ -43,8 +43,8 @@ Minimal usage with lookup by normalized surface:
 The root export is intentionally small:
 
 - `makeDumdict`: creates a language-bound in-memory dictionary
-- `Relations`: enum, inverse, and repr helpers for lexical and morphological links
-- `LexicalRelationsSchema`, `MorphologicalRelationsSchema`, and `RelationTargetDumlingIdsSchema`: validation helpers for relation payloads
+- `V0Relations`: enum, inverse, and repr helpers for lexical and morphological links
+- `V0LexicalRelationsSchema`, `V0MorphologicalRelationsSchema`, and `V0RelationTargetDumlingIdsSchema`: validation helpers for relation payloads
 
 ## Scope
 

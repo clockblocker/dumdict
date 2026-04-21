@@ -1,33 +1,33 @@
-import type { DumlingId, SupportedLang } from "../../dumling-compat";
+import type { V0DumlingId, V0SupportedLang } from "../../dumling-compat";
 import type {
-	LemmaEntry,
-	PendingLemmaId,
-	PendingLemmaRef,
-	PendingLemmaRelation,
-	SurfaceEntry,
+	V0LemmaEntry,
+	V0PendingLemmaId,
+	V0PendingLemmaRef,
+	V0PendingLemmaRelation,
+	V0SurfaceEntry,
 } from "../public";
 
-export type InternalState<L extends SupportedLang> = {
-	lemmasById: Map<DumlingId<"Lemma", L>, LemmaEntry<L>>;
-	surfacesById: Map<DumlingId<"Surface", L>, SurfaceEntry<L>>;
+export type V0InternalState<L extends V0SupportedLang> = {
+	lemmasById: Map<V0DumlingId<"Lemma", L>, V0LemmaEntry<L>>;
+	surfacesById: Map<V0DumlingId<"Surface", L>, V0SurfaceEntry<L>>;
 	surfaceIdsByOwnerLemmaId: Map<
-		DumlingId<"Lemma", L>,
-		Set<DumlingId<"Surface", L>>
+		V0DumlingId<"Lemma", L>,
+		Set<V0DumlingId<"Surface", L>>
 	>;
-	lemmaLookupIndex: Map<string, Set<DumlingId<"Lemma", L>>>;
-	surfaceLookupIndex: Map<string, Set<DumlingId<"Surface", L>>>;
-	pendingLemmaRefsById: Map<PendingLemmaId<L>, PendingLemmaRef<L>>;
+	lemmaLookupIndex: Map<string, Set<V0DumlingId<"Lemma", L>>>;
+	surfaceLookupIndex: Map<string, Set<V0DumlingId<"Surface", L>>>;
+	pendingLemmaRefsById: Map<V0PendingLemmaId<L>, V0PendingLemmaRef<L>>;
 	pendingRelationsBySourceLemmaId: Map<
-		DumlingId<"Lemma", L>,
-		Map<string, PendingLemmaRelation<L>>
+		V0DumlingId<"Lemma", L>,
+		Map<string, V0PendingLemmaRelation<L>>
 	>;
 	pendingRelationsByPendingId: Map<
-		PendingLemmaId<L>,
-		Map<string, PendingLemmaRelation<L>>
+		V0PendingLemmaId<L>,
+		Map<string, V0PendingLemmaRelation<L>>
 	>;
 };
 
-export function makeEmptyState<L extends SupportedLang>(): InternalState<L> {
+export function makeEmptyState<L extends V0SupportedLang>(): V0InternalState<L> {
 	return {
 		lemmasById: new Map(),
 		surfacesById: new Map(),

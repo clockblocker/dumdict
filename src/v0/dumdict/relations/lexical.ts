@@ -10,10 +10,10 @@ const lexicalRelations = [
 	"holonym",
 ] as const;
 
-export const LexicalRelation = z.enum(lexicalRelations);
-export type LexicalRelation = z.infer<typeof LexicalRelation>;
+export const V0LexicalRelation = z.enum(lexicalRelations);
+export type V0LexicalRelation = z.infer<typeof V0LexicalRelation>;
 
-export const lexicalRelationKeys = [...LexicalRelation.options].sort();
+export const v0LexicalRelationKeys = [...V0LexicalRelation.options].sort();
 
 const inverseLexicalRelation = {
 	antonym: "antonym",
@@ -23,7 +23,7 @@ const inverseLexicalRelation = {
 	meronym: "holonym",
 	nearSynonym: "nearSynonym",
 	synonym: "synonym",
-} as const satisfies Record<LexicalRelation, LexicalRelation>;
+} as const satisfies Record<V0LexicalRelation, V0LexicalRelation>;
 
 const reprForLexicalRelation = {
 	antonym: "!=",
@@ -33,14 +33,14 @@ const reprForLexicalRelation = {
 	meronym: "∈",
 	nearSynonym: "≈",
 	synonym: "=",
-} as const satisfies Record<LexicalRelation, string>;
+} as const satisfies Record<V0LexicalRelation, string>;
 
 export function getInverseLexicalRelation(
-	lexicalRelation: LexicalRelation,
-): LexicalRelation {
+	lexicalRelation: V0LexicalRelation,
+): V0LexicalRelation {
 	return inverseLexicalRelation[lexicalRelation];
 }
 
-export function getReprForLexicalRelation(lexicalRelation: LexicalRelation) {
+export function getReprForLexicalRelation(lexicalRelation: V0LexicalRelation) {
 	return reprForLexicalRelation[lexicalRelation];
 }

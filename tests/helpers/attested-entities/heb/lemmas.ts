@@ -1,4 +1,4 @@
-import type { Lemma } from "../../../../src/dumling-compat";
+import type { V0Lemma } from "../../../../src/v0/dumling-compat";
 
 // Attestation: "הוא [כתב] מכתב."
 export const hebrewKatavLemma = {
@@ -10,7 +10,7 @@ export const hebrewKatavLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "✍️",
 	lemmaSubKind: "VERB",
-} satisfies Lemma<"he", "Lexeme", "VERB">;
+} satisfies V0Lemma<"he", "Lexeme", "VERB">;
 
 // Attestation: "עוד [שנה] עברה."
 export const hebrewShanaLemma = {
@@ -22,7 +22,7 @@ export const hebrewShanaLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "📅",
 	lemmaSubKind: "NOUN",
-} satisfies Lemma<"he", "Lexeme", "NOUN">;
+} satisfies V0Lemma<"he", "Lexeme", "NOUN">;
 
 // Attestation: "[ארה״ב] הודיעה על צעד חדש."
 // UD-style: multi-word abbreviations keep the abbreviated form as canonicalLemma and mark Abbr=Yes.
@@ -36,4 +36,4 @@ export const hebrewUsAbbreviationLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🇺🇸",
 	lemmaSubKind: "PROPN",
-} satisfies Lemma<"he", "Lexeme", "PROPN">;
+} satisfies V0Lemma<"he", "Lexeme", "PROPN">;

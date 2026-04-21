@@ -1,4 +1,4 @@
-import type { Surface } from "../../../../src/dumling-compat";
+import type { V0Surface } from "../../../../src/v0/dumling-compat";
 import { englishGiveUpLemma, englishWalkLemma } from "./lemmas";
 
 // Attestation: "They [walk] home together."
@@ -11,7 +11,7 @@ export const englishWalkResolvedInflectionSurface = {
 	normalizedFullSurface: "walk",
 	surfaceKind: "Inflection",
 	lemma: englishWalkLemma,
-} satisfies Surface<"en", "Inflection", "Lexeme", "VERB">;
+} satisfies V0Surface<"en", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkUnresolvedInflectionSurface = {
@@ -23,7 +23,7 @@ export const englishWalkUnresolvedInflectionSurface = {
 	normalizedFullSurface: "walk",
 	surfaceKind: "Inflection",
 	lemma: englishWalkLemma,
-} satisfies Surface<"en", "Inflection", "Lexeme", "VERB">;
+} satisfies V0Surface<"en", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkResolvedLemmaSurface = {
@@ -31,7 +31,7 @@ export const englishWalkResolvedLemmaSurface = {
 	normalizedFullSurface: "walk",
 	surfaceKind: "Lemma",
 	lemma: englishWalkLemma,
-} satisfies Surface<"en", "Lemma", "Lexeme", "VERB">;
+} satisfies V0Surface<"en", "Lemma", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkUnresolvedLemmaSurface = {
@@ -39,7 +39,7 @@ export const englishWalkUnresolvedLemmaSurface = {
 	normalizedFullSurface: "walk",
 	surfaceKind: "Lemma",
 	lemma: englishWalkLemma,
-} satisfies Surface<"en", "Lemma", "Lexeme", "VERB">;
+} satisfies V0Surface<"en", "Lemma", "Lexeme", "VERB">;
 
 // Attestation: "Mark gvae [up] on it."
 export const englishGiveUpTypoUnresolvedInflectionSurface = {
@@ -51,4 +51,4 @@ export const englishGiveUpTypoUnresolvedInflectionSurface = {
 	normalizedFullSurface: "gave up",
 	surfaceKind: "Inflection",
 	lemma: englishGiveUpLemma,
-} satisfies Surface<"en", "Inflection", "Lexeme", "VERB">;
+} satisfies V0Surface<"en", "Inflection", "Lexeme", "VERB">;

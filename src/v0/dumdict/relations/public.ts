@@ -1,22 +1,22 @@
 import {
 	getInverseLexicalRelation,
 	getReprForLexicalRelation,
-	LexicalRelation as LexicalRelationSchema,
-	type LexicalRelation as LexicalRelationShape,
+	V0LexicalRelation as LexicalRelationSchema,
+	type V0LexicalRelation as LexicalRelationShape,
 } from "./lexical";
 import {
 	getInverseMorphologicalRelation,
 	getReprForMorphologicalRelation,
-	MorphologicalRelation as MorphologicalRelationSchema,
-	type MorphologicalRelation as MorphologicalRelationShape,
+	V0MorphologicalRelation as MorphologicalRelationSchema,
+	type V0MorphologicalRelation as MorphologicalRelationShape,
 } from "./morphological";
 import {
-	LexicalRelationsSchema as LexicalRelationsSchemaInternal,
-	type LexicalRelations as LexicalRelationsShape,
-	MorphologicalRelationsSchema as MorphologicalRelationsSchemaInternal,
-	type MorphologicalRelations as MorphologicalRelationsShape,
-	RelationTargetDumlingIdsSchema as RelationTargetDumlingIdsSchemaInternal,
-	type RelationTargetDumlingIds as RelationTargetDumlingIdsShape,
+	V0LexicalRelationsSchema as LexicalRelationsSchemaInternal,
+	type V0LexicalRelations as LexicalRelationsShape,
+	V0MorphologicalRelationsSchema as MorphologicalRelationsSchemaInternal,
+	type V0MorphologicalRelations as MorphologicalRelationsShape,
+	V0RelationTargetDumlingIdsSchema as RelationTargetDumlingIdsSchemaInternal,
+	type V0RelationTargetDumlingIds as RelationTargetDumlingIdsShape,
 } from "./relation";
 
 export {
@@ -29,33 +29,33 @@ export {
 	getReprForMorphologicalRelation,
 } from "./morphological";
 
-export const LexicalRelation = LexicalRelationSchema.enum;
-export const MorphologicalRelation = MorphologicalRelationSchema.enum;
-export const RelationTargetDumlingIdsSchema =
+export const V0LexicalRelation = LexicalRelationSchema.enum;
+export const V0MorphologicalRelation = MorphologicalRelationSchema.enum;
+export const V0RelationTargetDumlingIdsSchema =
 	RelationTargetDumlingIdsSchemaInternal;
-export const LexicalRelationsSchema = LexicalRelationsSchemaInternal;
-export const MorphologicalRelationsSchema =
+export const V0LexicalRelationsSchema = LexicalRelationsSchemaInternal;
+export const V0MorphologicalRelationsSchema =
 	MorphologicalRelationsSchemaInternal;
 
-export const Relations = {
+export const V0Relations = {
 	Lexical: {
-		enum: LexicalRelation,
+		enum: V0LexicalRelation,
 		getInverse: getInverseLexicalRelation,
 		getRepr: getReprForLexicalRelation,
-		schema: LexicalRelationsSchema,
+		schema: V0LexicalRelationsSchema,
 	},
 	Morphological: {
-		enum: MorphologicalRelation,
+		enum: V0MorphologicalRelation,
 		getInverse: getInverseMorphologicalRelation,
 		getRepr: getReprForMorphologicalRelation,
-		schema: MorphologicalRelationsSchema,
+		schema: V0MorphologicalRelationsSchema,
 	},
 } as const;
 
-export declare namespace Relations {
-	export type LexicalRelation = LexicalRelationShape;
-	export type MorphologicalRelation = MorphologicalRelationShape;
-	export type TargetDumlingIds = RelationTargetDumlingIdsShape;
-	export type LexicalRelations = LexicalRelationsShape;
-	export type MorphologicalRelations = MorphologicalRelationsShape;
+export declare namespace V0Relations {
+	export type V0LexicalRelation = LexicalRelationShape;
+	export type V0MorphologicalRelation = MorphologicalRelationShape;
+	export type V0TargetDumlingIds = RelationTargetDumlingIdsShape;
+	export type V0LexicalRelations = LexicalRelationsShape;
+	export type V0MorphologicalRelations = MorphologicalRelationsShape;
 }

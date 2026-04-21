@@ -1,9 +1,9 @@
-import type { DumlingId, SupportedLang } from "../../dumling-compat";
+import type { V0DumlingId, V0SupportedLang } from "../../dumling-compat";
 import { sortIds, sortStrings, toSortedRecord } from "../domain/collections";
-import type { LemmaEntry, PendingLemmaRef, SurfaceEntry } from "../public";
-import { lexicalRelationKeys } from "../relations/lexical";
-import { morphologicalRelationKeys } from "../relations/morphological";
-import type { InternalState } from "./state";
+import type { V0LemmaEntry, V0PendingLemmaRef, V0SurfaceEntry } from "../public";
+import { v0LexicalRelationKeys } from "../relations/lexical";
+import { v0MorphologicalRelationKeys } from "../relations/morphological";
+import type { V0InternalState } from "./state";
 
 function cloneMapOfSets<K, V>(input: Map<K, Set<V>>): Map<K, Set<V>> {
 	const next = new Map<K, Set<V>>();
@@ -23,11 +23,11 @@ function cloneMapOfMaps<K, IK, V>(
 	return next;
 }
 
-function cloneRelationRecord<L extends SupportedLang, R extends string>(
-	record: Partial<Record<R, DumlingId<"Lemma", L>[]>>,
+function cloneRelationRecord<L extends V0SupportedLang, R extends string>(
+	record: Partial<Record<R, V0DumlingId<"Lemma", L>[]>>,
 	relationKeys: readonly R[],
 ) {
-	const entries: [R, DumlingId<"Lemma", L>[]][] = [];
+	const entries: [R, V0DumlingId<"Lemma", L>[]][] = [];
 	for (const relationKey of relationKeys) {
 		const values = record[relationKey];
 		if (!values || values.length === 0) {
@@ -40,19 +40,19 @@ function cloneRelationRecord<L extends SupportedLang, R extends string>(
 	return toSortedRecord(entries);
 }
 
-export function cloneLemmaEntry<L extends SupportedLang>(
-	entry: LemmaEntry<L>,
-): LemmaEntry<L> {
+export function cloneLemmaEntry<L extends V0SupportedLang>(
+	entry: V0LemmaEntry<L>,
+): V0LemmaEntry<L> {
 	return {
 		id: entry.id,
 		lemma: structuredClone(entry.lemma),
 		lexicalRelations: cloneRelationRecord(
 			entry.lexicalRelations,
-			lexicalRelationKeys,
+			v0LexicalRelationKeys,
 		),
 		morphologicalRelations: cloneRelationRecord(
 			entry.morphologicalRelations,
-			morphologicalRelationKeys,
+			v0MorphologicalRelationKeys,
 		),
 		attestedTranslations: sortStrings(entry.attestedTranslations),
 		attestations: sortStrings(entry.attestations),
@@ -60,9 +60,9 @@ export function cloneLemmaEntry<L extends SupportedLang>(
 	};
 }
 
-export function cloneSurfaceEntry<L extends SupportedLang>(
-	entry: SurfaceEntry<L>,
-): SurfaceEntry<L> {
+export function cloneSurfaceEntry<L extends V0SupportedLang>(
+	entry: V0SurfaceEntry<L>,
+): V0SurfaceEntry<L> {
 	return {
 		id: entry.id,
 		surface: structuredClone(entry.surface),
@@ -73,15 +73,15 @@ export function cloneSurfaceEntry<L extends SupportedLang>(
 	};
 }
 
-export function clonePendingLemmaRef<L extends SupportedLang>(
-	ref: PendingLemmaRef<L>,
-): PendingLemmaRef<L> {
+export function clonePendingLemmaRef<L extends V0SupportedLang>(
+	ref: V0PendingLemmaRef<L>,
+): V0PendingLemmaRef<L> {
 	return { ...ref };
 }
 
-export function cloneState<L extends SupportedLang>(
-	state: InternalState<L>,
-): InternalState<L> {
+export function cloneState<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+): V0InternalState<L> {
 	return {
 		lemmasById: new Map(
 			Array.from(state.lemmasById, ([id, entry]) => [

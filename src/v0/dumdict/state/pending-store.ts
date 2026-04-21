@@ -1,11 +1,11 @@
-import type { SupportedLang } from "../../dumling-compat";
+import type { V0SupportedLang } from "../../dumling-compat";
 import { makePendingRelationKey } from "../domain/pending";
-import type { PendingLemmaRef, PendingLemmaRelation } from "../public";
+import type { V0PendingLemmaRef, V0PendingLemmaRelation } from "../public";
 import { clonePendingLemmaRef } from "./clone";
-import type { InternalState } from "./state";
+import type { V0InternalState } from "./state";
 
-export function sortPendingRelations<L extends SupportedLang>(
-	relations: Iterable<PendingLemmaRelation<L>>,
+export function sortPendingRelations<L extends V0SupportedLang>(
+	relations: Iterable<V0PendingLemmaRelation<L>>,
 ) {
 	return [...relations].sort((left, right) => {
 		const familyOrder = left.relationFamily.localeCompare(right.relationFamily);
@@ -29,10 +29,10 @@ export function sortPendingRelations<L extends SupportedLang>(
 	});
 }
 
-export function addPendingRelationEdge<L extends SupportedLang>(
-	state: InternalState<L>,
-	ref: PendingLemmaRef<L>,
-	edge: PendingLemmaRelation<L>,
+export function addPendingRelationEdge<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	ref: V0PendingLemmaRef<L>,
+	edge: V0PendingLemmaRelation<L>,
 ) {
 	state.pendingLemmaRefsById.set(ref.pendingId, clonePendingLemmaRef(ref));
 
@@ -48,9 +48,9 @@ export function addPendingRelationEdge<L extends SupportedLang>(
 	state.pendingRelationsByPendingId.set(edge.targetPendingId, byPending);
 }
 
-export function removePendingRelationEdge<L extends SupportedLang>(
-	state: InternalState<L>,
-	edge: PendingLemmaRelation<L>,
+export function removePendingRelationEdge<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	edge: V0PendingLemmaRelation<L>,
 ) {
 	const edgeKey = makePendingRelationKey(edge);
 

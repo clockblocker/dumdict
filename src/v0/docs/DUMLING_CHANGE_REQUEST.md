@@ -56,77 +56,77 @@ Expose public helpers for reading the stable identity shape of `Lemma` and
 Suggested API:
 
 ```ts
-export function getLemmaIdentity<L extends SupportedLang>(
+export function getLemmaIdentity<L extends V0SupportedLang>(
 	lemma: Lemma<L>,
-): LemmaIdentityForLanguage<L>;
+): V0LemmaIdentityForLanguage<L>;
 
-export function getSurfaceLanguage<L extends SupportedLang>(
+export function getSurfaceLanguage<L extends V0SupportedLang>(
 	surface: Surface<L>,
 ): L;
 
-export function getSurfaceNormalizedFullSurface<L extends SupportedLang>(
+export function getSurfaceNormalizedFullSurface<L extends V0SupportedLang>(
 	surface: Surface<L>,
 ): string;
 
-export function getSurfaceOwnerLemmaId<L extends SupportedLang>(
+export function getSurfaceOwnerLemmaId<L extends V0SupportedLang>(
 	surface: Surface<L>,
 ): DumlingId<"Lemma", L>;
 
 // Optional convenience helpers. These are weaker than getLemmaIdentity(...)
 // because they do not preserve the relation between kind and discriminator.
-export function getLemmaCanonicalLemma<L extends SupportedLang>(
+export function getLemmaCanonicalLemma<L extends V0SupportedLang>(
 	lemma: Lemma<L>,
 ): string;
 
-export function getLemmaLanguage<L extends SupportedLang>(
+export function getLemmaLanguage<L extends V0SupportedLang>(
 	lemma: Lemma<L>,
 ): L;
 
-export function getLemmaKind<L extends SupportedLang>(
+export function getLemmaKind<L extends V0SupportedLang>(
 	lemma: Lemma<L>,
-): LemmaKindFor<L>;
+): V0LemmaKindFor<L>;
 
-export function getLemmaSubKind<L extends SupportedLang>(
+export function getLemmaSubKind<L extends V0SupportedLang>(
 	lemma: Lemma<L>,
-): LemmaDiscriminatorFor<L, LemmaKindFor<L>>;
+): V0LemmaDiscriminatorFor<L, V0LemmaKindFor<L>>;
 ```
 
 Preferred higher-level API:
 
 ```ts
-export type LemmaIdentityInput<
-	L extends SupportedLang,
-	LK extends LemmaKindFor<L>,
-	D extends LemmaDiscriminatorFor<L, LK>,
+export type V0LemmaIdentityInput<
+	L extends V0SupportedLang,
+	LK extends V0LemmaKindFor<L>,
+	D extends V0LemmaDiscriminatorFor<L, LK>,
 > = {
 	canonicalLemma: string;
 	lemmaKind: LK;
 	lemmaSubKind: D;
 };
 
-export type LemmaIdentityInputForLanguage<L extends SupportedLang> = {
-	[LK in LemmaKindFor<L>]: {
-		[D in LemmaDiscriminatorFor<L, LK>]: LemmaIdentityInput<L, LK, D>;
-	}[LemmaDiscriminatorFor<L, LK>];
-}[LemmaKindFor<L>];
+export type V0LemmaIdentityInputForLanguage<L extends V0SupportedLang> = {
+	[LK in V0LemmaKindFor<L>]: {
+		[D in V0LemmaDiscriminatorFor<L, LK>]: V0LemmaIdentityInput<L, LK, D>;
+	}[V0LemmaDiscriminatorFor<L, LK>];
+}[V0LemmaKindFor<L>];
 
-export type LemmaIdentity<
-	L extends SupportedLang,
-	LK extends LemmaKindFor<L>,
-	D extends LemmaDiscriminatorFor<L, LK>,
-> = LemmaIdentityInput<L, LK, D> & {
+export type V0LemmaIdentity<
+	L extends V0SupportedLang,
+	LK extends V0LemmaKindFor<L>,
+	D extends V0LemmaDiscriminatorFor<L, LK>,
+> = V0LemmaIdentityInput<L, LK, D> & {
 	language: L;
 };
 
-export type LemmaIdentityForLanguage<L extends SupportedLang> = {
-	[LK in LemmaKindFor<L>]: {
-		[D in LemmaDiscriminatorFor<L, LK>]: LemmaIdentity<L, LK, D>;
-	}[LemmaDiscriminatorFor<L, LK>];
-}[LemmaKindFor<L>];
+export type V0LemmaIdentityForLanguage<L extends V0SupportedLang> = {
+	[LK in V0LemmaKindFor<L>]: {
+		[D in V0LemmaDiscriminatorFor<L, LK>]: V0LemmaIdentity<L, LK, D>;
+	}[V0LemmaDiscriminatorFor<L, LK>];
+}[V0LemmaKindFor<L>];
 
-export function getLemmaIdentity<L extends SupportedLang>(
+export function getLemmaIdentity<L extends V0SupportedLang>(
 	lemma: Lemma<L>,
-): LemmaIdentityForLanguage<L>;
+): V0LemmaIdentityForLanguage<L>;
 ```
 
 `getLemmaIdentity(...)` should be treated as the primary typed identity API.
@@ -159,21 +159,21 @@ Expose a strong public type for "lemma identity without the full lemma payload".
 Suggested API:
 
 ```ts
-export type LemmaIdentityInput<
-	L extends SupportedLang,
-	LK extends LemmaKindFor<L>,
-	D extends LemmaDiscriminatorFor<L, LK>,
+export type V0LemmaIdentityInput<
+	L extends V0SupportedLang,
+	LK extends V0LemmaKindFor<L>,
+	D extends V0LemmaDiscriminatorFor<L, LK>,
 > = {
 	canonicalLemma: string;
 	lemmaKind: LK;
 	lemmaSubKind: D;
 };
 
-export type LemmaIdentityInputForLanguage<L extends SupportedLang> = {
-	[LK in LemmaKindFor<L>]: {
-		[D in LemmaDiscriminatorFor<L, LK>]: LemmaIdentityInput<L, LK, D>;
-	}[LemmaDiscriminatorFor<L, LK>];
-}[LemmaKindFor<L>];
+export type V0LemmaIdentityInputForLanguage<L extends V0SupportedLang> = {
+	[LK in V0LemmaKindFor<L>]: {
+		[D in V0LemmaDiscriminatorFor<L, LK>]: V0LemmaIdentityInput<L, LK, D>;
+	}[V0LemmaDiscriminatorFor<L, LK>];
+}[V0LemmaKindFor<L>];
 ```
 
 The field name `lemmaSubKind` is fine for DTO readability, but the type helper
@@ -188,13 +188,13 @@ types should expand in lockstep rather than freezing today's field list as a
 permanent final shape.
 
 In the common "any lemma identity input for language `L`" case, downstream code
-should be able to use `LemmaIdentityInputForLanguage<L>` rather than writing
-`LemmaIdentityInput<L, LemmaKindFor<L>, LemmaDiscriminatorFor<L, LemmaKindFor<L>>>`,
+should be able to use `V0LemmaIdentityInputForLanguage<L>` rather than writing
+`V0LemmaIdentityInput<L, V0LemmaKindFor<L>, V0LemmaDiscriminatorFor<L, V0LemmaKindFor<L>>>`,
 which would collapse the relationship between `lemmaKind` and `lemmaSubKind`
 back into a weak cross-product.
 
-For standalone fully-qualified identity DTOs, `LemmaIdentity<...>` should carry
-the `language` field. `LemmaIdentityInput<...>` should stay language-bound, so
+For standalone fully-qualified identity DTOs, `V0LemmaIdentity<...>` should carry
+the `language` field. `V0LemmaIdentityInput<...>` should stay language-bound, so
 it fits current downstream usage such as pending unresolved targets inside a
 dictionary that already has a fixed language.
 
@@ -236,21 +236,21 @@ having to try every supported language manually.
 Suggested API:
 
 ```ts
-export type InspectedDumlingIdForLanguage<L extends SupportedLang> = {
+export type V0InspectedDumlingIdForLanguage<L extends V0SupportedLang> = {
 	kind: "Lemma" | "Surface" | "Selection";
 	language: L;
 };
 
-export type InspectedDumlingId = {
-	[L in SupportedLang]: InspectedDumlingIdForLanguage<L>;
-}[SupportedLang];
+export type V0InspectedDumlingId = {
+	[L in V0SupportedLang]: V0InspectedDumlingIdForLanguage<L>;
+}[V0SupportedLang];
 
 export function inspectDumlingId(
 	id: string,
-): InspectedDumlingId | undefined;
+): V0InspectedDumlingId | undefined;
 
 // Optional full decode helper if dumling wants to expose it too.
-export type ParsedDumlingIdForLanguage<L extends SupportedLang> =
+export type V0ParsedDumlingIdForLanguage<L extends V0SupportedLang> =
 	| {
 				kind: "Lemma";
 				language: L;
@@ -267,11 +267,11 @@ export type ParsedDumlingIdForLanguage<L extends SupportedLang> =
 			value: Selection<L>;
 	  };
 
-export type ParsedDumlingId = {
-	[L in SupportedLang]: ParsedDumlingIdForLanguage<L>;
-}[SupportedLang];
+export type V0ParsedDumlingId = {
+	[L in V0SupportedLang]: V0ParsedDumlingIdForLanguage<L>;
+}[V0SupportedLang];
 
-export function parseDumlingId(id: string): Result<ParsedDumlingId, DumlingIdDecodeError>;
+export function parseDumlingId(id: string): Result<V0ParsedDumlingId, DumlingIdDecodeError>;
 ```
 
 `inspectDumlingId(...)` is the core ask. A full `parseDumlingId(...)` helper is
@@ -301,26 +301,26 @@ the public API.
 Requested exports:
 
 ```ts
-export type AbstractFeatures = ...;
-export type UniversalFeatureKey = ...;
-export type UniversalFeatureValue<K extends UniversalFeatureKey> = ...;
-export type FeatureValueSet<T> = ...;
+export type V0AbstractFeatures = ...;
+export type V0UniversalFeatureKey = ...;
+export type V0UniversalFeatureValue<K extends V0UniversalFeatureKey> = ...;
+export type V0FeatureValueSet<T> = ...;
 ```
 
 And add:
 
 ```ts
-export type InherentFeatures<
-	L extends SupportedLang,
-	LK extends LemmaKindFor<L>,
-	D extends LemmaDiscriminatorFor<L, LK>,
+export type V0InherentFeatures<
+	L extends V0SupportedLang,
+	LK extends V0LemmaKindFor<L>,
+	D extends V0LemmaDiscriminatorFor<L, LK>,
 > = ...;
 
-export type InflectionalFeatures<
-	L extends SupportedLang,
-	SK extends SurfaceSurfaceKindFor<L>,
-	LK extends SurfaceLemmaKindFor<L, SK>,
-	D extends SurfaceDiscriminatorFor<L, SK, LK>,
+export type V0InflectionalFeatures<
+	L extends V0SupportedLang,
+	SK extends V0SurfaceSurfaceKindFor<L>,
+	LK extends V0SurfaceLemmaKindFor<L, SK>,
+	D extends V0SurfaceDiscriminatorFor<L, SK, LK>,
 > = ...;
 ```
 
@@ -331,14 +331,14 @@ This is a meaningful quality-of-life win for downstream packages:
 - generic feature utilities become possible without giant inferred unions
 - builders and patch helpers can type feature bags directly
 - host applications can manipulate feature maps without reaching into internal
-  schema registries
+  v0Schema registries
 
 ### Relative value
 
-- `InherentFeatures<...>`: high value
-- `InflectionalFeatures<...>`: high value
-- `AbstractFeatures`: medium value
-- `UniversalFeatureValue<K>`: medium value
+- `V0InherentFeatures<...>`: high value
+- `V0InflectionalFeatures<...>`: high value
+- `V0AbstractFeatures`: medium value
+- `V0UniversalFeatureValue<K>`: medium value
 
 Taken together, these are a strong improvement.
 
@@ -356,21 +356,21 @@ constraints over `Lemma` and `Surface`.
 Examples of useful helpers:
 
 ```ts
-export type LemmaKindFor<L extends SupportedLang> = ...;
-export type LemmaDiscriminatorFor<
-	L extends SupportedLang,
-	LK extends LemmaKindFor<L>,
+export type V0LemmaKindFor<L extends V0SupportedLang> = ...;
+export type V0LemmaDiscriminatorFor<
+	L extends V0SupportedLang,
+	LK extends V0LemmaKindFor<L>,
 > = ...;
 
-export type SurfaceSurfaceKindFor<L extends SupportedLang> = ...;
-export type SurfaceLemmaKindFor<
-	L extends SupportedLang,
-	SK extends SurfaceSurfaceKindFor<L>,
+export type V0SurfaceSurfaceKindFor<L extends V0SupportedLang> = ...;
+export type V0SurfaceLemmaKindFor<
+	L extends V0SupportedLang,
+	SK extends V0SurfaceSurfaceKindFor<L>,
 > = ...;
-export type SurfaceDiscriminatorFor<
-	L extends SupportedLang,
-	SK extends SurfaceSurfaceKindFor<L>,
-	LK extends SurfaceLemmaKindFor<L, SK>,
+export type V0SurfaceDiscriminatorFor<
+	L extends V0SupportedLang,
+	SK extends V0SurfaceSurfaceKindFor<L>,
+	LK extends V0SurfaceLemmaKindFor<L, SK>,
 > = ...;
 ```
 
@@ -404,11 +404,11 @@ Example:
 
 ```ts
 import type {
-	LemmaDiscriminatorFor,
-	LemmaIdentity,
-	LemmaIdentityInput,
-	LemmaIdentityInputForLanguage,
-	LemmaKindFor,
+	V0LemmaDiscriminatorFor,
+	V0LemmaIdentity,
+	V0LemmaIdentityInput,
+	V0LemmaIdentityInputForLanguage,
+	V0LemmaKindFor,
 } from "dumling/identity";
 
 import {
@@ -421,10 +421,10 @@ import {
 } from "dumling/introspection";
 
 import type {
-	AbstractFeatures,
-	InherentFeatures,
-	InflectionalFeatures,
-	UniversalFeatureValue,
+	V0AbstractFeatures,
+	V0InherentFeatures,
+	V0InflectionalFeatures,
+	V0UniversalFeatureValue,
 } from "dumling/features";
 ```
 
@@ -453,19 +453,19 @@ These are not required for `dumdict`, but they would help generic host code.
 
 ## 8. Public Identity Derivation Helpers
 
-If `LemmaIdentityInput` exists, helpers like this would be useful:
+If `V0LemmaIdentityInput` exists, helpers like this would be useful:
 
 ```ts
-export function sameLemmaIdentity<L extends SupportedLang>(
-	left: Lemma<L> | LemmaIdentityInputForLanguage<L>,
-	right: Lemma<L> | LemmaIdentityInputForLanguage<L>,
+export function sameLemmaIdentity<L extends V0SupportedLang>(
+	left: Lemma<L> | V0LemmaIdentityInputForLanguage<L>,
+	right: Lemma<L> | V0LemmaIdentityInputForLanguage<L>,
 ): boolean;
 ```
 
 This is not required, but it would reduce downstream duplication around
 identity comparison.
 
-If a standalone `LemmaIdentity<...>` helper also exists, it should compare
+If a standalone `V0LemmaIdentity<...>` helper also exists, it should compare
 language as part of identity.
 
 ## Explicit Non-Requests
@@ -483,11 +483,11 @@ Those belong in `dumdict`.
 ## Recommended Implementation Order
 
 1. Add the public generic helper types:
-   `LemmaKindFor<...>`, `LemmaDiscriminatorFor<...>`,
-   `SurfaceSurfaceKindFor<...>`, `SurfaceLemmaKindFor<...>`,
-   `SurfaceDiscriminatorFor<...>`
-2. Add `LemmaIdentityInput<...>`, `LemmaIdentityInputForLanguage<...>`,
-   `LemmaIdentity<...>`, and `LemmaIdentityForLanguage<...>`
+   `V0LemmaKindFor<...>`, `V0LemmaDiscriminatorFor<...>`,
+   `V0SurfaceSurfaceKindFor<...>`, `V0SurfaceLemmaKindFor<...>`,
+   `V0SurfaceDiscriminatorFor<...>`
+2. Add `V0LemmaIdentityInput<...>`, `V0LemmaIdentityInputForLanguage<...>`,
+   `V0LemmaIdentity<...>`, and `V0LemmaIdentityForLanguage<...>`
 3. Add `getLemmaIdentity(...)` as the primary typed API, plus any approved
    convenience accessors
 4. Add `inspectDumlingId(...)` or equivalent kind/language introspection helper
@@ -496,8 +496,8 @@ Those belong in `dumdict`.
 6. Optionally add `parseDumlingId(...)` if `dumling` wants a public full decode
    API
 7. Add public feature exports:
-   `AbstractFeatures`, `UniversalFeatureValue<K>`,
-   `InherentFeatures<...>`, `InflectionalFeatures<...>`
+   `V0AbstractFeatures`, `V0UniversalFeatureValue<K>`,
+   `V0InherentFeatures<...>`, `V0InflectionalFeatures<...>`
 8. Expose the approved APIs through stable public entrypoints
 
 ## Expected Downstream Impact On `dumdict`
@@ -517,7 +517,7 @@ It would also make future `dumdict` public helpers safer, especially around:
 
 ## Bottom Line
 
-The most important thing `dumling` can add for `dumdict` is not more schema
+The most important thing `dumling` can add for `dumdict` is not more v0Schema
 volume. It is more public structure around identity, ID introspection, and
 feature typing.
 

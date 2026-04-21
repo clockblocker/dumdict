@@ -1,14 +1,14 @@
-import type { DumlingId, SupportedLang } from "../../dumling-compat";
+import type { V0DumlingId, V0SupportedLang } from "../../dumling-compat";
 import { sortIds, toSortedRecord } from "../domain/collections";
-import type { LemmaEntry, SurfaceEntry } from "../public";
+import type { V0LemmaEntry, V0SurfaceEntry } from "../public";
 import { cloneLemmaEntry, cloneSurfaceEntry } from "./clone";
-import type { InternalState } from "./state";
+import type { V0InternalState } from "./state";
 
-export function collectLemmaRecord<L extends SupportedLang>(
-	state: InternalState<L>,
-	lemmaIds: Iterable<DumlingId<"Lemma", L>>,
+export function collectLemmaRecord<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	lemmaIds: Iterable<V0DumlingId<"Lemma", L>>,
 ) {
-	const entries: [DumlingId<"Lemma", L>, LemmaEntry<L>][] = [];
+	const entries: [V0DumlingId<"Lemma", L>, V0LemmaEntry<L>][] = [];
 	for (const lemmaId of sortIds([...lemmaIds])) {
 		const entry = state.lemmasById.get(lemmaId);
 		if (!entry) {
@@ -21,11 +21,11 @@ export function collectLemmaRecord<L extends SupportedLang>(
 	return toSortedRecord(entries);
 }
 
-export function collectSurfaceRecord<L extends SupportedLang>(
-	state: InternalState<L>,
-	surfaceIds: Iterable<DumlingId<"Surface", L>>,
+export function collectSurfaceRecord<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	surfaceIds: Iterable<V0DumlingId<"Surface", L>>,
 ) {
-	const entries: [DumlingId<"Surface", L>, SurfaceEntry<L>][] = [];
+	const entries: [V0DumlingId<"Surface", L>, V0SurfaceEntry<L>][] = [];
 	for (const surfaceId of sortIds([...surfaceIds])) {
 		const entry = state.surfacesById.get(surfaceId);
 		if (!entry) {

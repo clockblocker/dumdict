@@ -1,17 +1,17 @@
 /** biome-ignore-all lint/correctness/noUnusedVariables: README example file */
 import {
 	dumling,
-	type Lemma,
-	type Surface,
-} from "../../src/dumling-compat";
+	type V0Lemma,
+	type V0Surface,
+} from "../../src/v0/dumling-compat";
 import {
-	type DumdictResult,
-	type LemmaEntry,
+	type V0DumdictResult,
+	type V0LemmaEntry,
 	makeDumdict,
-	type SurfaceEntry,
-} from "../../src";
+	type V0SurfaceEntry,
+} from "../../src/v0";
 
-function unwrap<T>(result: DumdictResult<T>) {
+function unwrap<T>(result: V0DumdictResult<T>) {
 	if (result.isErr()) {
 		throw new Error(`${result.error.code}: ${result.error.message}`);
 	}
@@ -26,7 +26,7 @@ const walkLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🚶",
 	lemmaSubKind: "VERB",
-} satisfies Lemma<"en", "Lexeme", "VERB">;
+} satisfies V0Lemma<"en", "Lexeme", "VERB">;
 
 const runLemma = {
 	canonicalLemma: "run",
@@ -35,7 +35,7 @@ const runLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🏃",
 	lemmaSubKind: "VERB",
-} satisfies Lemma<"en", "Lexeme", "VERB">;
+} satisfies V0Lemma<"en", "Lexeme", "VERB">;
 
 const walkSurface = {
 	inflectionalFeatures: {
@@ -46,41 +46,41 @@ const walkSurface = {
 	normalizedFullSurface: "walk",
 	surfaceKind: "Inflection",
 	lemma: walkLemma,
-} satisfies Surface<"en", "Inflection", "Lexeme", "VERB">;
+} satisfies V0Surface<"en", "Inflection", "Lexeme", "VERB">;
 
 // README_BLOCK:english-walk-lemma-entry:start
 const walkEntry = {
-	id: dumling.en.id.encode(walkLemma) as LemmaEntry<"en">["id"],
+	id: dumling.en.id.encode(walkLemma) as V0LemmaEntry<"en">["id"],
 	lemma: walkLemma,
 	lexicalRelations: {},
 	morphologicalRelations: {},
 	attestedTranslations: ["caminar", "gehen"],
 	attestations: ["They walk home together."],
 	notes: "Core motion verb.",
-} satisfies LemmaEntry<"en">;
+} satisfies V0LemmaEntry<"en">;
 // README_BLOCK:english-walk-lemma-entry:end
 
 // README_BLOCK:english-walk-surface-entry:start
 const walkSurfaceEntry = {
-	id: dumling.en.id.encode(walkSurface) as SurfaceEntry<"en">["id"],
+	id: dumling.en.id.encode(walkSurface) as V0SurfaceEntry<"en">["id"],
 	surface: walkSurface,
 	ownerLemmaId: walkEntry.id,
 	attestedTranslations: ["walk"],
 	attestations: ["They walk home together."],
 	notes: "Present finite surface.",
-} satisfies SurfaceEntry<"en">;
+} satisfies V0SurfaceEntry<"en">;
 // README_BLOCK:english-walk-surface-entry:end
 
 // README_BLOCK:reciprocal-relations:start
 const runEntry = {
-	id: dumling.en.id.encode(runLemma) as LemmaEntry<"en">["id"],
+	id: dumling.en.id.encode(runLemma) as V0LemmaEntry<"en">["id"],
 	lemma: runLemma,
 	lexicalRelations: {},
 	morphologicalRelations: {},
 	attestedTranslations: [],
 	attestations: [],
 	notes: "",
-} satisfies LemmaEntry<"en">;
+} satisfies V0LemmaEntry<"en">;
 
 const dictForRelations = makeDumdict("en");
 unwrap(dictForRelations.upsertLemmaEntry(walkEntry));

@@ -1,20 +1,20 @@
-import type { DumlingId, SupportedLang } from "../../dumling-compat";
-import type { LemmaEntry } from "../public";
+import type { V0DumlingId, V0SupportedLang } from "../../dumling-compat";
+import type { V0LemmaEntry } from "../public";
 import {
 	getInverseLexicalRelation,
-	type LexicalRelation,
-	lexicalRelationKeys,
+	type V0LexicalRelation,
+	v0LexicalRelationKeys,
 } from "../relations/lexical";
 import {
 	getInverseMorphologicalRelation,
-	type MorphologicalRelation,
-	morphologicalRelationKeys,
+	type V0MorphologicalRelation,
+	v0MorphologicalRelationKeys,
 } from "../relations/morphological";
 import { getMutableLemmaEntry } from "./lemma-store";
-import type { InternalState } from "./state";
+import type { V0InternalState } from "./state";
 
-function ensureRelationSet<L extends SupportedLang, R extends string>(
-	record: Partial<Record<R, DumlingId<"Lemma", L>[]>>,
+function ensureRelationSet<L extends V0SupportedLang, R extends string>(
+	record: Partial<Record<R, V0DumlingId<"Lemma", L>[]>>,
 	relation: R,
 ) {
 	const existing = record[relation];
@@ -22,15 +22,15 @@ function ensureRelationSet<L extends SupportedLang, R extends string>(
 		return existing;
 	}
 
-	const created: DumlingId<"Lemma", L>[] = [];
+	const created: V0DumlingId<"Lemma", L>[] = [];
 	record[relation] = created;
 	return created;
 }
 
-function addRelationValue<L extends SupportedLang, R extends string>(
-	record: Partial<Record<R, DumlingId<"Lemma", L>[]>>,
+function addRelationValue<L extends V0SupportedLang, R extends string>(
+	record: Partial<Record<R, V0DumlingId<"Lemma", L>[]>>,
 	relation: R,
-	targetId: DumlingId<"Lemma", L>,
+	targetId: V0DumlingId<"Lemma", L>,
 ) {
 	const values = ensureRelationSet(record, relation);
 	if (!values.includes(targetId)) {
@@ -39,10 +39,10 @@ function addRelationValue<L extends SupportedLang, R extends string>(
 	}
 }
 
-function removeRelationValue<L extends SupportedLang, R extends string>(
-	record: Partial<Record<R, DumlingId<"Lemma", L>[]>>,
+function removeRelationValue<L extends V0SupportedLang, R extends string>(
+	record: Partial<Record<R, V0DumlingId<"Lemma", L>[]>>,
 	relation: R,
-	targetId: DumlingId<"Lemma", L>,
+	targetId: V0DumlingId<"Lemma", L>,
 ) {
 	const values = record[relation];
 	if (!values) {
@@ -58,11 +58,11 @@ function removeRelationValue<L extends SupportedLang, R extends string>(
 	record[relation] = filtered;
 }
 
-export function addResolvedLexicalRelationEdge<L extends SupportedLang>(
-	state: InternalState<L>,
-	sourceLemmaId: DumlingId<"Lemma", L>,
-	relation: LexicalRelation,
-	targetLemmaId: DumlingId<"Lemma", L>,
+export function addResolvedLexicalRelationEdge<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	sourceLemmaId: V0DumlingId<"Lemma", L>,
+	relation: V0LexicalRelation,
+	targetLemmaId: V0DumlingId<"Lemma", L>,
 ) {
 	const sourceEntry = getMutableLemmaEntry(state, sourceLemmaId);
 	const targetEntry = getMutableLemmaEntry(state, targetLemmaId);
@@ -78,11 +78,11 @@ export function addResolvedLexicalRelationEdge<L extends SupportedLang>(
 	);
 }
 
-export function removeResolvedLexicalRelationEdge<L extends SupportedLang>(
-	state: InternalState<L>,
-	sourceLemmaId: DumlingId<"Lemma", L>,
-	relation: LexicalRelation,
-	targetLemmaId: DumlingId<"Lemma", L>,
+export function removeResolvedLexicalRelationEdge<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	sourceLemmaId: V0DumlingId<"Lemma", L>,
+	relation: V0LexicalRelation,
+	targetLemmaId: V0DumlingId<"Lemma", L>,
 ) {
 	const sourceEntry = getMutableLemmaEntry(state, sourceLemmaId);
 	const targetEntry = getMutableLemmaEntry(state, targetLemmaId);
@@ -98,11 +98,11 @@ export function removeResolvedLexicalRelationEdge<L extends SupportedLang>(
 	);
 }
 
-export function addResolvedMorphologicalRelationEdge<L extends SupportedLang>(
-	state: InternalState<L>,
-	sourceLemmaId: DumlingId<"Lemma", L>,
-	relation: MorphologicalRelation,
-	targetLemmaId: DumlingId<"Lemma", L>,
+export function addResolvedMorphologicalRelationEdge<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	sourceLemmaId: V0DumlingId<"Lemma", L>,
+	relation: V0MorphologicalRelation,
+	targetLemmaId: V0DumlingId<"Lemma", L>,
 ) {
 	const sourceEntry = getMutableLemmaEntry(state, sourceLemmaId);
 	const targetEntry = getMutableLemmaEntry(state, targetLemmaId);
@@ -119,12 +119,12 @@ export function addResolvedMorphologicalRelationEdge<L extends SupportedLang>(
 }
 
 export function removeResolvedMorphologicalRelationEdge<
-	L extends SupportedLang,
+	L extends V0SupportedLang,
 >(
-	state: InternalState<L>,
-	sourceLemmaId: DumlingId<"Lemma", L>,
-	relation: MorphologicalRelation,
-	targetLemmaId: DumlingId<"Lemma", L>,
+	state: V0InternalState<L>,
+	sourceLemmaId: V0DumlingId<"Lemma", L>,
+	relation: V0MorphologicalRelation,
+	targetLemmaId: V0DumlingId<"Lemma", L>,
 ) {
 	const sourceEntry = getMutableLemmaEntry(state, sourceLemmaId);
 	const targetEntry = getMutableLemmaEntry(state, targetLemmaId);
@@ -144,18 +144,18 @@ export function removeResolvedMorphologicalRelationEdge<
 	);
 }
 
-export function removeAllResolvedRelationsForLemma<L extends SupportedLang>(
-	state: InternalState<L>,
-	entry: LemmaEntry<L>,
+export function removeAllResolvedRelationsForLemma<L extends V0SupportedLang>(
+	state: V0InternalState<L>,
+	entry: V0LemmaEntry<L>,
 ) {
-	for (const relation of lexicalRelationKeys) {
+	for (const relation of v0LexicalRelationKeys) {
 		const targetIds = [...(entry.lexicalRelations[relation] ?? [])];
 		for (const targetId of targetIds) {
 			removeResolvedLexicalRelationEdge(state, entry.id, relation, targetId);
 		}
 	}
 
-	for (const relation of morphologicalRelationKeys) {
+	for (const relation of v0MorphologicalRelationKeys) {
 		const targetIds = [...(entry.morphologicalRelations[relation] ?? [])];
 		for (const targetId of targetIds) {
 			removeResolvedMorphologicalRelationEdge(

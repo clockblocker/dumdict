@@ -1,18 +1,18 @@
 import { describe, expect, it } from "bun:test";
 import {
-	type DumlingId,
+	type V0DumlingId,
 	makeDumlingIdFor,
-} from "../../src/dumling-compat";
+} from "../../src/v0/dumling-compat";
 import {
 	getInverseLexicalRelation,
 	getInverseMorphologicalRelation,
 	getReprForLexicalRelation,
 	getReprForMorphologicalRelation,
-	LexicalRelationsSchema,
-	MorphologicalRelationsSchema,
-	Relations,
-	RelationTargetDumlingIdsSchema,
-} from "../../src";
+	V0LexicalRelationsSchema,
+	V0MorphologicalRelationsSchema,
+	V0Relations,
+	V0RelationTargetDumlingIdsSchema,
+} from "../../src/v0";
 import {
 	englishWalkLemma,
 	englishWalkResolvedInflectionSurface,
@@ -23,8 +23,8 @@ describe("dumdict relations", () => {
 		const lemmaId = makeDumlingIdFor("en", englishWalkLemma);
 
 		expect(
-			RelationTargetDumlingIdsSchema.parse([lemmaId] as DumlingId<"Lemma">[]),
-		).toEqual([lemmaId] as DumlingId<"Lemma">[]);
+			V0RelationTargetDumlingIdsSchema.parse([lemmaId] as V0DumlingId<"Lemma">[]),
+		).toEqual([lemmaId] as V0DumlingId<"Lemma">[]);
 	});
 
 	it("rejects non-lemma Dumling IDs as relation targets", () => {
@@ -34,26 +34,26 @@ describe("dumdict relations", () => {
 		);
 
 		expect(() =>
-			RelationTargetDumlingIdsSchema.parse([resolvedSurfaceId]),
+			V0RelationTargetDumlingIdsSchema.parse([resolvedSurfaceId]),
 		).toThrow("Expected lemma Dumling ID");
 	});
 
 	it("validates lexical and morphological relation payloads", () => {
 		const lemmaId = makeDumlingIdFor("en", englishWalkLemma);
 
-		expect(LexicalRelationsSchema.parse({ synonym: [lemmaId] })).toEqual({
+		expect(V0LexicalRelationsSchema.parse({ synonym: [lemmaId] })).toEqual({
 			synonym: [lemmaId],
 		});
 		expect(
-			MorphologicalRelationsSchema.parse({ derivedFrom: [lemmaId] }),
+			V0MorphologicalRelationsSchema.parse({ derivedFrom: [lemmaId] }),
 		).toEqual({
 			derivedFrom: [lemmaId],
 		});
 	});
 
 	it("exposes inverse and repr helpers from the root api", () => {
-		expect(Relations.Lexical.getInverse("hypernym")).toBe("hyponym");
-		expect(Relations.Morphological.getInverse("derivedFrom")).toBe("sourceFor");
+		expect(V0Relations.Lexical.getInverse("hypernym")).toBe("hyponym");
+		expect(V0Relations.Morphological.getInverse("derivedFrom")).toBe("sourceFor");
 		expect(getInverseLexicalRelation("holonym")).toBe("meronym");
 		expect(getInverseMorphologicalRelation("usedIn")).toBe("consistsOf");
 		expect(getReprForLexicalRelation("nearSynonym")).toBe("≈");

@@ -1,4 +1,4 @@
-import type { Lemma } from "../../../../src/dumling-compat";
+import type { V0Lemma } from "../../../../src/v0/dumling-compat";
 
 // Attestation: "Am Ufer des [Sees] war es still."
 export const germanMasculineSeeLemma = {
@@ -10,7 +10,7 @@ export const germanMasculineSeeLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🏞️",
 	lemmaSubKind: "NOUN",
-} satisfies Lemma<"de", "Lexeme", "NOUN">;
+} satisfies V0Lemma<"de", "Lexeme", "NOUN">;
 
 // Attestation: "Das [Kind] schlief schon."
 export const germanKindLemma = {
@@ -22,7 +22,7 @@ export const germanKindLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "👶",
 	lemmaSubKind: "NOUN",
-} satisfies Lemma<"de", "Lexeme", "NOUN">;
+} satisfies V0Lemma<"de", "Lexeme", "NOUN">;
 
 // Attestation: "Das [Haus] steht leer."
 export const germanHausLemma = {
@@ -34,7 +34,7 @@ export const germanHausLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🏠",
 	lemmaSubKind: "NOUN",
-} satisfies Lemma<"de", "Lexeme", "NOUN">;
+} satisfies V0Lemma<"de", "Lexeme", "NOUN">;
 
 // Attestation: "Wir [gehen] nach Hause."
 export const germanGehenLemma = {
@@ -44,7 +44,7 @@ export const germanGehenLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🚶",
 	lemmaSubKind: "VERB",
-} satisfies Lemma<"de", "Lexeme", "VERB">;
+} satisfies V0Lemma<"de", "Lexeme", "VERB">;
 
 // Attestation: "In Berlin sowie im Umland (Agglomeration Berlin) betreibt die [BVG] die U-Bahn Berlin, die Straßenbahn Berlin, den Busverkehr in Berlin und den Fährverkehr in Berlin, nicht jedoch die S-Bahn."
 // UD-style: multi-word abbreviations keep the abbreviated form as canonicalLemma and mark Abbr=Yes.
@@ -59,7 +59,7 @@ export const germanBVGLemma = {
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🚇",
 	lemmaSubKind: "PROPN",
-} satisfies Lemma<"de", "Lexeme", "PROPN">;
+} satisfies V0Lemma<"de", "Lexeme", "PROPN">;
 
 // Attestation: "Ich komme [auf jeden Fall] morgen."
 export const germanAufJedenFallLemma = {
@@ -69,7 +69,7 @@ export const germanAufJedenFallLemma = {
 	lemmaKind: "Phraseme",
 	meaningInEmojis: "✅",
 	lemmaSubKind: "DiscourseFormula",
-} satisfies Lemma<"de", "Phraseme", "DiscourseFormula">;
+} satisfies V0Lemma<"de", "Phraseme", "DiscourseFormula">;
 
 // Attestation: "[Ab]fahrt nur am Gleis 3."
 export const germanAbPrefixLemma = {
@@ -79,4 +79,4 @@ export const germanAbPrefixLemma = {
 	lemmaKind: "Morpheme",
 	meaningInEmojis: "🧩",
 	lemmaSubKind: "Prefix",
-} satisfies Lemma<"de", "Morpheme", "Prefix">;
+} satisfies V0Lemma<"de", "Morpheme", "Prefix">;

@@ -1,23 +1,23 @@
 import {
-	type DumlingId,
+	type V0DumlingId,
 	inspectDumlingId,
-	type Lemma,
+	type V0Lemma,
 	makeDumlingIdFor,
-	type SupportedLang,
+	type V0SupportedLang,
 } from "../../dumling-compat";
 import { err, ok } from "neverthrow";
-import { type DumdictResult, makeError } from "../errors";
+import { type V0DumdictResult, makeError } from "../errors";
 import type {
-	LemmaEntry,
-	LexicalRelations,
-	MorphologicalRelations,
-	PendingLemmaId,
-	PendingLemmaRef,
-	SurfaceEntry,
+	V0LemmaEntry,
+	V0LexicalRelations,
+	V0MorphologicalRelations,
+	V0PendingLemmaId,
+	V0PendingLemmaRef,
+	V0SurfaceEntry,
 } from "../public";
-import { lexicalRelationKeys } from "../relations/lexical";
-import { morphologicalRelationKeys } from "../relations/morphological";
-import type { InternalState } from "../state/state";
+import { v0LexicalRelationKeys } from "../relations/lexical";
+import { v0MorphologicalRelationKeys } from "../relations/morphological";
+import type { V0InternalState } from "../state/state";
 import {
 	getLemmaCanonicalLemma,
 	getLemmaKind,
@@ -62,10 +62,10 @@ export function inferPendingIdLanguage(pendingId: string) {
 	return undefined;
 }
 
-export function assertLemmaIdMatchesDictionaryLanguage<L extends SupportedLang>(
+export function assertLemmaIdMatchesDictionaryLanguage<L extends V0SupportedLang>(
 	language: L,
-	id: DumlingId<"Lemma", L>,
-): DumdictResult<void> {
+	id: V0DumlingId<"Lemma", L>,
+): V0DumdictResult<void> {
 	const inferredLanguage = inferLemmaIdLanguage(id);
 	if (!inferredLanguage) {
 		return err(
@@ -80,7 +80,7 @@ export function assertLemmaIdMatchesDictionaryLanguage<L extends SupportedLang>(
 		return err(
 			makeError(
 				"LanguageMismatch",
-				`Lemma ID ${id} belongs to ${inferredLanguage}, not ${language}.`,
+				`V0Lemma ID ${id} belongs to ${inferredLanguage}, not ${language}.`,
 			),
 		);
 	}
@@ -89,8 +89,8 @@ export function assertLemmaIdMatchesDictionaryLanguage<L extends SupportedLang>(
 }
 
 export function assertSurfaceIdMatchesDictionaryLanguage<
-	L extends SupportedLang,
->(language: L, id: DumlingId<"Surface", L>): DumdictResult<void> {
+	L extends V0SupportedLang,
+>(language: L, id: V0DumlingId<"Surface", L>): V0DumdictResult<void> {
 	const inferredLanguage = inferSurfaceIdLanguage(id);
 	if (!inferredLanguage) {
 		return err(
@@ -105,7 +105,7 @@ export function assertSurfaceIdMatchesDictionaryLanguage<
 		return err(
 			makeError(
 				"LanguageMismatch",
-				`Surface ID ${id} belongs to ${inferredLanguage}, not ${language}.`,
+				`V0Surface ID ${id} belongs to ${inferredLanguage}, not ${language}.`,
 			),
 		);
 	}
@@ -114,8 +114,8 @@ export function assertSurfaceIdMatchesDictionaryLanguage<
 }
 
 export function assertPendingIdMatchesDictionaryLanguage<
-	L extends SupportedLang,
->(language: L, id: PendingLemmaId<L>): DumdictResult<void> {
+	L extends V0SupportedLang,
+>(language: L, id: V0PendingLemmaId<L>): V0DumdictResult<void> {
 	const inferredLanguage = inferPendingIdLanguage(id);
 	if (!inferredLanguage) {
 		return err(
@@ -138,15 +138,15 @@ export function assertPendingIdMatchesDictionaryLanguage<
 	return ok(undefined);
 }
 
-export function validateLemmaEntry<L extends SupportedLang>(
+export function validateLemmaEntry<L extends V0SupportedLang>(
 	language: L,
-	entry: LemmaEntry<L>,
-): DumdictResult<void> {
+	entry: V0LemmaEntry<L>,
+): V0DumdictResult<void> {
 	if (getLemmaLanguage(entry.lemma) !== language) {
 		return err(
 			makeError(
 				"LanguageMismatch",
-				`Lemma entry payload language ${getLemmaLanguage(entry.lemma)} does not match ${language}.`,
+				`V0Lemma entry payload language ${getLemmaLanguage(entry.lemma)} does not match ${language}.`,
 			),
 		);
 	}
@@ -164,7 +164,7 @@ export function validateLemmaEntry<L extends SupportedLang>(
 		return err(
 			makeError(
 				"InvariantViolation",
-				`Lemma entry ID ${entry.id} does not match the Dumling ID derived from its lemma payload.`,
+				`V0Lemma entry ID ${entry.id} does not match the Dumling ID derived from its lemma payload.`,
 			),
 		);
 	}
@@ -172,15 +172,15 @@ export function validateLemmaEntry<L extends SupportedLang>(
 	return ok(undefined);
 }
 
-export function validateSurfaceEntry<L extends SupportedLang>(
+export function validateSurfaceEntry<L extends V0SupportedLang>(
 	language: L,
-	entry: SurfaceEntry<L>,
-): DumdictResult<void> {
+	entry: V0SurfaceEntry<L>,
+): V0DumdictResult<void> {
 	if (getSurfaceLanguage(entry.surface) !== language) {
 		return err(
 			makeError(
 				"LanguageMismatch",
-				`Surface entry payload language ${getSurfaceLanguage(entry.surface)} does not match ${language}.`,
+				`V0Surface entry payload language ${getSurfaceLanguage(entry.surface)} does not match ${language}.`,
 			),
 		);
 	}
@@ -206,7 +206,7 @@ export function validateSurfaceEntry<L extends SupportedLang>(
 		return err(
 			makeError(
 				"InvariantViolation",
-				`Surface entry ID ${entry.id} does not match the Dumling ID derived from its surface payload.`,
+				`V0Surface entry ID ${entry.id} does not match the Dumling ID derived from its surface payload.`,
 			),
 		);
 	}
@@ -216,7 +216,7 @@ export function validateSurfaceEntry<L extends SupportedLang>(
 		return err(
 			makeError(
 				"InvalidOwnership",
-				`Surface entry owner ${entry.ownerLemmaId} does not match the lemma encoded inside the surface payload.`,
+				`V0Surface entry owner ${entry.ownerLemmaId} does not match the lemma encoded inside the surface payload.`,
 			),
 		);
 	}
@@ -224,12 +224,12 @@ export function validateSurfaceEntry<L extends SupportedLang>(
 	return ok(undefined);
 }
 
-export function validateExistingRelationTarget<L extends SupportedLang>(
+export function validateExistingRelationTarget<L extends V0SupportedLang>(
 	language: L,
-	sourceLemmaId: DumlingId<"Lemma", L>,
-	targetLemmaId: DumlingId<"Lemma", L>,
-	state: InternalState<L>,
-): DumdictResult<void> {
+	sourceLemmaId: V0DumlingId<"Lemma", L>,
+	targetLemmaId: V0DumlingId<"Lemma", L>,
+	state: V0InternalState<L>,
+): V0DumdictResult<void> {
 	const targetLanguageResult = assertLemmaIdMatchesDictionaryLanguage(
 		language,
 		targetLemmaId,
@@ -242,7 +242,7 @@ export function validateExistingRelationTarget<L extends SupportedLang>(
 		return err(
 			makeError(
 				"SelfRelationForbidden",
-				`Lemma ${sourceLemmaId} cannot relate to itself.`,
+				`V0Lemma ${sourceLemmaId} cannot relate to itself.`,
 			),
 		);
 	}
@@ -259,14 +259,14 @@ export function validateExistingRelationTarget<L extends SupportedLang>(
 	return ok(undefined);
 }
 
-export function validateResolvedRelationTargets<L extends SupportedLang>(
+export function validateResolvedRelationTargets<L extends V0SupportedLang>(
 	language: L,
-	sourceLemmaId: DumlingId<"Lemma", L>,
-	lexicalRelations: LexicalRelations<L>,
-	morphologicalRelations: MorphologicalRelations<L>,
-	state: InternalState<L>,
-): DumdictResult<void> {
-	for (const relation of lexicalRelationKeys) {
+	sourceLemmaId: V0DumlingId<"Lemma", L>,
+	lexicalRelations: V0LexicalRelations<L>,
+	morphologicalRelations: V0MorphologicalRelations<L>,
+	state: V0InternalState<L>,
+): V0DumdictResult<void> {
+	for (const relation of v0LexicalRelationKeys) {
 		for (const targetLemmaId of lexicalRelations[relation] ?? []) {
 			const relationResult = validateExistingRelationTarget(
 				language,
@@ -280,7 +280,7 @@ export function validateResolvedRelationTargets<L extends SupportedLang>(
 		}
 	}
 
-	for (const relation of morphologicalRelationKeys) {
+	for (const relation of v0MorphologicalRelationKeys) {
 		for (const targetLemmaId of morphologicalRelations[relation] ?? []) {
 			const relationResult = validateExistingRelationTarget(
 				language,
@@ -297,19 +297,19 @@ export function validateResolvedRelationTargets<L extends SupportedLang>(
 	return ok(undefined);
 }
 
-export function pendingRefMatchesLemma<L extends SupportedLang>(
-	pendingRef: PendingLemmaRef<L>,
-	lemma: Lemma<L>,
+export function pendingRefMatchesLemma<L extends V0SupportedLang>(
+	pendingRef: V0PendingLemmaRef<L>,
+	lemma: V0Lemma<L>,
 ) {
 	return pendingRefMatchesLemmaIdentityTuple(pendingRef, lemma);
 }
 
-export function pendingRefMatchesLemmaIdentityTuple<L extends SupportedLang>(
+export function pendingRefMatchesLemmaIdentityTuple<L extends V0SupportedLang>(
 	pendingRef: Pick<
-		PendingLemmaRef<L>,
+		V0PendingLemmaRef<L>,
 		"canonicalLemma" | "lemmaKind" | "lemmaSubKind"
 	>,
-	lemma: Lemma<L>,
+	lemma: V0Lemma<L>,
 ) {
 	return (
 		pendingRef.canonicalLemma === getLemmaCanonicalLemma(lemma) &&

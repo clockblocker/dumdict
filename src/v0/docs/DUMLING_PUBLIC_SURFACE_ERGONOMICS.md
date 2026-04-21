@@ -102,9 +102,9 @@ Keep the registry data model if needed internally, but add a callable public
 selector API such as:
 
 ```ts
-export const schema = {
+export const v0Schema = {
 	selection(args: {
-		language: SupportedLang;
+		language: V0SupportedLang;
 		orthographicStatus: string;
 		surfaceKind: string;
 		lemmaKind: string;
@@ -133,7 +133,7 @@ surface to selection to ID generation.
 Example direction:
 
 ```ts
-export const annotate = {
+export const v0Annotate = {
 	fromLemma(...),
 	fromSurface(...),
 };
