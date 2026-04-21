@@ -5,11 +5,16 @@ import {
 	type DumdictStoragePort,
 	derivePendingLemmaId,
 	type Lemma,
+	type LemmaEntry,
 	makeDumlingIdFor,
 	type StoreRevision,
 	type SurfaceEntry,
 } from "../../../src/v1";
 import { getBootedUpDumdict } from "../../../src/v1/testing/boot";
+import {
+	deSerializedNotes,
+	germanGehenLemmaId,
+} from "../../fixtures/v1/de-notes";
 import {
 	englishRunLemma,
 	englishRunLemmaId,
@@ -20,8 +25,20 @@ import {
 	enSerializedNotesWithPendingSwimRelation,
 	pendingSwimLemmaId,
 } from "../../fixtures/v1/en-notes";
+import {
+	hebrewKatavLemmaId,
+	heSerializedNotes,
+} from "../../fixtures/v1/he-notes";
 
 describe("v1 configured service", () => {
+	const englishWalkEntry = (): LemmaEntry<"en"> => {
+		const note = enSerializedNotes[0];
+		if (!note) {
+			throw new Error("Expected English walk fixture.");
+		}
+		return note.lemmaEntry;
+	};
+
 	test("findStoredLemmaSenses returns stored senses for a coarse lemma description", async () => {
 		const { dict } = getBootedUpDumdict("en", enSerializedNotes);
 
@@ -39,6 +56,31 @@ describe("v1 configured service", () => {
 		expect(result.candidates[0]?.note.attestations).toContain(
 			"They walk home together.",
 		);
+	});
+
+	test("language-specific v1 fixtures boot for German and Hebrew", async () => {
+		const { dict: deDict } = getBootedUpDumdict("de", deSerializedNotes);
+		const { dict: heDict } = getBootedUpDumdict("he", heSerializedNotes);
+
+		const deResult = await deDict.findStoredLemmaSenses({
+			lemmaDescription: {
+				language: "de",
+				canonicalLemma: "gehen",
+				lemmaKind: "Lexeme",
+				lemmaSubKind: "VERB",
+			},
+		});
+		const heResult = await heDict.findStoredLemmaSenses({
+			lemmaDescription: {
+				language: "he",
+				canonicalLemma: "כתב",
+				lemmaKind: "Lexeme",
+				lemmaSubKind: "VERB",
+			},
+		});
+
+		expect(deResult.candidates[0]?.lemmaId).toBe(germanGehenLemmaId);
+		expect(heResult.candidates[0]?.lemmaId).toBe(hebrewKatavLemmaId);
 	});
 
 	test("addAttestation appends an attestation to an existing lemma", async () => {
@@ -66,6 +108,92 @@ describe("v1 configured service", () => {
 		expect(result).toMatchObject({
 			status: "rejected",
 			code: "lemmaMissing",
+		});
+	});
+
+	test("addAttestation reloads patch context instead of using stale lookup revision", async () => {
+		let committedBaseRevision: StoreRevision | undefined;
+		const storage = {
+			async findStoredLemmaSenses() {
+				return {
+					revision: "lookup-1" as StoreRevision,
+					candidates: [{ entry: englishWalkEntry() }],
+				};
+			},
+			async loadLemmaForPatch() {
+				return {
+					revision: "patch-2" as StoreRevision,
+					lemma: englishWalkEntry(),
+				};
+			},
+			async loadNewNoteContext() {
+				throw new Error("Unexpected storage call");
+			},
+			async commitChanges(request) {
+				committedBaseRevision = request.baseRevision;
+				return {
+					status: "committed",
+					nextRevision: "patch-3" as StoreRevision,
+				};
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		await dict.findStoredLemmaSenses({
+			lemmaDescription: {
+				language: "en",
+				canonicalLemma: "walk",
+				lemmaKind: "Lexeme",
+				lemmaSubKind: "VERB",
+			},
+		});
+		const result = await dict.addAttestation({
+			lemmaId: englishWalkLemmaId,
+			attestation: "We walk after dinner.",
+		});
+
+		expect(result.status).toBe("applied");
+		if (result.status !== "applied") {
+			throw new Error("Expected applied attestation result.");
+		}
+		expect(result.baseRevision).toBe("patch-2");
+		expect(committedBaseRevision).toBe("patch-2");
+	});
+
+	test("addAttestation surfaces storage conflicts as mutation results", async () => {
+		const storage = {
+			async findStoredLemmaSenses() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadLemmaForPatch() {
+				return {
+					revision: "patch-1" as StoreRevision,
+					lemma: englishWalkEntry(),
+				};
+			},
+			async loadNewNoteContext() {
+				throw new Error("Unexpected storage call");
+			},
+			async commitChanges() {
+				return {
+					status: "conflict",
+					code: "revisionConflict",
+					latestRevision: "patch-2" as StoreRevision,
+				};
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		const result = await dict.addAttestation({
+			lemmaId: englishWalkLemmaId,
+			attestation: "We walk after dinner.",
+		});
+
+		expect(result).toMatchObject({
+			status: "conflict",
+			code: "revisionConflict",
+			baseRevision: "patch-1",
+			latestRevision: "patch-2",
 		});
 	});
 
@@ -219,6 +347,109 @@ describe("v1 configured service", () => {
 			code: "ownedSurfaceAlreadyExists",
 		});
 		expect(commitCalls).toBe(0);
+	});
+
+	test("addNewNote surfaces insert races as conflicts", async () => {
+		const storage = {
+			async findStoredLemmaSenses() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadLemmaForPatch() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadNewNoteContext() {
+				return {
+					revision: "new-1" as StoreRevision,
+					existingOwnedSurfaces: [],
+					explicitExistingRelationTargets: [],
+					existingPendingRefsForProposedPendingTargets: [],
+					matchingPendingRefsForNewLemma: [],
+					incomingPendingRelationsForNewLemma: [],
+					incomingPendingSourceLemmas: [],
+				};
+			},
+			async commitChanges() {
+				return {
+					status: "conflict",
+					code: "semanticPreconditionFailed",
+					latestRevision: "new-2" as StoreRevision,
+					message: "Lemma was inserted concurrently.",
+				};
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+			},
+		});
+
+		expect(result).toMatchObject({
+			status: "conflict",
+			code: "semanticPreconditionFailed",
+			baseRevision: "new-1",
+			latestRevision: "new-2",
+		});
+	});
+
+	test("in-memory storage does not publish partial commits after a failed precondition", async () => {
+		const { storage } = getBootedUpDumdict("en", enSerializedNotes);
+		const swimLemmaId = makeDumlingIdFor("en", englishSwimLemma);
+		const swimSurfaceId = makeDumlingIdFor("en", englishSwimLemmaSurface);
+
+		const result = await storage.commitChanges({
+			baseRevision: "mem-1" as StoreRevision,
+			changes: [
+				{
+					type: "createLemma",
+					entry: {
+						id: swimLemmaId,
+						lemma: englishSwimLemma,
+						lexicalRelations: {},
+						morphologicalRelations: {},
+						attestedTranslations: ["swim"],
+						attestations: ["They swim every morning."],
+						notes: "Move through water by moving the body.",
+					},
+					preconditions: [
+						{ kind: "revisionMatches", revision: "mem-1" as StoreRevision },
+						{ kind: "lemmaMissing", lemmaId: swimLemmaId },
+					],
+				},
+				{
+					type: "createOwnedSurface",
+					entry: {
+						id: swimSurfaceId,
+						surface: englishSwimLemmaSurface,
+						ownerLemmaId: englishRunLemmaId,
+						attestedTranslations: ["swim"],
+						attestations: ["They swim every morning."],
+						notes: "Plain present form.",
+					},
+					preconditions: [
+						{ kind: "revisionMatches", revision: "mem-1" as StoreRevision },
+						{ kind: "lemmaExists", lemmaId: englishRunLemmaId },
+						{ kind: "surfaceMissing", surfaceId: swimSurfaceId },
+					],
+				},
+			],
+		});
+
+		expect(result).toMatchObject({
+			status: "conflict",
+			code: "semanticPreconditionFailed",
+		});
+		expect(
+			storage
+				.loadAll()
+				.some(({ lemmaEntry }) => lemmaEntry.id === swimLemmaId),
+		).toBe(false);
 	});
 
 	test("addNewNote rejects self relations", async () => {

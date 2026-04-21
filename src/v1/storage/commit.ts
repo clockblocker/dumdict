@@ -1,87 +1,12 @@
-import type { DumlingId, SupportedLanguage } from "../dumling";
-import type {
-	LemmaEntry,
-	LexicalRelation,
-	MorphologicalRelation,
-	PendingLemmaId,
-	PendingLemmaRef,
-	PendingLemmaRelation,
-	StoreRevision,
-	SurfaceEntry,
-} from "../dto";
+import type { StoreRevision } from "../dto";
+import type { SupportedLanguage } from "../dumling";
+import type { PlannedChangeOp } from "../core/planned-changes";
 
-export type ChangePrecondition<L extends SupportedLanguage> =
-	| { kind: "revisionMatches"; revision: StoreRevision }
-	| { kind: "lemmaExists"; lemmaId: DumlingId<"Lemma", L> }
-	| { kind: "lemmaMissing"; lemmaId: DumlingId<"Lemma", L> }
-	| { kind: "surfaceExists"; surfaceId: DumlingId<"Surface", L> }
-	| { kind: "surfaceMissing"; surfaceId: DumlingId<"Surface", L> }
-	| { kind: "pendingRefExists"; pendingId: PendingLemmaId<L> }
-	| { kind: "pendingRefMissing"; pendingId: PendingLemmaId<L> }
-	| { kind: "pendingRelationExists"; relation: PendingLemmaRelation<L> }
-	| { kind: "pendingRelationMissing"; relation: PendingLemmaRelation<L> }
-	| {
-			kind: "pendingRefHasNoIncomingRelations";
-			pendingId: PendingLemmaId<L>;
-	  }
-	| {
-			kind: "lemmaAttestationMissing";
-			lemmaId: DumlingId<"Lemma", L>;
-			value: string;
-	  };
-
-export type LemmaPatchOp<L extends SupportedLanguage> =
-	| { kind: "addAttestation"; value: string }
-	| {
-			kind: "addRelation";
-			family: "lexical";
-			relation: LexicalRelation;
-			targetLemmaId: DumlingId<"Lemma", L>;
-	  }
-	| {
-			kind: "addRelation";
-			family: "morphological";
-			relation: MorphologicalRelation;
-			targetLemmaId: DumlingId<"Lemma", L>;
-	  };
-
-export type PlannedChangeOp<L extends SupportedLanguage> =
-	| {
-			type: "createLemma";
-			entry: LemmaEntry<L>;
-			preconditions: ChangePrecondition<L>[];
-	  }
-	| {
-			type: "patchLemma";
-			lemmaId: DumlingId<"Lemma", L>;
-			ops: LemmaPatchOp<L>[];
-			preconditions: ChangePrecondition<L>[];
-	  }
-	| {
-			type: "createOwnedSurface";
-			entry: SurfaceEntry<L>;
-			preconditions: ChangePrecondition<L>[];
-	  }
-	| {
-			type: "createPendingRef";
-			ref: PendingLemmaRef<L>;
-			preconditions: ChangePrecondition<L>[];
-	  }
-	| {
-			type: "deletePendingRef";
-			pendingId: PendingLemmaId<L>;
-			preconditions: ChangePrecondition<L>[];
-	  }
-	| {
-			type: "createPendingRelation";
-			relation: PendingLemmaRelation<L>;
-			preconditions: ChangePrecondition<L>[];
-	  }
-	| {
-			type: "deletePendingRelation";
-			relation: PendingLemmaRelation<L>;
-			preconditions: ChangePrecondition<L>[];
-	  };
+export type { ChangePrecondition } from "../core/preconditions";
+export type {
+	LemmaPatchOp,
+	PlannedChangeOp,
+} from "../core/planned-changes";
 
 export type CommitChangesRequest<L extends SupportedLanguage> = {
 	baseRevision: StoreRevision;

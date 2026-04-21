@@ -26,8 +26,8 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 	notes: SerializedDictionaryNote<L>[] = [],
 ): InMemoryTestStorage<L> {
 	let revisionNumber = 1;
-	const storedNotes = structuredClone(notes) as SerializedDictionaryNote<L>[];
-	const storedPendingRefs = storedNotes.flatMap(
+	let storedNotes = structuredClone(notes) as SerializedDictionaryNote<L>[];
+	let storedPendingRefs = storedNotes.flatMap(
 		({ pendingRefs }) => pendingRefs ?? [],
 	);
 
@@ -42,52 +42,6 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 		storedNotes.flatMap(({ pendingRelations }) => pendingRelations);
 	const findStoredPendingRefById = (pendingId: string) =>
 		storedPendingRefs.find(({ pendingId: id }) => id === pendingId);
-	const hasPendingRelation = (relation: PendingLemmaRelation<L>) =>
-		allPendingRelations().some(
-			(storedRelation) =>
-				storedRelation.sourceLemmaId === relation.sourceLemmaId &&
-				storedRelation.relationFamily === relation.relationFamily &&
-				storedRelation.relation === relation.relation &&
-				storedRelation.targetPendingId === relation.targetPendingId,
-		);
-
-	const preconditionFails = (
-		precondition: ChangePrecondition<L>,
-		baseRevision: StoreRevision,
-	) => {
-		switch (precondition.kind) {
-			case "revisionMatches":
-				return precondition.revision !== baseRevision;
-			case "lemmaExists":
-				return !findStoredNoteByLemmaId(precondition.lemmaId);
-			case "lemmaMissing":
-				return Boolean(findStoredNoteByLemmaId(precondition.lemmaId));
-			case "surfaceExists":
-				return !findStoredSurfaceById(precondition.surfaceId);
-			case "surfaceMissing":
-				return Boolean(findStoredSurfaceById(precondition.surfaceId));
-			case "pendingRefExists":
-				return !findStoredPendingRefById(precondition.pendingId);
-			case "pendingRefMissing":
-				return Boolean(findStoredPendingRefById(precondition.pendingId));
-			case "pendingRelationExists":
-				return !hasPendingRelation(precondition.relation);
-			case "pendingRelationMissing":
-				return hasPendingRelation(precondition.relation);
-			case "pendingRefHasNoIncomingRelations":
-				return allPendingRelations().some(
-					(relation) => relation.targetPendingId === precondition.pendingId,
-				);
-			case "lemmaAttestationMissing":
-				return Boolean(
-					findStoredNoteByLemmaId(
-						precondition.lemmaId,
-					)?.lemmaEntry.attestations.includes(precondition.value),
-				);
-			default:
-				return false;
-		}
-	};
 
 	return {
 		async findStoredLemmaSenses(
@@ -195,10 +149,70 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 		async commitChanges(
 			request: CommitChangesRequest<L>,
 		): Promise<CommitChangesResult> {
+			const draftNotes = structuredClone(
+				storedNotes,
+			) as SerializedDictionaryNote<L>[];
+			const draftPendingRefs = structuredClone(storedPendingRefs);
+			const findDraftNoteByLemmaId = (lemmaId: string) =>
+				draftNotes.find(({ lemmaEntry }) => lemmaEntry.id === lemmaId);
+			const findDraftSurfaceById = (surfaceId: string) =>
+				draftNotes
+					.flatMap(({ ownedSurfaceEntries }) => ownedSurfaceEntries)
+					.find(({ id }) => id === surfaceId);
+			const draftPendingRelations = () =>
+				draftNotes.flatMap(({ pendingRelations }) => pendingRelations);
+			const findDraftPendingRefById = (pendingId: string) =>
+				draftPendingRefs.find(({ pendingId: id }) => id === pendingId);
+			const hasDraftPendingRelation = (relation: PendingLemmaRelation<L>) =>
+				draftPendingRelations().some(
+					(storedRelation) =>
+						storedRelation.sourceLemmaId === relation.sourceLemmaId &&
+						storedRelation.relationFamily === relation.relationFamily &&
+						storedRelation.relation === relation.relation &&
+						storedRelation.targetPendingId === relation.targetPendingId,
+				);
+			const draftPreconditionFails = (
+				precondition: ChangePrecondition<L>,
+				baseRevision: StoreRevision,
+			) => {
+				switch (precondition.kind) {
+					case "revisionMatches":
+						return precondition.revision !== baseRevision;
+					case "lemmaExists":
+						return !findDraftNoteByLemmaId(precondition.lemmaId);
+					case "lemmaMissing":
+						return Boolean(findDraftNoteByLemmaId(precondition.lemmaId));
+					case "surfaceExists":
+						return !findDraftSurfaceById(precondition.surfaceId);
+					case "surfaceMissing":
+						return Boolean(findDraftSurfaceById(precondition.surfaceId));
+					case "pendingRefExists":
+						return !findDraftPendingRefById(precondition.pendingId);
+					case "pendingRefMissing":
+						return Boolean(findDraftPendingRefById(precondition.pendingId));
+					case "pendingRelationExists":
+						return !hasDraftPendingRelation(precondition.relation);
+					case "pendingRelationMissing":
+						return hasDraftPendingRelation(precondition.relation);
+					case "pendingRefHasNoIncomingRelations":
+						return draftPendingRelations().some(
+							(relation) => relation.targetPendingId === precondition.pendingId,
+						);
+					case "lemmaAttestationMissing":
+						return Boolean(
+							findDraftNoteByLemmaId(
+								precondition.lemmaId,
+							)?.lemmaEntry.attestations.includes(precondition.value),
+						);
+					default:
+						return false;
+				}
+			};
+
 			for (const change of request.changes) {
 				if (
 					change.preconditions.some((precondition) =>
-						preconditionFails(precondition, request.baseRevision),
+						draftPreconditionFails(precondition, request.baseRevision),
 					)
 				) {
 					return {
@@ -209,16 +223,14 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 				}
 				switch (change.type) {
 					case "createLemma":
-						storedNotes.push({
+						draftNotes.push({
 							lemmaEntry: structuredClone(change.entry),
 							ownedSurfaceEntries: [],
 							pendingRelations: [],
 						});
 						break;
 					case "createOwnedSurface": {
-						const storedNote = findStoredNoteByLemmaId(
-							change.entry.ownerLemmaId,
-						);
+						const storedNote = findDraftNoteByLemmaId(change.entry.ownerLemmaId);
 						if (!storedNote) {
 							return {
 								status: "conflict",
@@ -230,11 +242,11 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 						break;
 					}
 					case "createPendingRef": {
-						storedPendingRefs.push(structuredClone(change.ref));
+						draftPendingRefs.push(structuredClone(change.ref));
 						break;
 					}
 					case "createPendingRelation": {
-						const storedNote = findStoredNoteByLemmaId(
+						const storedNote = findDraftNoteByLemmaId(
 							change.relation.sourceLemmaId,
 						);
 						if (!storedNote) {
@@ -248,7 +260,7 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 						break;
 					}
 					case "deletePendingRelation": {
-						const storedNote = findStoredNoteByLemmaId(
+						const storedNote = findDraftNoteByLemmaId(
 							change.relation.sourceLemmaId,
 						);
 						if (!storedNote) {
@@ -270,16 +282,16 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 						break;
 					}
 					case "deletePendingRef": {
-						const refIndex = storedPendingRefs.findIndex(
+						const refIndex = draftPendingRefs.findIndex(
 							({ pendingId }) => pendingId === change.pendingId,
 						);
 						if (refIndex >= 0) {
-							storedPendingRefs.splice(refIndex, 1);
+							draftPendingRefs.splice(refIndex, 1);
 						}
 						break;
 					}
 					case "patchLemma": {
-						const storedNote = findStoredNoteByLemmaId(change.lemmaId);
+						const storedNote = findDraftNoteByLemmaId(change.lemmaId);
 						if (!storedNote) {
 							return {
 								status: "conflict",
@@ -318,6 +330,8 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 				}
 			}
 
+			storedNotes = draftNotes;
+			storedPendingRefs = draftPendingRefs;
 			revisionNumber += 1;
 			return {
 				status: "committed",
