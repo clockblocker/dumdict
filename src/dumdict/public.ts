@@ -1,10 +1,10 @@
 import type {
 	DumlingId,
+	LemmaKindFor,
+	LemmaSubKindFor,
 	Lemma,
 	Surface,
 	SupportedLang,
-	UniversalLemmaKind,
-	UniversalLemmaSubKind,
 } from "../dumling-compat";
 import type { DumdictResult } from "./errors";
 import type { LexicalRelation } from "./relations/lexical";
@@ -48,18 +48,25 @@ export type SurfaceEntry<L extends SupportedLang> = {
 	notes: string;
 };
 
-export type PendingLemmaRefInput<_L extends SupportedLang> = {
+export type PendingLemmaRefInputCase<
+	L extends SupportedLang,
+	LK extends LemmaKindFor<L>,
+	LSK extends LemmaSubKindFor<L, LK>,
+> = {
 	canonicalLemma: string;
-	lemmaKind: UniversalLemmaKind;
-	lemmaSubKind: UniversalLemmaSubKind;
+	lemmaKind: LK;
+	lemmaSubKind: LSK;
 };
 
-export type PendingLemmaRef<L extends SupportedLang> = {
+export type PendingLemmaRefInput<L extends SupportedLang> = {
+	[LK in LemmaKindFor<L>]: {
+		[LSK in LemmaSubKindFor<L, LK>]: PendingLemmaRefInputCase<L, LK, LSK>;
+	}[LemmaSubKindFor<L, LK>];
+}[LemmaKindFor<L>];
+
+export type PendingLemmaRef<L extends SupportedLang> = PendingLemmaRefInput<L> & {
 	pendingId: PendingLemmaId<L>;
 	language: L;
-	canonicalLemma: string;
-	lemmaKind: UniversalLemmaKind;
-	lemmaSubKind: UniversalLemmaSubKind;
 };
 
 export type PendingLemmaRelation<L extends SupportedLang> = {

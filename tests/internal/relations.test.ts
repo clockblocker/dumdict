@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { type DumlingId, dumling } from "../../src/dumling-compat";
+import {
+	type DumlingId,
+	makeDumlingIdFor,
+} from "../../src/dumling-compat";
 import {
 	getInverseLexicalRelation,
 	getInverseMorphologicalRelation,
@@ -17,7 +20,7 @@ import {
 
 describe("dumdict relations", () => {
 	it("accepts lemma Dumling IDs as relation targets", () => {
-		const lemmaId = dumling.idCodec.English.makeDumlingIdFor(englishWalkLemma);
+		const lemmaId = makeDumlingIdFor("en", englishWalkLemma);
 
 		expect(
 			RelationTargetDumlingIdsSchema.parse([lemmaId] as DumlingId<"Lemma">[]),
@@ -25,7 +28,8 @@ describe("dumdict relations", () => {
 	});
 
 	it("rejects non-lemma Dumling IDs as relation targets", () => {
-		const resolvedSurfaceId = dumling.idCodec.English.makeDumlingIdFor(
+		const resolvedSurfaceId = makeDumlingIdFor(
+			"en",
 			englishWalkResolvedInflectionSurface,
 		);
 
@@ -35,7 +39,7 @@ describe("dumdict relations", () => {
 	});
 
 	it("validates lexical and morphological relation payloads", () => {
-		const lemmaId = dumling.idCodec.English.makeDumlingIdFor(englishWalkLemma);
+		const lemmaId = makeDumlingIdFor("en", englishWalkLemma);
 
 		expect(LexicalRelationsSchema.parse({ synonym: [lemmaId] })).toEqual({
 			synonym: [lemmaId],

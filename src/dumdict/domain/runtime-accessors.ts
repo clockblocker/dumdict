@@ -1,93 +1,95 @@
-import type {
-	Lemma,
-	Surface,
-	SupportedLang,
-	UniversalLemmaKind,
-	UniversalLemmaSubKind,
+import {
+	type DumlingId,
+	type Lemma,
+	type LemmaKindFor,
+	type LemmaSubKindFor,
+	makeDumlingIdFor,
+	type SupportedLang,
+	type Surface,
 } from "../../dumling-compat";
 
-type LemmaRuntimeShape<L extends SupportedLang> = Lemma<L> & {
+export type LemmaIdentityInput<
+	L extends SupportedLang,
+	LK extends LemmaKindFor<L>,
+	LSK extends LemmaSubKindFor<L, LK>,
+> = {
 	canonicalLemma: string;
-	language: L;
-	lemmaKind: UniversalLemmaKind;
-	morphemeKind?: UniversalLemmaSubKind;
-	phrasemeKind?: UniversalLemmaSubKind;
-	pos?: UniversalLemmaSubKind;
+	lemmaKind: LK;
+	lemmaSubKind: LSK;
 };
 
-type SurfaceRuntimeShape<L extends SupportedLang> = Surface<L> & {
-		lemma: Lemma<L>;
-		language: L;
-		normalizedFullSurface: string;
-	};
+export type LemmaIdentityInputForLanguage<L extends SupportedLang> = {
+	[LK in LemmaKindFor<L>]: {
+		[LSK in LemmaSubKindFor<L, LK>]: LemmaIdentityInput<L, LK, LSK>;
+	}[LemmaSubKindFor<L, LK>];
+}[LemmaKindFor<L>];
 
-function asLemmaRuntimeShape<L extends SupportedLang>(lemma: Lemma<L>) {
-	return lemma as LemmaRuntimeShape<L>;
-}
+export type LemmaIdentity<
+	L extends SupportedLang,
+	LK extends LemmaKindFor<L>,
+	LSK extends LemmaSubKindFor<L, LK>,
+> = LemmaIdentityInput<L, LK, LSK> & {
+	language: L;
+};
 
-function asSurfaceRuntimeShape<L extends SupportedLang>(
-	surface: Surface<L>,
-) {
-	return surface as SurfaceRuntimeShape<L>;
-}
+export type LemmaIdentityForLanguage<L extends SupportedLang> = {
+	[LK in LemmaKindFor<L>]: {
+		[LSK in LemmaSubKindFor<L, LK>]: LemmaIdentity<L, LK, LSK>;
+	}[LemmaSubKindFor<L, LK>];
+}[LemmaKindFor<L>];
 
-function requireLemmaSubKind(
-	value: UniversalLemmaSubKind | undefined,
-	lemmaKind: UniversalLemmaKind,
-) {
-	if (value === undefined) {
-		throw new Error(`Expected ${lemmaKind} lemma to expose a sub-kind.`);
-	}
-
-	return value;
+export function getLemmaIdentity<L extends SupportedLang>(lemma: Lemma<L>) {
+	return {
+		canonicalLemma: lemma.canonicalLemma,
+		language: lemma.language,
+		lemmaKind: lemma.lemmaKind,
+		lemmaSubKind: lemma.lemmaSubKind,
+	} as LemmaIdentityForLanguage<L>;
 }
 
 export function getLemmaCanonicalLemma<L extends SupportedLang>(
 	lemma: Lemma<L>,
 ) {
-	return asLemmaRuntimeShape(lemma).canonicalLemma;
+	return lemma.canonicalLemma;
 }
 
 export function getLemmaLanguage<L extends SupportedLang>(lemma: Lemma<L>) {
-	return asLemmaRuntimeShape(lemma).language;
+	return lemma.language;
 }
 
 export function getLemmaSubKind<L extends SupportedLang>(lemma: Lemma<L>) {
-	const runtimeLemma = asLemmaRuntimeShape(lemma);
-	switch (runtimeLemma.lemmaKind) {
-		case "Lexeme":
-			return requireLemmaSubKind(runtimeLemma.pos, runtimeLemma.lemmaKind);
-		case "Morpheme":
-			return requireLemmaSubKind(
-				runtimeLemma.morphemeKind,
-				runtimeLemma.lemmaKind,
-			);
-		case "Phraseme":
-			return requireLemmaSubKind(
-				runtimeLemma.phrasemeKind,
-				runtimeLemma.lemmaKind,
-			);
-	}
+	return lemma.lemmaSubKind as Lemma<L>["lemmaSubKind"];
 }
 
-export function getLemmaKind<L extends SupportedLang>(lemma: Lemma<L>) {
-	return asLemmaRuntimeShape(lemma).lemmaKind;
+export function getLemmaKind<L extends SupportedLang>(
+	lemma: Lemma<L>,
+): Lemma<L>["lemmaKind"] {
+	return lemma.lemmaKind;
 }
 
 export function getSurfaceLanguage<L extends SupportedLang>(
 	surface: Surface<L>,
 ) {
-	return asSurfaceRuntimeShape(surface).language;
+	return surface.language;
 }
 
 export function getSurfaceNormalizedFullSurface<L extends SupportedLang>(
 	surface: Surface<L>,
 ) {
-	return asSurfaceRuntimeShape(surface).normalizedFullSurface;
+	return surface.normalizedFullSurface;
 }
 
 export function getSurfaceLemma<L extends SupportedLang>(
 	surface: Surface<L>,
+): Lemma<L> {
+	return surface.lemma;
+}
+
+export function getSurfaceOwnerLemmaId<L extends SupportedLang>(
+	surface: Surface<L>,
 ) {
-	return asSurfaceRuntimeShape(surface).lemma;
+	return makeDumlingIdFor(surface.language, surface.lemma) as DumlingId<
+		"Lemma",
+		L
+	>;
 }

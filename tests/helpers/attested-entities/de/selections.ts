@@ -3,14 +3,14 @@ import { germanAufJedenFallLemma, germanBVGLemma } from "./lemmas";
 
 // Attestation: "Ich komme [auf jeden Fall] morgen."
 export const germanAufJedenFallDiscourseFormulaSelection = {
-	language: "German",
+	language: "de",
 	orthographicStatus: "Standard",
 	selectionCoverage: "Full",
 	spelledSelection: "auf jeden Fall",
 	spellingRelation: "Canonical",
-	surface: dumling.operation.convert.lemma.toSurface(germanAufJedenFallLemma),
+	surface: dumling.de.convert.lemma.toSurface(germanAufJedenFallLemma),
 } satisfies Selection<
-	"German",
+	"de",
 	"Standard",
 	"Lemma",
 	"Phraseme",
@@ -19,14 +19,14 @@ export const germanAufJedenFallDiscourseFormulaSelection = {
 
 // Attestation: "Ich komme auf [jeden Fall] morgen."
 export const germanAufJedenFallPartialSelection = {
-	language: "German",
+	language: "de",
 	orthographicStatus: "Standard",
 	selectionCoverage: "Partial",
 	spelledSelection: "jeden Fall",
 	spellingRelation: "Canonical",
-	surface: dumling.operation.convert.lemma.toSurface(germanAufJedenFallLemma),
+	surface: dumling.de.convert.lemma.toSurface(germanAufJedenFallLemma),
 } satisfies Selection<
-	"German",
+	"de",
 	"Standard",
 	"Lemma",
 	"Phraseme",
@@ -35,10 +35,10 @@ export const germanAufJedenFallPartialSelection = {
 
 // Attestation: "In Berlin sowie im Umland (Agglomeration Berlin) betreibt die [BVG] die U-Bahn Berlin, die Straßenbahn Berlin, den Busverkehr in Berlin und den Fährverkehr in Berlin, nicht jedoch die S-Bahn."
 export const germanBVGAbbreviationSelection = {
-	language: "German",
+	language: "de",
 	orthographicStatus: "Standard",
 	selectionCoverage: "Full",
 	spelledSelection: "BVG",
 	spellingRelation: "Canonical",
-	surface: dumling.operation.convert.lemma.toSurface(germanBVGLemma),
-} satisfies Selection<"German", "Standard", "Lemma", "Lexeme", "PROPN">;
+	surface: dumling.de.convert.lemma.toSurface(germanBVGLemma),
+} satisfies Selection<"de", "Standard", "Lemma", "Lexeme", "PROPN">;

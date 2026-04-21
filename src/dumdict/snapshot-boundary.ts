@@ -1,6 +1,6 @@
 import {
-	dumling,
 	type DumlingId,
+	makeDumlingIdFor,
 	type SupportedLang,
 } from "../dumling-compat";
 import { err, ok } from "neverthrow";
@@ -717,10 +717,11 @@ function validateIntentAgainstSnapshot<L extends SupportedLang>(
 	}
 
 	if (intent.kind === "insertLemma") {
-		const lemmaLanguage = getLemmaLanguage(intent.entry.lemma);
-		const lemmaId = dumling.idCodec
-			.forLanguage(lemmaLanguage)
-			.makeDumlingIdFor(intent.entry.lemma) as DumlingId<"Lemma", L>;
+		const lemmaLanguage = getLemmaLanguage(intent.entry.lemma) as L;
+		const lemmaId = makeDumlingIdFor(
+			lemmaLanguage,
+			intent.entry.lemma,
+		) as DumlingId<"Lemma", L>;
 		const lemmaEntryResult = validateLemmaEntry(snapshot.language, {
 			id: lemmaId,
 			lemma: intent.entry.lemma,
@@ -735,10 +736,11 @@ function validateIntentAgainstSnapshot<L extends SupportedLang>(
 		}
 
 		for (const ownedSurface of intent.ownedSurfaces ?? []) {
-			const surfaceLanguage = getSurfaceLanguage(ownedSurface.surface);
-			const surfaceId = dumling.idCodec
-				.forLanguage(surfaceLanguage)
-				.makeDumlingIdFor(ownedSurface.surface) as DumlingId<"Surface", L>;
+			const surfaceLanguage = getSurfaceLanguage(ownedSurface.surface) as L;
+			const surfaceId = makeDumlingIdFor(
+				surfaceLanguage,
+				ownedSurface.surface,
+			) as DumlingId<"Surface", L>;
 			const surfaceEntryResult = validateSurfaceEntry(snapshot.language, {
 				id: surfaceId,
 				surface: ownedSurface.surface,
@@ -1036,10 +1038,11 @@ export function plan<L extends SupportedLang>(
 	}
 
 	if (intent.version === "v1" && intent.kind === "insertLemma") {
-		const language = getLemmaLanguage(intent.entry.lemma);
-		const lemmaId = dumling.idCodec.forLanguage(language).makeDumlingIdFor(
-			intent.entry.lemma,
-		) as DumlingId<"Lemma", L>;
+		const language = getLemmaLanguage(intent.entry.lemma) as L;
+		const lemmaId = makeDumlingIdFor(language, intent.entry.lemma) as DumlingId<
+			"Lemma",
+			L
+		>;
 		const changes: PlannedChangeOp<L>[] = [
 			{
 				type: "createLemma",
@@ -1075,9 +1078,10 @@ export function plan<L extends SupportedLang>(
 				);
 			}
 
-			const surfaceId = dumling.idCodec
-				.forLanguage(language)
-				.makeDumlingIdFor(ownedSurface.surface) as DumlingId<
+			const surfaceId = makeDumlingIdFor(
+				language,
+				ownedSurface.surface,
+			) as DumlingId<
 				"Surface",
 				L
 			>;
@@ -1179,10 +1183,11 @@ export function plan<L extends SupportedLang>(
 	}
 
 	if (intent.version === "v1" && intent.kind === "upsertOwnedSurface") {
-		const language = getSurfaceLanguage(intent.entry.surface);
-		const surfaceId = dumling.idCodec
-			.forLanguage(language)
-			.makeDumlingIdFor(intent.entry.surface) as DumlingId<
+		const language = getSurfaceLanguage(intent.entry.surface) as L;
+		const surfaceId = makeDumlingIdFor(
+			language,
+			intent.entry.surface,
+		) as DumlingId<
 			"Surface",
 			L
 		>;

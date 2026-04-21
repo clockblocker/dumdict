@@ -15,50 +15,50 @@ Dictionary storage, lookup indexes, and relation helpers built on top of `dumlin
 A `dumdict` instance is bound to one language:
 
 ```ts
-const dict = makeDumdict("English");
+const dict = makeDumdict("en");
 ```
 
 A `LemmaEntry` stores the stable lemma payload plus graph-level dictionary metadata:
 
 ```ts
 const walkEntry = {
-	id: dumling.idCodec.English.makeDumlingIdFor(walkLemma),
+	id: dumling.en.id.encode(walkLemma) as LemmaEntry<"en">["id"],
 	lemma: walkLemma,
 	lexicalRelations: {},
 	morphologicalRelations: {},
 	attestedTranslations: ["caminar", "gehen"],
 	attestations: ["They walk home together."],
 	notes: "Core motion verb.",
-} satisfies LemmaEntry<"English">;
+} satisfies LemmaEntry<"en">;
 ```
 
 A `SurfaceEntry` stores a resolved surface plus an explicit owning lemma ID:
 
 ```ts
 const walkSurfaceEntry = {
-	id: dumling.idCodec.English.makeDumlingIdFor(walkSurface),
+	id: dumling.en.id.encode(walkSurface) as SurfaceEntry<"en">["id"],
 	surface: walkSurface,
 	ownerLemmaId: walkEntry.id,
 	attestedTranslations: ["walk"],
 	attestations: ["They walk home together."],
 	notes: "Present finite surface.",
-} satisfies SurfaceEntry<"English">;
+} satisfies SurfaceEntry<"en">;
 ```
 
 Reciprocal lemma-to-lemma edges are maintained automatically:
 
 ```ts
 const runEntry = {
-	id: dumling.idCodec.English.makeDumlingIdFor(runLemma),
+	id: dumling.en.id.encode(runLemma) as LemmaEntry<"en">["id"],
 	lemma: runLemma,
 	lexicalRelations: {},
 	morphologicalRelations: {},
 	attestedTranslations: [],
 	attestations: [],
 	notes: "",
-} satisfies LemmaEntry<"English">;
+} satisfies LemmaEntry<"en">;
 
-const dictForRelations = makeDumdict("English");
+const dictForRelations = makeDumdict("en");
 unwrap(dictForRelations.upsertLemmaEntry(walkEntry));
 unwrap(dictForRelations.upsertLemmaEntry(runEntry));
 unwrap(
@@ -86,7 +86,7 @@ npm install dumdict dumling
 Minimal usage with lookup by normalized surface:
 
 ```ts
-const dict = makeDumdict("English");
+const dict = makeDumdict("en");
 unwrap(dict.upsertLemmaEntry(walkEntry));
 unwrap(dict.upsertSurfaceEntry(walkSurfaceEntry));
 
@@ -103,7 +103,7 @@ The root export is intentionally small:
 
 ## Scope
 
-- Languages: `English`, `German`, `Hebrew`
+- Languages: `en`, `de`, `he`
 - Runtime: `Node >= 20`
 - Package format: ESM
 

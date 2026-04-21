@@ -4,11 +4,11 @@ import type { Lemma } from "../../../../src/dumling-compat";
 export const englishWalkLemma = {
 	canonicalLemma: "walk",
 	inherentFeatures: {},
-	language: "English",
+	language: "en",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🚶",
-	pos: "VERB",
-} satisfies Lemma<"English", "Lexeme", "VERB">;
+	lemmaSubKind: "VERB",
+} satisfies Lemma<"en", "Lexeme", "VERB">;
 
 // Attestation: "Mark gave [up] on it."
 export const englishGiveUpLemma = {
@@ -16,8 +16,8 @@ export const englishGiveUpLemma = {
 	inherentFeatures: {
 		phrasal: "Yes",
 	},
-	language: "English",
+	language: "en",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🙅",
-	pos: "VERB",
-} satisfies Lemma<"English", "Lexeme", "VERB">;
+	lemmaSubKind: "VERB",
+} satisfies Lemma<"en", "Lexeme", "VERB">;

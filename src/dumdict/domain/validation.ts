@@ -1,7 +1,8 @@
 import {
 	type DumlingId,
-	dumling,
+	inspectDumlingId,
 	type Lemma,
+	makeDumlingIdFor,
 	type SupportedLang,
 } from "../../dumling-compat";
 import { err, ok } from "neverthrow";
@@ -24,36 +25,17 @@ import {
 	getLemmaSubKind,
 	getSurfaceLanguage,
 	getSurfaceLemma,
+	getSurfaceOwnerLemmaId,
 } from "./runtime-accessors";
 
 export function inferLemmaIdLanguage(lemmaId: string) {
-	for (const language of ["English", "German", "Hebrew"] as const) {
-		if (
-			dumling.idCodec
-				.forLanguage(language)
-				.tryToDecodeAs("Lemma", lemmaId)
-				.isOk()
-		) {
-			return language;
-		}
-	}
-
-	return undefined;
+	const inspectedId = inspectDumlingId(lemmaId);
+	return inspectedId?.kind === "Lemma" ? inspectedId.language : undefined;
 }
 
 export function inferSurfaceIdLanguage(surfaceId: string) {
-	for (const language of ["English", "German", "Hebrew"] as const) {
-		if (
-			dumling.idCodec
-				.forLanguage(language)
-				.tryToDecodeAs("Surface", surfaceId)
-				.isOk()
-		) {
-			return language;
-		}
-	}
-
-	return undefined;
+	const inspectedId = inspectDumlingId(surfaceId);
+	return inspectedId?.kind === "Surface" ? inspectedId.language : undefined;
 }
 
 export function inferPendingIdLanguage(pendingId: string) {
@@ -70,11 +52,7 @@ export function inferPendingIdLanguage(pendingId: string) {
 	try {
 		const language = decodeURIComponent(encodedLanguage);
 
-		if (
-			language === "English" ||
-			language === "German" ||
-			language === "Hebrew"
-		) {
+		if (language === "de" || language === "en" || language === "he") {
 			return language;
 		}
 	} catch {
@@ -181,9 +159,7 @@ export function validateLemmaEntry<L extends SupportedLang>(
 		return idLanguageResult;
 	}
 
-	const derivedId = dumling.idCodec
-		.forLanguage(language)
-		.makeDumlingIdFor(entry.lemma);
+	const derivedId = makeDumlingIdFor(language, entry.lemma);
 	if (entry.id !== derivedId) {
 		return err(
 			makeError(
@@ -225,9 +201,7 @@ export function validateSurfaceEntry<L extends SupportedLang>(
 		return ownerIdResult;
 	}
 
-	const derivedSurfaceId = dumling.idCodec
-		.forLanguage(language)
-		.makeDumlingIdFor(entry.surface);
+	const derivedSurfaceId = makeDumlingIdFor(language, entry.surface);
 	if (entry.id !== derivedSurfaceId) {
 		return err(
 			makeError(
@@ -237,9 +211,7 @@ export function validateSurfaceEntry<L extends SupportedLang>(
 		);
 	}
 
-	const derivedOwnerLemmaId = dumling.idCodec
-		.forLanguage(language)
-		.makeDumlingIdFor(getSurfaceLemma(entry.surface));
+	const derivedOwnerLemmaId = getSurfaceOwnerLemmaId(entry.surface);
 	if (entry.ownerLemmaId !== derivedOwnerLemmaId) {
 		return err(
 			makeError(

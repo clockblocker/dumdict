@@ -6,11 +6,11 @@ export const hebrewKatavLemma = {
 	inherentFeatures: {
 		hebBinyan: "PAAL",
 	},
-	language: "Hebrew",
+	language: "he",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "✍️",
-	pos: "VERB",
-} satisfies Lemma<"Hebrew", "Lexeme", "VERB">;
+	lemmaSubKind: "VERB",
+} satisfies Lemma<"he", "Lexeme", "VERB">;
 
 // Attestation: "עוד [שנה] עברה."
 export const hebrewShanaLemma = {
@@ -18,11 +18,11 @@ export const hebrewShanaLemma = {
 	inherentFeatures: {
 		gender: "Fem",
 	},
-	language: "Hebrew",
+	language: "he",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "📅",
-	pos: "NOUN",
-} satisfies Lemma<"Hebrew", "Lexeme", "NOUN">;
+	lemmaSubKind: "NOUN",
+} satisfies Lemma<"he", "Lexeme", "NOUN">;
 
 // Attestation: "[ארה״ב] הודיעה על צעד חדש."
 // UD-style: multi-word abbreviations keep the abbreviated form as canonicalLemma and mark Abbr=Yes.
@@ -32,8 +32,8 @@ export const hebrewUsAbbreviationLemma = {
 	inherentFeatures: {
 		abbr: "Yes",
 	},
-	language: "Hebrew",
+	language: "he",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🇺🇸",
-	pos: "PROPN",
-} satisfies Lemma<"Hebrew", "Lexeme", "PROPN">;
+	lemmaSubKind: "PROPN",
+} satisfies Lemma<"he", "Lexeme", "PROPN">;

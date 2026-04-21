@@ -1,6 +1,6 @@
 import {
 	type DumlingId,
-	dumling,
+	makeDumlingIdFor,
 	type SupportedLang,
 } from "../../dumling-compat";
 import { err, ok } from "neverthrow";
@@ -344,12 +344,8 @@ export class InMemoryDumdict<L extends SupportedLang> implements Dumdict<L> {
 		const existing = draft.surfacesById.get(entry.id);
 		if (existing) {
 			const sameSurface =
-				dumling.idCodec
-					.forLanguage(this.language)
-					.makeDumlingIdFor(existing.surface) ===
-				dumling.idCodec
-					.forLanguage(this.language)
-					.makeDumlingIdFor(entry.surface);
+				makeDumlingIdFor(this.language, existing.surface) ===
+				makeDumlingIdFor(this.language, entry.surface);
 			if (!sameSurface || existing.ownerLemmaId !== entry.ownerLemmaId) {
 				return err(
 					makeError(

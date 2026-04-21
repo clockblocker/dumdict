@@ -12,11 +12,11 @@ export const hebrewKatvuResolvedInflectionSurface = {
 		person: "3",
 		tense: "Past",
 	},
-	language: "Hebrew",
+	language: "he",
 	normalizedFullSurface: "כתבו",
 	surfaceKind: "Inflection",
 	lemma: hebrewKatavLemma,
-} satisfies Surface<"Hebrew", "Inflection", "Lexeme", "VERB">;
+} satisfies Surface<"he", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "הם [כתבו] מכתב."
 export const hebrewKatvuUnresolvedInflectionSurface = {
@@ -25,24 +25,24 @@ export const hebrewKatvuUnresolvedInflectionSurface = {
 		person: "3",
 		tense: "Past",
 	},
-	language: "Hebrew",
+	language: "he",
 	normalizedFullSurface: "כתבו",
 	surfaceKind: "Inflection",
 	lemma: hebrewKatavLemma,
-} satisfies Surface<"Hebrew", "Inflection", "Lexeme", "VERB">;
+} satisfies Surface<"he", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "עוד [שנה] עברה."
 export const hebrewShanaResolvedLemmaSurface = {
-	language: "Hebrew",
+	language: "he",
 	normalizedFullSurface: "שנה",
 	surfaceKind: "Lemma",
 	lemma: hebrewShanaLemma,
-} satisfies Surface<"Hebrew", "Lemma", "Lexeme", "NOUN">;
+} satisfies Surface<"he", "Lemma", "Lexeme", "NOUN">;
 
 // Attestation: "[ארה״ב] הודיעה על צעד חדש."
 export const hebrewUsAbbreviationResolvedLemmaSurface = {
-	language: "Hebrew",
+	language: "he",
 	normalizedFullSurface: "ארה״ב",
 	surfaceKind: "Lemma",
 	lemma: hebrewUsAbbreviationLemma,
-} satisfies Surface<"Hebrew", "Lemma", "Lexeme", "PROPN">;
+} satisfies Surface<"he", "Lemma", "Lexeme", "PROPN">;

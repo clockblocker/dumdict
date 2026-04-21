@@ -1,4 +1,4 @@
-import { type DumlingId, dumling } from "../../dumling-compat";
+import { type DumlingId, inspectDumlingId } from "../../dumling-compat";
 import { z } from "zod/v3";
 import type { LexicalRelation } from "./lexical";
 import type { MorphologicalRelation } from "./morphological";
@@ -7,27 +7,16 @@ type Prettify<T> = {
 	[K in keyof T]: T[K];
 } & {};
 
-const lemmaIdApis = [
-	dumling.idCodec.English,
-	dumling.idCodec.German,
-	dumling.idCodec.Hebrew,
-] as const;
-
 function isLemmaDumlingId(value: string): value is DumlingId<"Lemma"> {
-	for (const api of lemmaIdApis) {
-		if (api.tryToDecodeAs("Lemma", value).isOk()) {
-			return true;
-		}
-	}
-
-	return false;
+	return inspectDumlingId(value)?.kind === "Lemma";
 }
 
 const LemmaDumlingIdSchema = z.string().superRefine((value, ctx) => {
 	if (!isLemmaDumlingId(value)) {
+		const inspectedId = inspectDumlingId(value);
 		ctx.addIssue({
 			code: z.ZodIssueCode.custom,
-			message: value.startsWith("ling:v1:")
+			message: inspectedId
 				? "Expected lemma Dumling ID"
 				: "Malformed relation Dumling ID",
 		});

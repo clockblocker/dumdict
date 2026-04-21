@@ -7,11 +7,11 @@ export const englishWalkResolvedInflectionSurface = {
 		tense: "Pres",
 		verbForm: "Fin",
 	},
-	language: "English",
+	language: "en",
 	normalizedFullSurface: "walk",
 	surfaceKind: "Inflection",
 	lemma: englishWalkLemma,
-} satisfies Surface<"English", "Inflection", "Lexeme", "VERB">;
+} satisfies Surface<"en", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkUnresolvedInflectionSurface = {
@@ -19,27 +19,27 @@ export const englishWalkUnresolvedInflectionSurface = {
 		tense: "Pres",
 		verbForm: "Fin",
 	},
-	language: "English",
+	language: "en",
 	normalizedFullSurface: "walk",
 	surfaceKind: "Inflection",
 	lemma: englishWalkLemma,
-} satisfies Surface<"English", "Inflection", "Lexeme", "VERB">;
+} satisfies Surface<"en", "Inflection", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkResolvedLemmaSurface = {
-	language: "English",
+	language: "en",
 	normalizedFullSurface: "walk",
 	surfaceKind: "Lemma",
 	lemma: englishWalkLemma,
-} satisfies Surface<"English", "Lemma", "Lexeme", "VERB">;
+} satisfies Surface<"en", "Lemma", "Lexeme", "VERB">;
 
 // Attestation: "They [walk] home together."
 export const englishWalkUnresolvedLemmaSurface = {
-	language: "English",
+	language: "en",
 	normalizedFullSurface: "walk",
 	surfaceKind: "Lemma",
 	lemma: englishWalkLemma,
-} satisfies Surface<"English", "Lemma", "Lexeme", "VERB">;
+} satisfies Surface<"en", "Lemma", "Lexeme", "VERB">;
 
 // Attestation: "Mark gvae [up] on it."
 export const englishGiveUpTypoUnresolvedInflectionSurface = {
@@ -47,8 +47,8 @@ export const englishGiveUpTypoUnresolvedInflectionSurface = {
 		tense: "Past",
 		verbForm: "Fin",
 	},
-	language: "English",
+	language: "en",
 	normalizedFullSurface: "gave up",
 	surfaceKind: "Inflection",
 	lemma: englishGiveUpLemma,
-} satisfies Surface<"English", "Inflection", "Lexeme", "VERB">;
+} satisfies Surface<"en", "Inflection", "Lexeme", "VERB">;

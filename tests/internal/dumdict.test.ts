@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { dumling, type Lemma, type Surface } from "../../src/dumling-compat";
+import {
+	makeDumlingIdFor,
+	type Lemma,
+	type Surface,
+} from "../../src/dumling-compat";
 import type {
 	AuthoritativeWriteSnapshot,
 	ChangePrecondition,
@@ -32,20 +36,20 @@ import {
 const englishRunLemma = {
 	canonicalLemma: "run",
 	inherentFeatures: {},
-	language: "English",
+	language: "en",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🏃",
-	pos: "VERB",
-} satisfies Lemma<"English", "Lexeme", "VERB">;
+	lemmaSubKind: "VERB",
+} satisfies Lemma<"en", "Lexeme", "VERB">;
 
 const englishStrideLemma = {
 	canonicalLemma: "stride",
 	inherentFeatures: {},
-	language: "English",
+	language: "en",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🚶",
-	pos: "VERB",
-} satisfies Lemma<"English", "Lexeme", "VERB">;
+	lemmaSubKind: "VERB",
+} satisfies Lemma<"en", "Lexeme", "VERB">;
 
 function unwrap<T>(result: DumdictResult<T>) {
 	if (result.isErr()) {
@@ -55,9 +59,9 @@ function unwrap<T>(result: DumdictResult<T>) {
 	return result.value;
 }
 
-function makeLemmaEntry(lemma: Lemma<"English">): LemmaEntry<"English"> {
+function makeLemmaEntry(lemma: Lemma<"en">): LemmaEntry<"en"> {
 	return {
-		id: dumling.idCodec.English.makeDumlingIdFor(lemma),
+		id: makeDumlingIdFor("en", lemma),
 		lemma,
 		lexicalRelations: {},
 		morphologicalRelations: {},
@@ -67,13 +71,11 @@ function makeLemmaEntry(lemma: Lemma<"English">): LemmaEntry<"English"> {
 	};
 }
 
-function makeSurfaceEntry(): SurfaceEntry<"English"> {
+function makeSurfaceEntry(): SurfaceEntry<"en"> {
 	return {
-		id: dumling.idCodec.English.makeDumlingIdFor(
-			englishWalkResolvedInflectionSurface,
-		),
+		id: makeDumlingIdFor("en", englishWalkResolvedInflectionSurface),
 		surface: englishWalkResolvedInflectionSurface,
-		ownerLemmaId: dumling.idCodec.English.makeDumlingIdFor(englishWalkLemma),
+		ownerLemmaId: makeDumlingIdFor("en", englishWalkLemma),
 		attestedTranslations: [],
 		attestations: [],
 		notes: "",
@@ -81,22 +83,22 @@ function makeSurfaceEntry(): SurfaceEntry<"English"> {
 }
 
 const englishRunResolvedLemmaSurface = {
-	language: "English",
+	language: "en",
 	normalizedFullSurface: "run",
 	surfaceKind: "Lemma",
 	lemma: englishRunLemma,
-} satisfies Surface<"English", "Lemma", "Lexeme", "VERB">;
+} satisfies Surface<"en", "Lemma", "Lexeme", "VERB">;
 
 describe("dumdict", () => {
 	it("stores entries with deterministic collection ordering and lookup behavior", () => {
-		const dict = makeDumdict("English");
-		const lemmaEntry: LemmaEntry<"English"> = {
+		const dict = makeDumdict("en");
+		const lemmaEntry: LemmaEntry<"en"> = {
 			...makeLemmaEntry(englishWalkLemma),
 			attestedTranslations: ["amble", "walk", "amble"],
 			attestations: ["zeta", "alpha", "alpha"],
 			notes: "verb lemma",
 		};
-		const surfaceEntry: SurfaceEntry<"English"> = {
+		const surfaceEntry: SurfaceEntry<"en"> = {
 			...makeSurfaceEntry(),
 			attestedTranslations: ["go on foot", "stroll", "go on foot"],
 			attestations: ["beta", "alpha", "beta"],
@@ -126,7 +128,7 @@ describe("dumdict", () => {
 	});
 
 	it("maintains reciprocal resolved relations and removes stale inverses on upsert", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const runEntry = makeLemmaEntry(englishRunLemma);
 
@@ -163,7 +165,7 @@ describe("dumdict", () => {
 	});
 
 	it("dedupes pending refs and resolves them into real reciprocal edges", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const strideEntry = makeLemmaEntry(englishStrideLemma);
 
@@ -231,7 +233,7 @@ describe("dumdict", () => {
 	});
 
 	it("hydrates and exports authoritative snapshots through public helpers", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const runEntry = makeLemmaEntry(englishRunLemma);
 		const surfaceEntry = makeSurfaceEntry();
@@ -263,7 +265,7 @@ describe("dumdict", () => {
 
 		const snapshot = unwrap(
 			exportSnapshot(dict, "revision-1"),
-		) satisfies AuthoritativeWriteSnapshot<"English">;
+		) satisfies AuthoritativeWriteSnapshot<"en">;
 
 		unwrap(validateReadableSnapshot(snapshot));
 		unwrap(validateAuthoritativeWriteSnapshot(snapshot));
@@ -281,13 +283,13 @@ describe("dumdict", () => {
 		const snapshot = {
 			authority: "write",
 			completeness: "full",
-			language: "English",
+			language: "en",
 			revision: "revision-1",
 			lemmas: [],
 			surfaces: [],
 			pendingRefs: [],
 			pendingRelations: [],
-		} satisfies AuthoritativeWriteSnapshot<"English">;
+		} satisfies AuthoritativeWriteSnapshot<"en">;
 
 		unwrap(validateAuthoritativeWriteSnapshot(snapshot));
 
@@ -298,7 +300,7 @@ describe("dumdict", () => {
 	});
 
 	it("exports snapshots through the generic Dumdict interface hook", () => {
-		const inner = makeDumdict("English");
+		const inner = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(inner.upsertLemmaEntry(walkEntry));
@@ -310,43 +312,43 @@ describe("dumdict", () => {
 			lookupBySurface: (surface: string) => inner.lookupBySurface(surface),
 			lookupLemmasBySurface: (surface: string) =>
 				inner.lookupLemmasBySurface(surface),
-			getLemmaEntry: (id: LemmaEntry<"English">["id"]) => inner.getLemmaEntry(id),
-			getSurfaceEntry: (id: SurfaceEntry<"English">["id"]) =>
+			getLemmaEntry: (id: LemmaEntry<"en">["id"]) => inner.getLemmaEntry(id),
+			getSurfaceEntry: (id: SurfaceEntry<"en">["id"]) =>
 				inner.getSurfaceEntry(id),
-			getOwnedSurfaceEntries: (lemmaId: LemmaEntry<"English">["id"]) =>
+			getOwnedSurfaceEntries: (lemmaId: LemmaEntry<"en">["id"]) =>
 				inner.getOwnedSurfaceEntries(lemmaId),
-			getPendingLemmaRef: (pendingId: PendingLemmaId<"English">) =>
+			getPendingLemmaRef: (pendingId: PendingLemmaId<"en">) =>
 				inner.getPendingLemmaRef(pendingId),
 			listPendingLemmaRefs: () => inner.listPendingLemmaRefs(),
-			listPendingRelationsForLemma: (lemmaId: LemmaEntry<"English">["id"]) =>
+			listPendingRelationsForLemma: (lemmaId: LemmaEntry<"en">["id"]) =>
 				inner.listPendingRelationsForLemma(lemmaId),
-			upsertLemmaEntry: (entry: LemmaEntry<"English">) =>
+			upsertLemmaEntry: (entry: LemmaEntry<"en">) =>
 				inner.upsertLemmaEntry(entry),
-			upsertSurfaceEntry: (entry: SurfaceEntry<"English">) =>
+			upsertSurfaceEntry: (entry: SurfaceEntry<"en">) =>
 				inner.upsertSurfaceEntry(entry),
 			patchLemmaEntry: (
-				id: LemmaEntry<"English">["id"],
+				id: LemmaEntry<"en">["id"],
 				ops: Parameters<typeof inner.patchLemmaEntry>[1],
 			) => inner.patchLemmaEntry(id, ops),
 			patchSurfaceEntry: (
-				id: SurfaceEntry<"English">["id"],
+				id: SurfaceEntry<"en">["id"],
 				ops: Parameters<typeof inner.patchSurfaceEntry>[1],
 			) => inner.patchSurfaceEntry(id, ops),
 			removePendingRelation: (edge: Parameters<typeof inner.removePendingRelation>[0]) =>
 				inner.removePendingRelation(edge),
 			resolvePendingLemma: (
-				pendingId: PendingLemmaId<"English">,
-				lemmaId: LemmaEntry<"English">["id"],
+				pendingId: PendingLemmaId<"en">,
+				lemmaId: LemmaEntry<"en">["id"],
 			) => inner.resolvePendingLemma(pendingId, lemmaId),
-			deleteLemmaEntry: (id: LemmaEntry<"English">["id"]) =>
+			deleteLemmaEntry: (id: LemmaEntry<"en">["id"]) =>
 				inner.deleteLemmaEntry(id),
-			deleteSurfaceEntry: (id: SurfaceEntry<"English">["id"]) =>
+			deleteSurfaceEntry: (id: SurfaceEntry<"en">["id"]) =>
 				inner.deleteSurfaceEntry(id),
-		} satisfies Dumdict<"English">;
+		} satisfies Dumdict<"en">;
 
 		const exported = unwrap(exportSnapshot(wrapped, "revision-1"));
 
-		expect(exported.language).toBe("English");
+		expect(exported.language).toBe("en");
 		expect(exported.lemmas).toEqual([
 			{
 				...walkEntry,
@@ -360,13 +362,13 @@ describe("dumdict", () => {
 		const partialReadSnapshot = {
 			authority: "read",
 			completeness: "partial",
-			language: "English",
+			language: "en",
 			revision: "revision-1",
 			lemmas: [],
 			surfaces: [makeSurfaceEntry()],
 			pendingRefs: [],
 			pendingRelations: [],
-		} satisfies ReadDictionarySnapshot<"English">;
+		} satisfies ReadDictionarySnapshot<"en">;
 
 		const readValidation = validateReadableSnapshot(partialReadSnapshot);
 		const writeValidation = validateAuthoritativeWriteSnapshot(
@@ -381,7 +383,7 @@ describe("dumdict", () => {
 	});
 
 	it("looks up through readable snapshots and respects partial owner-closure", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const lemmaEntry = makeLemmaEntry(englishWalkLemma);
 		const surfaceEntry = makeSurfaceEntry();
 
@@ -399,13 +401,13 @@ describe("dumdict", () => {
 		const partialReadSnapshot = {
 			authority: "read",
 			completeness: "partial",
-			language: "English",
+			language: "en",
 			revision: "revision-2",
 			lemmas: [],
 			surfaces: [surfaceEntry],
 			pendingRefs: [],
 			pendingRelations: [],
-		} satisfies ReadDictionarySnapshot<"English">;
+		} satisfies ReadDictionarySnapshot<"en">;
 
 		const partialLookup = unwrap(lookupBySurface(partialReadSnapshot, "WALK"));
 		const partialLemmaLookup = unwrap(
@@ -418,7 +420,7 @@ describe("dumdict", () => {
 	});
 
 	it("rejects authoritative snapshots with missing reciprocal resolved relations", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const runEntry = makeLemmaEntry(englishRunLemma);
 
@@ -440,7 +442,7 @@ describe("dumdict", () => {
 					? { ...entry, lexicalRelations: {} }
 					: entry,
 			),
-		} satisfies AuthoritativeWriteSnapshot<"English">;
+		} satisfies AuthoritativeWriteSnapshot<"en">;
 
 		const validation = validateAuthoritativeWriteSnapshot(brokenSnapshot);
 		const hydration = hydrateSnapshot(brokenSnapshot);
@@ -453,7 +455,7 @@ describe("dumdict", () => {
 	});
 
 	it("applies planned changes against authoritative snapshots", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const runEntry = makeLemmaEntry(englishRunLemma);
 
@@ -465,7 +467,7 @@ describe("dumdict", () => {
 			attestedTranslations: ["walk"],
 			attestations: ["they walk"],
 			notes: "demo surface",
-		} satisfies SurfaceEntry<"English">;
+		} satisfies SurfaceEntry<"en">;
 		const changes = [
 			{
 				type: "createLemma",
@@ -474,7 +476,7 @@ describe("dumdict", () => {
 					{
 						kind: "lemmaMissing",
 						lemmaId: runEntry.id,
-					} satisfies ChangePrecondition<"English">,
+					} satisfies ChangePrecondition<"en">,
 				],
 			},
 			{
@@ -493,7 +495,7 @@ describe("dumdict", () => {
 				type: "createSurface",
 				entry: walkSurface,
 			},
-		] satisfies PlannedChangeOp<"English">[];
+		] satisfies PlannedChangeOp<"en">[];
 
 		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
 		const nextLookup = unwrap(lookupBySurface(nextSnapshot, "WALK"));
@@ -521,7 +523,7 @@ describe("dumdict", () => {
 	});
 
 	it("applies planned changes with an explicit next revision", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const runEntry = makeLemmaEntry(englishRunLemma);
 
@@ -536,14 +538,14 @@ describe("dumdict", () => {
 					{
 						kind: "snapshotRevisionMatches",
 						revision: "revision-1",
-					} satisfies ChangePrecondition<"English">,
+					} satisfies ChangePrecondition<"en">,
 					{
 						kind: "lemmaMissing",
 						lemmaId: runEntry.id,
-					} satisfies ChangePrecondition<"English">,
+					} satisfies ChangePrecondition<"en">,
 				],
 			},
-		] satisfies PlannedChangeOp<"English">[];
+		] satisfies PlannedChangeOp<"en">[];
 
 		const nextSnapshot = unwrap(
 			applyPlannedChanges(baseSnapshot, changes, {
@@ -553,13 +555,13 @@ describe("dumdict", () => {
 
 		expect(nextSnapshot.revision).toBe("revision-2");
 		expect(nextSnapshot.lemmas.map((entry) => entry.id)).toEqual([
-			runEntry.id,
 			walkEntry.id,
+			runEntry.id,
 		]);
 	});
 
 	it("rejects planned changes when a precondition fails", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const runEntry = makeLemmaEntry(englishRunLemma);
 
@@ -574,10 +576,10 @@ describe("dumdict", () => {
 					{
 						kind: "snapshotRevisionMatches",
 						revision: "revision-stale",
-					} satisfies ChangePrecondition<"English">,
+					} satisfies ChangePrecondition<"en">,
 				],
 			},
-		] satisfies PlannedChangeOp<"English">[];
+		] satisfies PlannedChangeOp<"en">[];
 
 		const result = applyPlannedChanges(baseSnapshot, changes);
 
@@ -593,7 +595,7 @@ describe("dumdict", () => {
 	});
 
 	it("plans append-lemma-attestation intents into patch operations", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
@@ -604,7 +606,7 @@ describe("dumdict", () => {
 			kind: "appendLemmaAttestation",
 			lemmaId: walkEntry.id,
 			attestation: "They walk home together.",
-		} satisfies MutationIntentV1<"English">;
+		} satisfies MutationIntentV1<"en">;
 
 		const changes = unwrap(plan(baseSnapshot, intent));
 		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
@@ -627,12 +629,13 @@ describe("dumdict", () => {
 	});
 
 	it("plans insert-lemma intents into create and patch operations", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
-		const runLemmaId = dumling.idCodec.English.makeDumlingIdFor(englishRunLemma);
-		const runSurfaceId = dumling.idCodec.English.makeDumlingIdFor(
+		const runLemmaId = makeDumlingIdFor("en", englishRunLemma);
+		const runSurfaceId = makeDumlingIdFor(
+			"en",
 			englishRunResolvedLemmaSurface,
-		) as SurfaceEntry<"English">["id"];
+		) as SurfaceEntry<"en">["id"];
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
 
@@ -662,7 +665,7 @@ describe("dumdict", () => {
 					target: { kind: "existing", lemmaId: walkEntry.id },
 				},
 			],
-		} satisfies MutationIntentV1<"English">;
+		} satisfies MutationIntentV1<"en">;
 
 		const changes = unwrap(plan(baseSnapshot, intent));
 		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
@@ -746,7 +749,7 @@ describe("dumdict", () => {
 	});
 
 	it("rejects insert-lemma intents whose owned surfaces do not belong to the inserted lemma", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
@@ -770,7 +773,7 @@ describe("dumdict", () => {
 					notes: "",
 				},
 			],
-		} satisfies MutationIntentV1<"English">;
+		} satisfies MutationIntentV1<"en">;
 
 		const result = plan(baseSnapshot, intent);
 
@@ -781,7 +784,7 @@ describe("dumdict", () => {
 	});
 
 	it("rejects insert-lemma intents whose lemma payload belongs to another language", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
 		const intent = {
 			version: "v1",
@@ -792,7 +795,7 @@ describe("dumdict", () => {
 				attestations: [],
 				notes: "",
 			},
-		} satisfies MutationIntentV1<"English">;
+		} satisfies MutationIntentV1<"en">;
 
 		const result = plan(baseSnapshot, intent);
 
@@ -803,7 +806,7 @@ describe("dumdict", () => {
 	});
 
 	it("plans upsert-owned-surface intents into patch operations for existing surfaces", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const surfaceEntry = makeSurfaceEntry();
 
@@ -821,14 +824,15 @@ describe("dumdict", () => {
 				attestations: ["They walk home together."],
 				notes: "updated surface note",
 			},
-		} satisfies MutationIntentV1<"English">;
+		} satisfies MutationIntentV1<"en">;
 
 		const changes = unwrap(plan(baseSnapshot, intent));
 		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
 		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
-		const surfaceId = dumling.idCodec.English.makeDumlingIdFor(
+		const surfaceId = makeDumlingIdFor(
+			"en",
 			englishWalkResolvedInflectionSurface,
-		) as SurfaceEntry<"English">["id"];
+		) as SurfaceEntry<"en">["id"];
 
 		expect(changes).toEqual([
 			{
@@ -857,7 +861,7 @@ describe("dumdict", () => {
 	});
 
 	it("rejects upsert-owned-surface intents that target an existing surface owned by another lemma", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const runEntry = makeLemmaEntry(englishRunLemma);
 		const surfaceEntry = makeSurfaceEntry();
@@ -877,7 +881,7 @@ describe("dumdict", () => {
 				attestations: ["They walk home together."],
 				notes: "updated surface note",
 			},
-		} satisfies MutationIntentV1<"English">;
+		} satisfies MutationIntentV1<"en">;
 
 		const result = plan(baseSnapshot, intent);
 
@@ -888,10 +892,9 @@ describe("dumdict", () => {
 	});
 
 	it("rejects upsert-owned-surface intents when the owner lemma is missing from the snapshot", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
-		const ownerLemmaId =
-			dumling.idCodec.English.makeDumlingIdFor(englishWalkLemma);
+		const ownerLemmaId = makeDumlingIdFor("en", englishWalkLemma);
 		const intent = {
 			version: "v1",
 			kind: "upsertOwnedSurface",
@@ -902,7 +905,7 @@ describe("dumdict", () => {
 				attestations: ["They walk home together."],
 				notes: "updated surface note",
 			},
-		} satisfies MutationIntentV1<"English">;
+		} satisfies MutationIntentV1<"en">;
 
 		const result = plan(baseSnapshot, intent);
 
@@ -913,7 +916,7 @@ describe("dumdict", () => {
 	});
 
 	it("plans resolve-pending-lemma intents into pending cleanup and relation materialization", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const strideEntry = makeLemmaEntry(englishStrideLemma);
 
@@ -945,7 +948,7 @@ describe("dumdict", () => {
 			kind: "resolvePendingLemma",
 			pendingId,
 			lemmaId: strideEntry.id,
-		} satisfies MutationIntentV1<"English">;
+		} satisfies MutationIntentV1<"en">;
 
 		const changes = unwrap(plan(baseSnapshot, intent));
 		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
@@ -1017,9 +1020,9 @@ describe("dumdict", () => {
 	});
 
 	it("plans insert-lemma intents with pending initial relations", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
-		const runLemmaId = dumling.idCodec.English.makeDumlingIdFor(englishRunLemma);
+		const runLemmaId = makeDumlingIdFor("en", englishRunLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
 
@@ -1047,7 +1050,7 @@ describe("dumdict", () => {
 					},
 				},
 			],
-		} satisfies MutationIntentV1<"English">;
+		} satisfies MutationIntentV1<"en">;
 
 		const changes = unwrap(plan(baseSnapshot, intent));
 		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
@@ -1110,7 +1113,7 @@ describe("dumdict", () => {
 	});
 
 	it("applies create-pending-relation changes against an existing pending ref", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const runEntry = makeLemmaEntry(englishRunLemma);
 
@@ -1152,7 +1155,7 @@ describe("dumdict", () => {
 					{ kind: "pendingRefExists", pendingId },
 				],
 			},
-		] satisfies PlannedChangeOp<"English">[];
+		] satisfies PlannedChangeOp<"en">[];
 
 		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
 		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
@@ -1183,21 +1186,21 @@ describe("dumdict", () => {
 	});
 
 	it("applies create-pending-ref and create-pending-relation changes in one batch", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
 
 		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
 		const pendingId =
-			"pending:v1:English:stride:Lexeme:VERB" as PendingLemmaId<"English">;
+			"pending:v1:en:stride:Lexeme:VERB" as PendingLemmaId<"en">;
 
 		const changes = [
 			{
 				type: "createPendingRef",
 				ref: {
 					pendingId,
-					language: "English",
+					language: "en",
 					canonicalLemma: "stride",
 					lemmaKind: "Lexeme",
 					lemmaSubKind: "VERB",
@@ -1220,7 +1223,7 @@ describe("dumdict", () => {
 					{ kind: "lemmaExists", lemmaId: walkEntry.id },
 				],
 			},
-		] satisfies PlannedChangeOp<"English">[];
+		] satisfies PlannedChangeOp<"en">[];
 
 		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
 		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
@@ -1241,21 +1244,21 @@ describe("dumdict", () => {
 	});
 
 	it("lets later preconditions observe earlier changes in the same batch", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
 
 		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
 		const pendingId =
-			"pending:v1:English:stride:Lexeme:VERB" as PendingLemmaId<"English">;
+			"pending:v1:en:stride:Lexeme:VERB" as PendingLemmaId<"en">;
 
 		const changes = [
 			{
 				type: "createPendingRef",
 				ref: {
 					pendingId,
-					language: "English",
+					language: "en",
 					canonicalLemma: "stride",
 					lemmaKind: "Lexeme",
 					lemmaSubKind: "VERB",
@@ -1279,7 +1282,7 @@ describe("dumdict", () => {
 					{ kind: "pendingRefExists", pendingId },
 				],
 			},
-		] satisfies PlannedChangeOp<"English">[];
+		] satisfies PlannedChangeOp<"en">[];
 
 		const nextSnapshot = unwrap(applyPlannedChanges(baseSnapshot, changes));
 		const nextHydrated = unwrap(hydrateSnapshot(nextSnapshot));
@@ -1300,7 +1303,7 @@ describe("dumdict", () => {
 	});
 
 	it("rejects authoritative snapshots with orphan pending refs", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
@@ -1323,7 +1326,7 @@ describe("dumdict", () => {
 		const orphanSnapshot = {
 			...baseSnapshot,
 			pendingRelations: [],
-		} satisfies AuthoritativeWriteSnapshot<"English">;
+		} satisfies AuthoritativeWriteSnapshot<"en">;
 
 		const result = validateAuthoritativeWriteSnapshot(orphanSnapshot);
 
@@ -1334,26 +1337,26 @@ describe("dumdict", () => {
 	});
 
 	it("rejects standalone create-pending-ref changes in v1", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
 
 		const baseSnapshot = unwrap(exportSnapshot(dict, "revision-1"));
 		const pendingId =
-			"pending:v1:English:stride:Lexeme:VERB" as PendingLemmaId<"English">;
+			"pending:v1:en:stride:Lexeme:VERB" as PendingLemmaId<"en">;
 		const changes = [
 			{
 				type: "createPendingRef",
 				ref: {
 					pendingId,
-					language: "English",
+					language: "en",
 					canonicalLemma: "stride",
 					lemmaKind: "Lexeme",
 					lemmaSubKind: "VERB",
 				},
 			},
-		] satisfies PlannedChangeOp<"English">[];
+		] satisfies PlannedChangeOp<"en">[];
 
 		const result = applyPlannedChanges(baseSnapshot, changes);
 
@@ -1365,7 +1368,7 @@ describe("dumdict", () => {
 	});
 
 	it("rejects delete-pending-ref changes in v1", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
@@ -1395,7 +1398,7 @@ describe("dumdict", () => {
 				type: "deletePendingRef",
 				pendingId,
 			},
-		] satisfies PlannedChangeOp<"English">[];
+		] satisfies PlannedChangeOp<"en">[];
 
 		const result = applyPlannedChanges(baseSnapshot, changes);
 
@@ -1407,7 +1410,7 @@ describe("dumdict", () => {
 	});
 
 	it("rejects pending self-relations at patch time", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
@@ -1433,7 +1436,7 @@ describe("dumdict", () => {
 	});
 
 	it("rejects foreign-language and malformed pending ids on pending-id APIs", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const strideEntry = makeLemmaEntry(englishStrideLemma);
 
@@ -1455,7 +1458,7 @@ describe("dumdict", () => {
 		unwrap(dict.upsertLemmaEntry(strideEntry));
 
 		const foreignPendingId =
-			"pending:v1:Hebrew:stride:Lexeme:VERB" as unknown as string;
+			"pending:v1:he:stride:Lexeme:VERB" as unknown as string;
 		const malformedPendingId = "pending:not-valid" as unknown as string;
 
 		const foreignGetResult = dict.getPendingLemmaRef(foreignPendingId as never);
@@ -1501,7 +1504,7 @@ describe("dumdict", () => {
 	});
 
 	it("rejects authoritative snapshots whose pending ids do not match the stored pending-ref tuple", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 
 		unwrap(dict.upsertLemmaEntry(walkEntry));
@@ -1527,7 +1530,7 @@ describe("dumdict", () => {
 		}
 
 		const forgedPendingId =
-			"pending:v1:English:not-stride:Lexeme:VERB" as PendingLemmaId<"English">;
+			"pending:v1:en:not-stride:Lexeme:VERB" as PendingLemmaId<"en">;
 		const forgedSnapshot = {
 			...snapshot,
 			pendingRefs: [{ ...pendingRef, pendingId: forgedPendingId }],
@@ -1535,7 +1538,7 @@ describe("dumdict", () => {
 				...relation,
 				targetPendingId: forgedPendingId,
 			})),
-		} satisfies AuthoritativeWriteSnapshot<"English">;
+		} satisfies AuthoritativeWriteSnapshot<"en">;
 
 		const validation = validateAuthoritativeWriteSnapshot(forgedSnapshot);
 		const hydration = hydrateSnapshot(forgedSnapshot);
@@ -1548,7 +1551,7 @@ describe("dumdict", () => {
 	});
 
 	it("deletes owned surfaces, incident relations, and sourced pending refs with lemma deletion", () => {
-		const dict = makeDumdict("English");
+		const dict = makeDumdict("en");
 		const walkEntry = makeLemmaEntry(englishWalkLemma);
 		const runEntry = makeLemmaEntry(englishRunLemma);
 		const surfaceEntry = makeSurfaceEntry();

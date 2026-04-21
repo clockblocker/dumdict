@@ -13,7 +13,7 @@ Dictionary storage, lookup indexes, and relation helpers built on top of `dumlin
 A `dumdict` instance is bound to one language:
 
 ```ts
-const dict = makeDumdict("English");
+const dict = makeDumdict("en");
 ```
 
 A `LemmaEntry` stores the stable lemma payload plus graph-level dictionary metadata:
@@ -48,7 +48,7 @@ The root export is intentionally small:
 
 ## Scope
 
-- Languages: `English`, `German`, `Hebrew`
+- Languages: `en`, `de`, `he`
 - Runtime: `Node >= 20`
 - Package format: ESM
 

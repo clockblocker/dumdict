@@ -6,11 +6,11 @@ export const germanMasculineSeeLemma = {
 	inherentFeatures: {
 		gender: "Masc",
 	},
-	language: "German",
+	language: "de",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🏞️",
-	pos: "NOUN",
-} satisfies Lemma<"German", "Lexeme", "NOUN">;
+	lemmaSubKind: "NOUN",
+} satisfies Lemma<"de", "Lexeme", "NOUN">;
 
 // Attestation: "Das [Kind] schlief schon."
 export const germanKindLemma = {
@@ -18,11 +18,11 @@ export const germanKindLemma = {
 	inherentFeatures: {
 		gender: "Neut",
 	},
-	language: "German",
+	language: "de",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "👶",
-	pos: "NOUN",
-} satisfies Lemma<"German", "Lexeme", "NOUN">;
+	lemmaSubKind: "NOUN",
+} satisfies Lemma<"de", "Lexeme", "NOUN">;
 
 // Attestation: "Das [Haus] steht leer."
 export const germanHausLemma = {
@@ -30,21 +30,21 @@ export const germanHausLemma = {
 	inherentFeatures: {
 		gender: "Neut",
 	},
-	language: "German",
+	language: "de",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🏠",
-	pos: "NOUN",
-} satisfies Lemma<"German", "Lexeme", "NOUN">;
+	lemmaSubKind: "NOUN",
+} satisfies Lemma<"de", "Lexeme", "NOUN">;
 
 // Attestation: "Wir [gehen] nach Hause."
 export const germanGehenLemma = {
 	canonicalLemma: "gehen",
 	inherentFeatures: {},
-	language: "German",
+	language: "de",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🚶",
-	pos: "VERB",
-} satisfies Lemma<"German", "Lexeme", "VERB">;
+	lemmaSubKind: "VERB",
+} satisfies Lemma<"de", "Lexeme", "VERB">;
 
 // Attestation: "In Berlin sowie im Umland (Agglomeration Berlin) betreibt die [BVG] die U-Bahn Berlin, die Straßenbahn Berlin, den Busverkehr in Berlin und den Fährverkehr in Berlin, nicht jedoch die S-Bahn."
 // UD-style: multi-word abbreviations keep the abbreviated form as canonicalLemma and mark Abbr=Yes.
@@ -55,26 +55,28 @@ export const germanBVGLemma = {
 	inherentFeatures: {
 		abbr: "Yes",
 	},
-	language: "German",
+	language: "de",
 	lemmaKind: "Lexeme",
 	meaningInEmojis: "🚇",
-	pos: "PROPN",
-} satisfies Lemma<"German", "Lexeme", "PROPN">;
+	lemmaSubKind: "PROPN",
+} satisfies Lemma<"de", "Lexeme", "PROPN">;
 
 // Attestation: "Ich komme [auf jeden Fall] morgen."
 export const germanAufJedenFallLemma = {
 	canonicalLemma: "auf jeden Fall",
-	language: "German",
+	inherentFeatures: {},
+	language: "de",
 	lemmaKind: "Phraseme",
 	meaningInEmojis: "✅",
-	phrasemeKind: "DiscourseFormula",
-} satisfies Lemma<"German", "Phraseme", "DiscourseFormula">;
+	lemmaSubKind: "DiscourseFormula",
+} satisfies Lemma<"de", "Phraseme", "DiscourseFormula">;
 
 // Attestation: "[Ab]fahrt nur am Gleis 3."
 export const germanAbPrefixLemma = {
 	canonicalLemma: "ab",
-	language: "German",
+	inherentFeatures: {},
+	language: "de",
 	lemmaKind: "Morpheme",
 	meaningInEmojis: "🧩",
-	morphemeKind: "Prefix",
-} satisfies Lemma<"German", "Morpheme", "Prefix">;
+	lemmaSubKind: "Prefix",
+} satisfies Lemma<"de", "Morpheme", "Prefix">;
