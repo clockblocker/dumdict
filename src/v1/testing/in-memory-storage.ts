@@ -149,6 +149,14 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 		async commitChanges(
 			request: CommitChangesRequest<L>,
 		): Promise<CommitChangesResult> {
+			if (request.baseRevision !== currentRevision()) {
+				return {
+					status: "conflict",
+					code: "revisionConflict",
+					latestRevision: currentRevision(),
+				};
+			}
+
 			const draftNotes = structuredClone(
 				storedNotes,
 			) as SerializedDictionaryNote<L>[];
@@ -171,13 +179,10 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 						storedRelation.relation === relation.relation &&
 						storedRelation.targetPendingId === relation.targetPendingId,
 				);
-			const draftPreconditionFails = (
-				precondition: ChangePrecondition<L>,
-				baseRevision: StoreRevision,
-			) => {
+			const draftPreconditionFails = (precondition: ChangePrecondition<L>) => {
 				switch (precondition.kind) {
 					case "revisionMatches":
-						return precondition.revision !== baseRevision;
+						return precondition.revision !== currentRevision();
 					case "lemmaExists":
 						return !findDraftNoteByLemmaId(precondition.lemmaId);
 					case "lemmaMissing":
@@ -212,7 +217,7 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 			for (const change of request.changes) {
 				if (
 					change.preconditions.some((precondition) =>
-						draftPreconditionFails(precondition, request.baseRevision),
+						draftPreconditionFails(precondition),
 					)
 				) {
 					return {
@@ -230,7 +235,9 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 						});
 						break;
 					case "createOwnedSurface": {
-						const storedNote = findDraftNoteByLemmaId(change.entry.ownerLemmaId);
+						const storedNote = findDraftNoteByLemmaId(
+							change.entry.ownerLemmaId,
+						);
 						if (!storedNote) {
 							return {
 								status: "conflict",

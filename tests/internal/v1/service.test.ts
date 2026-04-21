@@ -13,6 +13,7 @@ import {
 import { getBootedUpDumdict } from "../../../src/v1/testing/boot";
 import {
 	deSerializedNotes,
+	germanGehenLemma,
 	germanGehenLemmaId,
 } from "../../fixtures/v1/de-notes";
 import {
@@ -37,6 +38,38 @@ describe("v1 configured service", () => {
 			throw new Error("Expected English walk fixture.");
 		}
 		return note.lemmaEntry;
+	};
+
+	const storageRejectingNewNoteContext = () => {
+		let loadNewNoteContextCalls = 0;
+		const storage = {
+			async findStoredLemmaSenses() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadLemmaForPatch() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadNewNoteContext() {
+				loadNewNoteContextCalls += 1;
+				return {
+					revision: "never" as StoreRevision,
+					existingOwnedSurfaces: [],
+					explicitExistingRelationTargets: [],
+					existingPendingRefsForProposedPendingTargets: [],
+					matchingPendingRefsForNewLemma: [],
+					incomingPendingRelationsForNewLemma: [],
+					incomingPendingSourceLemmas: [],
+				};
+			},
+			async commitChanges() {
+				throw new Error("Unexpected storage call");
+			},
+		} satisfies DumdictStoragePort<"en">;
+
+		return {
+			storage,
+			getLoadNewNoteContextCalls: () => loadNewNoteContextCalls,
+		};
 	};
 
 	test("findStoredLemmaSenses returns stored senses for a coarse lemma description", async () => {
@@ -290,7 +323,7 @@ describe("v1 configured service", () => {
 		const existingSurfaceEntry = {
 			id: makeDumlingIdFor("en", englishSwimLemmaSurface),
 			surface: englishSwimLemmaSurface,
-			ownerLemmaId: englishWalkLemmaId,
+			ownerLemmaId: makeDumlingIdFor("en", englishSwimLemma),
 			attestedTranslations: ["swim"],
 			attestations: ["They swim every morning."],
 			notes: "Already stored elsewhere.",
@@ -446,10 +479,75 @@ describe("v1 configured service", () => {
 			code: "semanticPreconditionFailed",
 		});
 		expect(
-			storage
-				.loadAll()
-				.some(({ lemmaEntry }) => lemmaEntry.id === swimLemmaId),
+			storage.loadAll().some(({ lemmaEntry }) => lemmaEntry.id === swimLemmaId),
 		).toBe(false);
+	});
+
+	test("in-memory storage rejects commits based on stale revisions", async () => {
+		const { storage } = getBootedUpDumdict("en", enSerializedNotes);
+
+		const firstCommit = await storage.commitChanges({
+			baseRevision: "mem-1" as StoreRevision,
+			changes: [
+				{
+					type: "patchLemma",
+					lemmaId: englishWalkLemmaId,
+					ops: [
+						{
+							kind: "addAttestation",
+							value: "They walk before sunrise.",
+						},
+					],
+					preconditions: [
+						{ kind: "revisionMatches", revision: "mem-1" as StoreRevision },
+						{ kind: "lemmaExists", lemmaId: englishWalkLemmaId },
+						{
+							kind: "lemmaAttestationMissing",
+							lemmaId: englishWalkLemmaId,
+							value: "They walk before sunrise.",
+						},
+					],
+				},
+			],
+		});
+
+		const staleCommit = await storage.commitChanges({
+			baseRevision: "mem-1" as StoreRevision,
+			changes: [
+				{
+					type: "patchLemma",
+					lemmaId: englishWalkLemmaId,
+					ops: [
+						{
+							kind: "addAttestation",
+							value: "They walk after midnight.",
+						},
+					],
+					preconditions: [
+						{ kind: "revisionMatches", revision: "mem-1" as StoreRevision },
+						{ kind: "lemmaExists", lemmaId: englishWalkLemmaId },
+						{
+							kind: "lemmaAttestationMissing",
+							lemmaId: englishWalkLemmaId,
+							value: "They walk after midnight.",
+						},
+					],
+				},
+			],
+		});
+
+		expect(firstCommit).toMatchObject({
+			status: "committed",
+			nextRevision: "mem-2",
+		});
+		expect(staleCommit).toMatchObject({
+			status: "conflict",
+			code: "revisionConflict",
+			latestRevision: "mem-2",
+		});
+		expect(storage.loadAll()[0]?.lemmaEntry.attestations).not.toContain(
+			"They walk after midnight.",
+		);
 	});
 
 	test("addNewNote rejects self relations", async () => {
@@ -571,6 +669,72 @@ describe("v1 configured service", () => {
 			relation: "nearSynonym",
 			targetPendingId: pendingWalkFastId,
 		});
+	});
+
+	test("addNewNote dedupes duplicate owned surfaces in one draft", async () => {
+		const { dict, storage } = getBootedUpDumdict("en", enSerializedNotes);
+		const ownedSurfaceDraft = {
+			surface: englishSwimLemmaSurface,
+			note: {
+				attestedTranslations: ["swim"],
+				attestations: ["They swim every morning."],
+				notes: "Plain present form.",
+			},
+		};
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+				ownedSurfaces: [ownedSurfaceDraft, ownedSurfaceDraft],
+			},
+		});
+
+		const storedSwim = storage
+			.loadAll()
+			.find(({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim");
+
+		expect(result.status).toBe("applied");
+		expect(storedSwim?.ownedSurfaceEntries).toHaveLength(1);
+	});
+
+	test("addNewNote dedupes duplicate pending relations in one draft", async () => {
+		const { dict, storage } = getBootedUpDumdict("en", enSerializedNotes);
+		const pendingRelationDraft = {
+			relationFamily: "lexical",
+			relation: "nearSynonym",
+			target: {
+				kind: "pending",
+				ref: {
+					canonicalLemma: "walk fast",
+					lemmaKind: "Lexeme",
+					lemmaSubKind: "VERB",
+				},
+			},
+		} as const;
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+				relations: [pendingRelationDraft, pendingRelationDraft],
+			},
+		});
+
+		const pendingRelations = storage
+			.loadAll()
+			.flatMap(({ pendingRelations }) => pendingRelations);
+
+		expect(result.status).toBe("applied");
+		expect(pendingRelations).toHaveLength(1);
 	});
 
 	test("addNewNote reuses existing pending refs for proposed pending relation targets", async () => {
@@ -795,5 +959,307 @@ describe("v1 configured service", () => {
 		).rejects.toThrow(DumdictLanguageMismatchError);
 
 		expect(storageCalls).toBe(0);
+	});
+
+	test("findStoredLemmaSenses rejects storage slices with mismatched lemma IDs", async () => {
+		const storage = {
+			async findStoredLemmaSenses() {
+				return {
+					revision: "corrupt-1" as StoreRevision,
+					candidates: [
+						{
+							entry: {
+								...englishWalkEntry(),
+								id: englishRunLemmaId,
+							},
+						},
+					],
+				};
+			},
+			async loadLemmaForPatch() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadNewNoteContext() {
+				throw new Error("Unexpected storage call");
+			},
+			async commitChanges() {
+				throw new Error("Unexpected storage call");
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		await expect(
+			dict.findStoredLemmaSenses({
+				lemmaDescription: {
+					language: "en",
+					canonicalLemma: "walk",
+					lemmaKind: "Lexeme",
+					lemmaSubKind: "VERB",
+				},
+			}),
+		).rejects.toThrow("lemma entry id");
+	});
+
+	test("addNewNote rejects storage slices with inconsistent surface ownership", async () => {
+		const corruptSurfaceEntry = {
+			id: makeDumlingIdFor("en", englishSwimLemmaSurface),
+			surface: englishSwimLemmaSurface,
+			ownerLemmaId: englishRunLemmaId,
+			attestedTranslations: ["swim"],
+			attestations: ["They swim every morning."],
+			notes: "Stored with the wrong owner.",
+		} satisfies SurfaceEntry<"en">;
+		const storage = {
+			async findStoredLemmaSenses() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadLemmaForPatch() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadNewNoteContext() {
+				return {
+					revision: "corrupt-1" as StoreRevision,
+					existingOwnedSurfaces: [corruptSurfaceEntry],
+					explicitExistingRelationTargets: [],
+					existingPendingRefsForProposedPendingTargets: [],
+					matchingPendingRefsForNewLemma: [],
+					incomingPendingRelationsForNewLemma: [],
+					incomingPendingSourceLemmas: [],
+				};
+			},
+			async commitChanges() {
+				throw new Error("Unexpected storage call");
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		await expect(
+			dict.addNewNote({
+				draft: {
+					lemma: englishSwimLemma,
+					note: {
+						attestedTranslations: ["swim"],
+						attestations: ["They swim every morning."],
+						notes: "Move through water by moving the body.",
+					},
+					ownedSurfaces: [
+						{
+							surface: englishSwimLemmaSurface,
+							note: {
+								attestedTranslations: ["swim"],
+								attestations: ["They swim every morning."],
+								notes: "Plain present form.",
+							},
+						},
+					],
+				},
+			}),
+		).rejects.toThrow("surface owner lemma id");
+	});
+
+	test("addNewNote rejects storage slices with mismatched pending ref IDs", async () => {
+		const storage = {
+			async findStoredLemmaSenses() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadLemmaForPatch() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadNewNoteContext() {
+				return {
+					revision: "corrupt-1" as StoreRevision,
+					existingOwnedSurfaces: [],
+					explicitExistingRelationTargets: [],
+					existingPendingRefsForProposedPendingTargets: [
+						{
+							pendingId: pendingSwimLemmaId,
+							language: "en",
+							canonicalLemma: "walk fast",
+							lemmaKind: "Lexeme",
+							lemmaSubKind: "VERB",
+						},
+					],
+					matchingPendingRefsForNewLemma: [],
+					incomingPendingRelationsForNewLemma: [],
+					incomingPendingSourceLemmas: [],
+				};
+			},
+			async commitChanges() {
+				throw new Error("Unexpected storage call");
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		await expect(
+			dict.addNewNote({
+				draft: {
+					lemma: englishSwimLemma,
+					note: {
+						attestedTranslations: ["swim"],
+						attestations: ["They swim every morning."],
+						notes: "Move through water by moving the body.",
+					},
+					relations: [
+						{
+							relationFamily: "lexical",
+							relation: "nearSynonym",
+							target: {
+								kind: "pending",
+								ref: {
+									canonicalLemma: "walk fast",
+									lemmaKind: "Lexeme",
+									lemmaSubKind: "VERB",
+								},
+							},
+						},
+					],
+				},
+			}),
+		).rejects.toThrow("pending ref id");
+	});
+
+	test("addNewNote rejects incoming pending relations without source lemmas", async () => {
+		const storage = {
+			async findStoredLemmaSenses() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadLemmaForPatch() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadNewNoteContext() {
+				return {
+					revision: "corrupt-1" as StoreRevision,
+					existingOwnedSurfaces: [],
+					explicitExistingRelationTargets: [],
+					existingPendingRefsForProposedPendingTargets: [],
+					matchingPendingRefsForNewLemma: [
+						{
+							pendingId: pendingSwimLemmaId,
+							language: "en",
+							canonicalLemma: "swim",
+							lemmaKind: "Lexeme",
+							lemmaSubKind: "VERB",
+						},
+					],
+					incomingPendingRelationsForNewLemma: [
+						{
+							sourceLemmaId: englishWalkLemmaId,
+							relationFamily: "lexical",
+							relation: "nearSynonym",
+							targetPendingId: pendingSwimLemmaId,
+						},
+					],
+					incomingPendingSourceLemmas: [],
+				};
+			},
+			async commitChanges() {
+				throw new Error("Unexpected storage call");
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		await expect(
+			dict.addNewNote({
+				draft: {
+					lemma: englishSwimLemma,
+					note: {
+						attestedTranslations: ["swim"],
+						attestations: ["They swim every morning."],
+						notes: "Move through water by moving the body.",
+					},
+				},
+			}),
+		).rejects.toThrow("incoming pending relation source lemma");
+	});
+
+	test("addNewNote rejects draft lemma language mismatch before storage is called", async () => {
+		const { storage, getLoadNewNoteContextCalls } =
+			storageRejectingNewNoteContext();
+		const dict = createDumdictService({ language: "en", storage });
+
+		await expect(
+			dict.addNewNote({
+				draft: {
+					lemma: germanGehenLemma,
+					note: {
+						attestedTranslations: ["go", "walk"],
+						attestations: ["Wir gehen nach Hause."],
+						notes: "Move on foot or go somewhere.",
+					},
+				},
+			} as never),
+		).rejects.toThrow(DumdictLanguageMismatchError);
+
+		expect(getLoadNewNoteContextCalls()).toBe(0);
+	});
+
+	test("addNewNote rejects owned-surface language mismatch before storage is called", async () => {
+		const { storage, getLoadNewNoteContextCalls } =
+			storageRejectingNewNoteContext();
+		const dict = createDumdictService({ language: "en", storage });
+
+		await expect(
+			dict.addNewNote({
+				draft: {
+					lemma: englishSwimLemma,
+					note: {
+						attestedTranslations: ["swim"],
+						attestations: ["They swim every morning."],
+						notes: "Move through water by moving the body.",
+					},
+					ownedSurfaces: [
+						{
+							surface: {
+								...englishSwimLemmaSurface,
+								language: "de",
+							},
+							note: {
+								attestedTranslations: ["swim"],
+								attestations: ["They swim every morning."],
+								notes: "Plain present form.",
+							},
+						},
+					],
+				},
+			} as never),
+		).rejects.toThrow(DumdictLanguageMismatchError);
+
+		expect(getLoadNewNoteContextCalls()).toBe(0);
+	});
+
+	test("addNewNote rejects owned-surface lemma language mismatch before storage is called", async () => {
+		const { storage, getLoadNewNoteContextCalls } =
+			storageRejectingNewNoteContext();
+		const dict = createDumdictService({ language: "en", storage });
+
+		await expect(
+			dict.addNewNote({
+				draft: {
+					lemma: englishSwimLemma,
+					note: {
+						attestedTranslations: ["swim"],
+						attestations: ["They swim every morning."],
+						notes: "Move through water by moving the body.",
+					},
+					ownedSurfaces: [
+						{
+							surface: {
+								language: "en",
+								lemma: germanGehenLemma,
+								normalizedFullSurface: "gehen",
+								surfaceKind: "Lemma",
+							},
+							note: {
+								attestedTranslations: ["go", "walk"],
+								attestations: ["Wir gehen nach Hause."],
+								notes: "Lemma-form surface with mismatched embedded lemma.",
+							},
+						},
+					],
+				},
+			} as never),
+		).rejects.toThrow(DumdictLanguageMismatchError);
+
+		expect(getLoadNewNoteContextCalls()).toBe(0);
 	});
 });

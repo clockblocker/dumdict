@@ -1,5 +1,3 @@
-import { makePendingLemmaRef } from "./pending/identity";
-import { inverseRelationFor } from "./relations/inverse-rules";
 import type {
 	LemmaEntry,
 	LexicalRelation,
@@ -16,7 +14,9 @@ import type { MutationRejectedCode } from "../public";
 import type { LemmaPatchSlice, NewNoteSlice } from "../storage";
 import type { AffectedDictionaryEntities } from "./affected";
 import type { DictionaryIntent } from "./intents";
+import { makePendingLemmaRef } from "./pending/identity";
 import type { PlannedChangeOp } from "./planned-changes";
+import { inverseRelationFor } from "./relations/inverse-rules";
 import type { MutationPlanSummary } from "./summaries";
 
 export type PlanMutationResult<L extends SupportedLanguage> = {
@@ -54,6 +54,31 @@ function appendMorphologicalRelation<L extends SupportedLanguage>(
 	if (!existing.includes(targetLemmaId)) {
 		relations[relation] = [...existing, targetLemmaId];
 	}
+}
+
+function uniqueBy<T>(values: T[], keyFor: (value: T) => string): T[] {
+	const seen = new Set<string>();
+	const uniqueValues: T[] = [];
+	for (const value of values) {
+		const key = keyFor(value);
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		uniqueValues.push(value);
+	}
+	return uniqueValues;
+}
+
+function pendingRelationKey<L extends SupportedLanguage>(
+	relation: PendingLemmaRelation<L>,
+) {
+	return [
+		relation.sourceLemmaId,
+		relation.relationFamily,
+		relation.relation,
+		relation.targetPendingId,
+	].join("\0");
 }
 
 export function planAppendLemmaAttestation<L extends SupportedLanguage>(
@@ -107,7 +132,8 @@ export function planAddNewNote<L extends SupportedLanguage>(
 			}
 
 			return (
-				relation.target.ref.canonicalLemma === intent.draft.lemma.canonicalLemma &&
+				relation.target.ref.canonicalLemma ===
+					intent.draft.lemma.canonicalLemma &&
 				relation.target.ref.lemmaKind === intent.draft.lemma.lemmaKind &&
 				relation.target.ref.lemmaSubKind === intent.draft.lemma.lemmaSubKind
 			);
@@ -164,7 +190,7 @@ export function planAddNewNote<L extends SupportedLanguage>(
 
 	const lexicalRelations: LexicalRelations<L> = {};
 	const morphologicalRelations: MorphologicalRelations<L> = {};
-	const ownedSurfaceEntries: SurfaceEntry<L>[] =
+	const ownedSurfaceEntries: SurfaceEntry<L>[] = uniqueBy(
 		intent.draft.ownedSurfaces?.map((ownedSurface) => ({
 			id: makeDumlingIdFor(language, ownedSurface.surface),
 			surface: ownedSurface.surface,
@@ -172,14 +198,16 @@ export function planAddNewNote<L extends SupportedLanguage>(
 			attestedTranslations: ownedSurface.note.attestedTranslations,
 			attestations: ownedSurface.note.attestations,
 			notes: ownedSurface.note.notes,
-		})) ?? [];
+		})) ?? [],
+		({ id }) => id,
+	);
 	const existingPendingRefIds = new Set(
 		slice.existingPendingRefsForProposedPendingTargets.map(
 			({ pendingId }) => pendingId,
 		),
 	);
 	const pendingRefsToCreateById = new Map<string, PendingLemmaRef<L>>();
-	const pendingRelationEntries: PendingLemmaRelation<L>[] =
+	const pendingRelationEntries: PendingLemmaRelation<L>[] = uniqueBy(
 		pendingRelations.map((relation) => {
 			if (relation.target.kind !== "pending") {
 				throw new Error("Unexpected existing relation target");
@@ -210,7 +238,9 @@ export function planAddNewNote<L extends SupportedLanguage>(
 				relation: relation.relation,
 				targetPendingId: pendingRef.pendingId,
 			};
-		});
+		}),
+		pendingRelationKey,
+	);
 
 	const pickupRelationPatches = slice.incomingPendingRelationsForNewLemma.map(
 		(relation): PlannedChangeOp<L> => {
@@ -412,7 +442,9 @@ export function planAddNewNote<L extends SupportedLanguage>(
 			surfaceIds: ownedSurfaceEntries.map(({ id }) => id),
 			pendingIds: [
 				...Array.from(pendingRefsToCreateById.keys()),
-				...slice.matchingPendingRefsForNewLemma.map(({ pendingId }) => pendingId),
+				...slice.matchingPendingRefsForNewLemma.map(
+					({ pendingId }) => pendingId,
+				),
 			],
 		},
 		summary: { message: "Added new lemma note." },
