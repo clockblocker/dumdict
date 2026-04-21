@@ -155,26 +155,146 @@ The storage port is the lower-level adapter boundary:
 
 ```ts
 type DumdictStoragePort<L> = {
-  loadStoredLemmaSensesContext(
-    request: FindStoredLemmaSensesRequest<L>,
+  findStoredLemmaSenses(
+    request: FindStoredLemmaSensesStorageRequest<L>,
   ): Promise<StoredLemmaSensesSlice<L>>;
 
-  loadInsertLemmaContext(
-    request: InsertLemmaContextRequest<L>,
-  ): Promise<InsertLemmaSlice<L>>;
+  loadLemmaForPatch(
+    request: LoadLemmaForPatchRequest<L>,
+  ): Promise<LemmaPatchSlice<L>>;
 
-  loadPatchLemmaContext(
-    request: PatchLemmaContextRequest<L>,
-  ): Promise<PatchLemmaSlice<L>>;
+  loadNewNoteContext(
+    request: LoadNewNoteContextRequest<L>,
+  ): Promise<NewNoteSlice<L>>;
 
-  commitChanges(
-    request: CommitSemanticChangesRequest<L>,
-  ): Promise<CommitSemanticChangesResult<L>>;
+  commitChanges(request: CommitChangesRequest<L>): Promise<CommitChangesResult>;
 };
 ```
 
-The exact storage port methods are still open, but this is the right layer for
-operation-shaped details such as incoming pending relations.
+These four methods are the required v1 storage-facing API. They map to the three
+UI-facing operations while keeping storage-specific query and write details
+behind setup.
+
+### Storage: Find Stored Lemma Senses
+
+Used by `DumdictService.findStoredLemmaSenses(...)`.
+
+```ts
+type FindStoredLemmaSensesStorageRequest<L> = {
+  lemmaDescription: LemmaDescription<L>;
+};
+
+type StoredLemmaSensesSlice<L> = {
+  revision: StoreRevision;
+  candidates: Array<{
+    entry: LemmaEntry<L>;
+    relationNotes?: RelationNotesForDisambiguation<L>;
+  }>;
+};
+```
+
+Storage obligation:
+
+```txt
+Return every stored lemma whose language, canonicalLemma, lemmaKind, and
+lemmaSubKind match the requested lemma description.
+```
+
+This is not an exact lemma identity lookup. The UI does not know the full lemma
+identity yet, so the storage port returns every stored sense that shares the
+coarse resolved lemma description.
+
+### Storage: Load Lemma For Patch
+
+Used by `DumdictService.addAttestation(...)`.
+
+```ts
+type LoadLemmaForPatchRequest<L> = {
+  lemmaId: DumlingId<"Lemma", L>;
+};
+
+type LemmaPatchSlice<L> = {
+  revision: StoreRevision;
+  lemma?: LemmaEntry<L>;
+};
+```
+
+Storage obligation:
+
+```txt
+Return the lemma entry for the requested lemma ID, or absence if it does not
+exist.
+```
+
+The configured service uses this slice to plan a semantic lemma patch, then
+commits it through `commitChanges(...)`.
+
+### Storage: Load New Note Context
+
+Used by `DumdictService.addNewNote(...)`.
+
+```ts
+type LoadNewNoteContextRequest<L> = {
+  draft: DumdictEntryDraft<L>;
+};
+
+type NewNoteSlice<L> = {
+  revision: StoreRevision;
+
+  existingLemma?: LemmaEntry<L>;
+  existingOwnedSurfaces: SurfaceEntry<L>[];
+
+  explicitExistingRelationTargets: LemmaEntry<L>[];
+  existingPendingRefsForProposedPendingTargets: PendingLemmaRef<L>[];
+
+  matchingPendingRefsForNewLemma: PendingLemmaRef<L>[];
+  incomingPendingRelationsForNewLemma: PendingLemmaRelation<L>[];
+  incomingPendingSourceLemmas: LemmaEntry<L>[];
+};
+```
+
+Storage obligations:
+
+- if a lemma with the new lemma ID already exists, return it as
+  `existingLemma`
+- return existing surfaces among the draft's proposed owned surfaces
+- return every existing lemma explicitly referenced by ID in draft relations
+- for every proposed pending relation target, return any already-existing
+  matching pending ref
+- return every pending ref matching the new lemma identity tuple
+- return every pending relation pointing into those matching pending refs
+- return every source lemma for those incoming pending relations
+
+The configured service uses this slice to create the new note, add explicit
+relations, create pending refs for missing relation targets, and pick up old
+pending refs that match the inserted lemma.
+
+### Storage: Commit Changes
+
+Used by `addAttestation(...)` and `addNewNote(...)` after semantic planning.
+
+```ts
+type CommitChangesRequest<L> = {
+  baseRevision: StoreRevision;
+  changes: PlannedChangeOp<L>[];
+};
+
+type CommitChangesResult =
+  | { status: "committed"; nextRevision: StoreRevision }
+  | { status: "conflict"; latestRevision: StoreRevision; reason: string };
+```
+
+Storage obligation:
+
+```txt
+Apply planned semantic changes atomically, honoring the semantic preconditions
+attached to those changes. Translate the commands into the host's persistence
+model.
+```
+
+Obsidian may translate changes into markdown edits. SQLite may translate them
+into a transaction. Electron may forward them to a server or apply them to a
+local database/cache.
 
 ## UI-Facing Service API
 
@@ -477,36 +597,6 @@ type ChangePrecondition<L> =
 ```
 
 The host translates these checks into its own persistence model.
-
-## Open Design: Operation-Shaped Slices
-
-The next design decision is the exact host load contract.
-
-For insert-lemma planning, the loaded slice must include enough data to:
-
-- detect whether the lemma already exists
-- create explicit proposed relations to existing lemmas
-- create pending refs for missing relation targets
-- find existing pending refs matching the inserted lemma
-- pick up incoming pending relations from those refs
-- patch the source lemmas of those incoming pending relations
-- maintain reciprocal relation invariants
-
-A likely shape:
-
-```ts
-type InsertLemmaSlice<L> = {
-  revision: StoreRevision;
-  existingLemma?: LemmaEntry<L>;
-  matchingPendingRefs: PendingLemmaRef<L>[];
-  incomingPendingRelations: PendingLemmaRelation<L>[];
-  incomingPendingSourceLemmas: LemmaEntry<L>[];
-  explicitlyRelatedExistingLemmas: LemmaEntry<L>[];
-};
-```
-
-The host can satisfy this slice from markdown, SQLite, MySQL, a remote service,
-or a local cache. `dumdict` should only depend on the semantic slice.
 
 ## Admin APIs
 
