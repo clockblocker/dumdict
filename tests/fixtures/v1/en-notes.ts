@@ -1,5 +1,6 @@
 import type { Lemma, Surface } from "../../../src/v1";
-import { derivePendingLemmaId, makeDumlingIdFor } from "../../../src/v1";
+import { makeDumlingIdFor } from "../../../src/v1";
+import { derivePendingLemmaId } from "../../../src/v1/core/pending/identity";
 import type { SerializedDictionaryNote } from "../../../src/v1/testing/serialized-note";
 
 export const englishWalkLemma = {

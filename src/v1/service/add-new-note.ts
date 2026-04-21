@@ -21,7 +21,10 @@ export async function addNewNote<L extends SupportedLanguage>(
 	const draftLemmaId = makeDumlingIdFor(options.language, request.draft.lemma);
 	for (const ownedSurface of request.draft.ownedSurfaces ?? []) {
 		assertLanguageMatches(options.language, ownedSurface.surface.language);
-		assertLanguageMatches(options.language, ownedSurface.surface.lemma.language);
+		assertLanguageMatches(
+			options.language,
+			ownedSurface.surface.lemma.language,
+		);
 		if (
 			makeDumlingIdFor(
 				options.language,
@@ -42,7 +45,7 @@ export async function addNewNote<L extends SupportedLanguage>(
 	}
 
 	const slice = await options.storage.loadNewNoteContext(request);
-	validateNewNoteSlice(options.language, slice);
+	validateNewNoteSlice(options.language, slice, request.draft);
 
 	const plan = planAddNewNote(slice, {
 		type: "addNewNote",

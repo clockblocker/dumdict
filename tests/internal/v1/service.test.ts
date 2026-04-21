@@ -3,13 +3,13 @@ import {
 	createDumdictService,
 	DumdictLanguageMismatchError,
 	type DumdictStoragePort,
-	derivePendingLemmaId,
 	type Lemma,
 	type LemmaEntry,
 	makeDumlingIdFor,
 	type StoreRevision,
 	type SurfaceEntry,
 } from "../../../src/v1";
+import { derivePendingLemmaId } from "../../../src/v1/core/pending/identity";
 import { getBootedUpDumdict } from "../../../src/v1/testing/boot";
 import {
 	deSerializedNotes,
@@ -17,11 +17,11 @@ import {
 	germanGehenLemmaId,
 } from "../../fixtures/v1/de-notes";
 import {
-	englishWalkLemma,
 	englishRunLemma,
 	englishRunLemmaId,
 	englishSwimLemma,
 	englishSwimLemmaSurface,
+	englishWalkLemma,
 	englishWalkLemmaId,
 	enSerializedNotes,
 	enSerializedNotesWithPendingSwimRelation,
@@ -600,6 +600,40 @@ describe("v1 configured service", () => {
 						target: {
 							kind: "existing",
 							lemmaId: makeDumlingIdFor("en", englishSwimLemma),
+						},
+					},
+				],
+			},
+		});
+
+		expect(result).toMatchObject({
+			status: "rejected",
+			code: "selfRelation",
+		});
+	});
+
+	test("addNewNote rejects pending self relations by dumling identity", async () => {
+		const { dict } = getBootedUpDumdict("en", enSerializedNotes);
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+				relations: [
+					{
+						relationFamily: "lexical",
+						relation: "nearSynonym",
+						target: {
+							kind: "pending",
+							ref: {
+								canonicalLemma: "SWIM",
+								lemmaKind: "Lexeme",
+								lemmaSubKind: "VERB",
+							},
 						},
 					},
 				],
@@ -1327,7 +1361,8 @@ describe("v1 configured service", () => {
 							morphologicalRelations: {},
 							attestedTranslations: ["walk"],
 							attestations: ["They walk home together."],
-							notes: "Move at a regular pace by lifting and setting down each foot.",
+							notes:
+								"Move at a regular pace by lifting and setting down each foot.",
 						},
 					],
 				};

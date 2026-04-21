@@ -14,7 +14,7 @@ import type { MutationRejectedCode } from "../public";
 import type { LemmaPatchSlice, NewNoteSlice } from "../storage";
 import type { AffectedDictionaryEntities } from "./affected";
 import type { DictionaryIntent } from "./intents";
-import { makePendingLemmaRef } from "./pending/identity";
+import { derivePendingLemmaId, makePendingLemmaRef } from "./pending/identity";
 import type { PlannedChangeOp } from "./planned-changes";
 import { inverseRelationFor } from "./relations/inverse-rules";
 import type { MutationPlanSummary } from "./summaries";
@@ -129,6 +129,12 @@ export function planAddNewNote<L extends SupportedLanguage>(
 ): PlanMutationResult<L> | PlanMutationRejected {
 	const language = intent.draft.lemma.language as L;
 	const lemmaId = makeDumlingIdFor(language, intent.draft.lemma);
+	const pendingLemmaId = derivePendingLemmaId({
+		language,
+		canonicalLemma: intent.draft.lemma.canonicalLemma,
+		lemmaKind: intent.draft.lemma.lemmaKind,
+		lemmaSubKind: intent.draft.lemma.lemmaSubKind,
+	});
 
 	if (
 		intent.draft.relations?.some((relation) => {
@@ -137,10 +143,12 @@ export function planAddNewNote<L extends SupportedLanguage>(
 			}
 
 			return (
-				relation.target.ref.canonicalLemma ===
-					intent.draft.lemma.canonicalLemma &&
-				relation.target.ref.lemmaKind === intent.draft.lemma.lemmaKind &&
-				relation.target.ref.lemmaSubKind === intent.draft.lemma.lemmaSubKind
+				derivePendingLemmaId({
+					language,
+					canonicalLemma: relation.target.ref.canonicalLemma,
+					lemmaKind: relation.target.ref.lemmaKind,
+					lemmaSubKind: relation.target.ref.lemmaSubKind,
+				}) === pendingLemmaId
 			);
 		})
 	) {

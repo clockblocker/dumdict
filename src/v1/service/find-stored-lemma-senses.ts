@@ -15,6 +15,10 @@ export async function findStoredLemmaSenses<L extends SupportedLanguage>(
 	assertLanguageMatches(options.language, request.lemmaDescription.language);
 
 	const slice = await options.storage.findStoredLemmaSenses(request);
-	validateStoredLemmaSensesSlice(options.language, slice);
+	validateStoredLemmaSensesSlice(
+		options.language,
+		slice,
+		request.lemmaDescription,
+	);
 	return lookupStoredLemmaSenses(slice);
 }

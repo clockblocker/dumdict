@@ -1,4 +1,5 @@
 import type {
+	DumdictEntryDraft,
 	LemmaEntry,
 	PendingLemmaRef,
 	PendingLemmaRelation,
@@ -12,13 +13,14 @@ import {
 	makeDumlingIdFor,
 	type SupportedLanguage,
 } from "../dumling";
+import type { LemmaDescription } from "../public";
 import { DumdictLanguageMismatchError } from "../public";
 import type {
 	LemmaPatchSlice,
 	NewNoteSlice,
 	StoredLemmaSensesSlice,
 } from "../storage";
-import { derivePendingLemmaId } from "./pending/identity";
+import { derivePendingLemmaId, makePendingLemmaRef } from "./pending/identity";
 
 function assertLanguage(
 	expectedLanguage: SupportedLanguage,
@@ -132,12 +134,33 @@ function validatePendingRelation<L extends SupportedLanguage>(
 	);
 }
 
+function lemmaMatchesDescription<L extends SupportedLanguage>(
+	lemma: Lemma<L>,
+	description: LemmaDescription<L>,
+) {
+	return (
+		lemma.language === description.language &&
+		lemma.canonicalLemma === description.canonicalLemma &&
+		lemma.lemmaKind === description.lemmaKind &&
+		lemma.lemmaSubKind === description.lemmaSubKind
+	);
+}
+
 export function validateStoredLemmaSensesSlice<L extends SupportedLanguage>(
 	expectedLanguage: L,
 	slice: StoredLemmaSensesSlice<L>,
+	requestedDescription?: LemmaDescription<L>,
 ) {
 	for (const candidate of slice.candidates) {
 		validateLemmaEntry(expectedLanguage, candidate.entry);
+		if (
+			requestedDescription &&
+			!lemmaMatchesDescription(candidate.entry.lemma, requestedDescription)
+		) {
+			throw new Error(
+				"stored lemma sense candidate does not match the requested lemma description.",
+			);
+		}
 	}
 }
 
@@ -159,18 +182,66 @@ export function validateLemmaPatchSlice<L extends SupportedLanguage>(
 export function validateNewNoteSlice<L extends SupportedLanguage>(
 	expectedLanguage: L,
 	slice: NewNoteSlice<L>,
+	draft?: DumdictEntryDraft<L>,
 ) {
+	const draftLemmaId = draft
+		? makeDumlingIdFor(expectedLanguage, draft.lemma)
+		: undefined;
+	const draftOwnedSurfaceIds = new Set(
+		draft?.ownedSurfaces?.map(({ surface }) =>
+			makeDumlingIdFor(expectedLanguage, surface),
+		) ?? [],
+	);
+	const proposedPendingTargetIds = new Set(
+		draft?.relations
+			?.filter((relation) => relation.target.kind === "pending")
+			.map((relation) =>
+				relation.target.kind === "pending"
+					? makePendingLemmaRef({
+							language: expectedLanguage,
+							canonicalLemma: relation.target.ref.canonicalLemma,
+							lemmaKind: relation.target.ref.lemmaKind,
+							lemmaSubKind: relation.target.ref.lemmaSubKind,
+						}).pendingId
+					: undefined,
+			)
+			.filter((pendingId) => pendingId !== undefined) ?? [],
+	);
+	const matchingPendingIdForNewLemma = draft
+		? derivePendingLemmaId({
+				language: expectedLanguage,
+				canonicalLemma: draft.lemma.canonicalLemma,
+				lemmaKind: draft.lemma.lemmaKind,
+				lemmaSubKind: draft.lemma.lemmaSubKind,
+			})
+		: undefined;
+
 	if (slice.existingLemma) {
 		validateLemmaEntry(expectedLanguage, slice.existingLemma);
+		if (draftLemmaId && slice.existingLemma.id !== draftLemmaId) {
+			throw new Error(
+				"existing lemma does not match the requested draft lemma.",
+			);
+		}
 	}
 	for (const entry of slice.existingOwnedSurfaces) {
 		validateSurfaceEntry(expectedLanguage, entry);
+		if (draft && !draftOwnedSurfaceIds.has(entry.id)) {
+			throw new Error(
+				"existing owned surface does not match a requested draft owned surface.",
+			);
+		}
 	}
 	for (const entry of slice.explicitExistingRelationTargets) {
 		validateLemmaEntry(expectedLanguage, entry);
 	}
 	for (const ref of slice.existingPendingRefsForProposedPendingTargets) {
 		validatePendingRef(expectedLanguage, ref);
+		if (draft && !proposedPendingTargetIds.has(ref.pendingId)) {
+			throw new Error(
+				"existing pending ref does not match a requested pending relation target.",
+			);
+		}
 	}
 	for (const ref of slice.matchingPendingRefsForNewLemma) {
 		validatePendingRef(expectedLanguage, ref);
@@ -194,12 +265,29 @@ export function validateNewNoteSlice<L extends SupportedLanguage>(
 	}
 
 	const matchingPendingIds = new Set(
-		slice.matchingPendingRefsForNewLemma.map(({ pendingId }) => pendingId),
+		slice.matchingPendingRefsForNewLemma
+			.filter(
+				({ pendingId }) =>
+					!matchingPendingIdForNewLemma ||
+					pendingId === matchingPendingIdForNewLemma,
+			)
+			.map(({ pendingId }) => pendingId),
 	);
 	for (const relation of slice.incomingPendingRelationsForNewLemma) {
 		if (!matchingPendingIds.has(relation.targetPendingId)) {
 			throw new Error(
 				"incoming pending relation target pending ref is missing from the slice.",
+			);
+		}
+	}
+
+	for (const ref of slice.matchingPendingRefsForNewLemma) {
+		if (
+			matchingPendingIdForNewLemma &&
+			ref.pendingId !== matchingPendingIdForNewLemma
+		) {
+			throw new Error(
+				"matching pending ref does not match the draft lemma identity.",
 			);
 		}
 	}
