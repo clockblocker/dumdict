@@ -1,6 +1,10 @@
 import { planAddNewNote } from "../core/plan-mutation";
 import { validateNewNoteSlice } from "../core/validate-slice";
-import type { SupportedLanguage } from "../dumling";
+import {
+	type Lemma,
+	makeDumlingIdFor,
+	type SupportedLanguage,
+} from "../dumling";
 import type { AddNewNoteRequest, MutationResult } from "../public";
 import type { CreateDumdictServiceOptions } from "../storage";
 import {
@@ -14,9 +18,22 @@ export async function addNewNote<L extends SupportedLanguage>(
 	request: AddNewNoteRequest<L>,
 ): Promise<MutationResult<L>> {
 	assertLanguageMatches(options.language, request.draft.lemma.language);
+	const draftLemmaId = makeDumlingIdFor(options.language, request.draft.lemma);
 	for (const ownedSurface of request.draft.ownedSurfaces ?? []) {
 		assertLanguageMatches(options.language, ownedSurface.surface.language);
 		assertLanguageMatches(options.language, ownedSurface.surface.lemma.language);
+		if (
+			makeDumlingIdFor(
+				options.language,
+				ownedSurface.surface.lemma as unknown as Lemma<L>,
+			) !== draftLemmaId
+		) {
+			return {
+				status: "rejected",
+				code: "invalidDraft",
+				message: "Owned surfaces must belong to the draft lemma.",
+			};
+		}
 	}
 	for (const relation of request.draft.relations ?? []) {
 		if (relation.target.kind === "existing") {

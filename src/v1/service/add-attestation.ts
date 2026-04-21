@@ -15,7 +15,7 @@ export async function addAttestation<L extends SupportedLanguage>(
 	const slice = await options.storage.loadLemmaForPatch({
 		lemmaId: request.lemmaId,
 	});
-	validateLemmaPatchSlice(options.language, slice);
+	validateLemmaPatchSlice(options.language, slice, request.lemmaId);
 
 	const plan = planAppendLemmaAttestation(slice, {
 		type: "appendLemmaAttestation",

@@ -144,9 +144,15 @@ export function validateStoredLemmaSensesSlice<L extends SupportedLanguage>(
 export function validateLemmaPatchSlice<L extends SupportedLanguage>(
 	expectedLanguage: L,
 	slice: LemmaPatchSlice<L>,
+	requestedLemmaId?: DumlingId<"Lemma", L>,
 ) {
 	if (slice.lemma) {
 		validateLemmaEntry(expectedLanguage, slice.lemma);
+		if (requestedLemmaId && slice.lemma.id !== requestedLemmaId) {
+			throw new Error(
+				"lemma patch slice lemma id does not match the requested lemma id.",
+			);
+		}
 	}
 }
 

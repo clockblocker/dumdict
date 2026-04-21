@@ -92,6 +92,11 @@ export function planAppendLemmaAttestation<L extends SupportedLanguage>(
 			message: "Lemma does not exist.",
 		};
 	}
+	if (slice.lemma.id !== intent.lemmaId) {
+		throw new Error(
+			"lemma patch slice lemma id does not match the requested lemma id.",
+		);
+	}
 
 	return {
 		status: "planned",

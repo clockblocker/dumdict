@@ -144,6 +144,37 @@ describe("v1 configured service", () => {
 		});
 	});
 
+	test("addAttestation rejects patch slices for a different lemma", async () => {
+		let commitCalls = 0;
+		const storage = {
+			async findStoredLemmaSenses() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadLemmaForPatch() {
+				return {
+					revision: "patch-1" as StoreRevision,
+					lemma: englishWalkEntry(),
+				};
+			},
+			async loadNewNoteContext() {
+				throw new Error("Unexpected storage call");
+			},
+			async commitChanges() {
+				commitCalls += 1;
+				throw new Error("Unexpected storage call");
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		await expect(
+			dict.addAttestation({
+				lemmaId: englishRunLemmaId,
+				attestation: "They run every day.",
+			}),
+		).rejects.toThrow("lemma patch slice");
+		expect(commitCalls).toBe(0);
+	});
+
 	test("addAttestation reloads patch context instead of using stale lookup revision", async () => {
 		let committedBaseRevision: StoreRevision | undefined;
 		const storage = {
@@ -1224,6 +1255,42 @@ describe("v1 configured service", () => {
 			} as never),
 		).rejects.toThrow(DumdictLanguageMismatchError);
 
+		expect(getLoadNewNoteContextCalls()).toBe(0);
+	});
+
+	test("addNewNote rejects owned surfaces for a different same-language lemma before storage is called", async () => {
+		const { storage, getLoadNewNoteContextCalls } =
+			storageRejectingNewNoteContext();
+		const dict = createDumdictService({ language: "en", storage });
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+				ownedSurfaces: [
+					{
+						surface: {
+							...englishSwimLemmaSurface,
+							lemma: englishRunLemma,
+						},
+						note: {
+							attestedTranslations: ["swim"],
+							attestations: ["They swim every morning."],
+							notes: "Surface belongs to a different lemma.",
+						},
+					},
+				],
+			},
+		});
+
+		expect(result).toMatchObject({
+			status: "rejected",
+			code: "invalidDraft",
+		});
 		expect(getLoadNewNoteContextCalls()).toBe(0);
 	});
 
