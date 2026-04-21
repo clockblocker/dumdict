@@ -1,4 +1,4 @@
-import { dumling, type V0Selection } from "../../../src/v0/dumling-compat";
+import { dumling, type Selection } from "../../../src";
 import { germanAufJedenFallLemma, germanBVGLemma } from "./lemmas";
 
 // Attestation: "Ich komme [auf jeden Fall] morgen."
@@ -9,7 +9,7 @@ export const germanAufJedenFallDiscourseFormulaSelection = {
 	spelledSelection: "auf jeden Fall",
 	spellingRelation: "Canonical",
 	surface: dumling.de.convert.lemma.toSurface(germanAufJedenFallLemma),
-} satisfies V0Selection<
+} satisfies Selection<
 	"de",
 	"Standard",
 	"Lemma",
@@ -25,7 +25,7 @@ export const germanAufJedenFallPartialSelection = {
 	spelledSelection: "jeden Fall",
 	spellingRelation: "Canonical",
 	surface: dumling.de.convert.lemma.toSurface(germanAufJedenFallLemma),
-} satisfies V0Selection<
+} satisfies Selection<
 	"de",
 	"Standard",
 	"Lemma",
@@ -41,4 +41,4 @@ export const germanBVGAbbreviationSelection = {
 	spelledSelection: "BVG",
 	spellingRelation: "Canonical",
 	surface: dumling.de.convert.lemma.toSurface(germanBVGLemma),
-} satisfies V0Selection<"de", "Standard", "Lemma", "Lexeme", "PROPN">;
+} satisfies Selection<"de", "Standard", "Lemma", "Lexeme", "PROPN">;

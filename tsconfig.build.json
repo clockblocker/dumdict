@@ -5,7 +5,7 @@
 		"emitDeclarationOnly": true,
 		"noEmit": false,
 		"outDir": "./dist",
-		"rootDir": "./src/v1"
+		"rootDir": "./src"
 	},
-	"include": ["src/v1/**/*.ts"]
+	"include": ["src/**/*.ts"]
 }

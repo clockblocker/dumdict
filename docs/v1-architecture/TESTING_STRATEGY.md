@@ -19,9 +19,9 @@ Tests should start from serialized note fixtures.
 There should be one fixture list per language:
 
 ```txt
-tests/fixtures/v1/en-notes.ts
-tests/fixtures/v1/de-notes.ts
-tests/fixtures/v1/he-notes.ts
+tests/fixtures/en-notes.ts
+tests/fixtures/de-notes.ts
+tests/fixtures/he-notes.ts
 ```
 
 Each file should export a list of serialized notes for that language.

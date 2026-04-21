@@ -13,7 +13,7 @@ The goal is to keep three boundaries clear:
 ## Proposed Source Tree
 
 ```txt
-src/v1/
+src/
   index.ts
 
   public/
@@ -72,7 +72,7 @@ src/v1/
     boot.ts
 ```
 
-`src/v1/index.ts` should export the configured service API and public DTOs. It
+`src/index.ts` should export the configured service API and public DTOs. It
 should not export storage test helpers. `dumdict-core` helpers may be exported
 from a secondary path later if there is a concrete advanced-consumer need.
 
@@ -464,4 +464,3 @@ host adapter receives should be used by service tests.
 8. Implement strict `applyPlan` for in-memory/reference behavior.
 9. Implement in-memory storage adapter and boot helper.
 10. Add service tests from `TESTING_STRATEGY.md`.
-
