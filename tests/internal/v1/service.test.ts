@@ -5,10 +5,17 @@ import {
 	makeDumlingIdFor,
 	type Lemma,
 	type DumdictStoragePort,
+	type SurfaceEntry,
 	type StoreRevision,
 } from "../../../src/v1";
 import { getBootedUpDumdict } from "../../../src/v1/testing/boot";
-import { englishWalkLemmaId, enSerializedNotes } from "../../fixtures/v1/en-notes";
+import {
+	englishRunLemmaId,
+	englishSwimLemma,
+	englishSwimLemmaSurface,
+	englishWalkLemmaId,
+	enSerializedNotes,
+} from "../../fixtures/v1/en-notes";
 
 describe("v1 configured service", () => {
 	test("findStoredLemmaSenses returns stored senses for a coarse lemma description", async () => {
@@ -42,6 +49,208 @@ describe("v1 configured service", () => {
 		expect(storage.loadAll()[0]?.lemmaEntry.attestations).toContain(
 			"I walk every morning.",
 		);
+	});
+
+	test("addAttestation reports a missing lemma cleanly", async () => {
+		const { dict } = getBootedUpDumdict("en", enSerializedNotes);
+
+		const result = await dict.addAttestation({
+			lemmaId: englishRunLemmaId,
+			attestation: "They run every day.",
+		});
+
+		expect(result).toMatchObject({
+			status: "rejected",
+			code: "lemmaMissing",
+		});
+	});
+
+	test("addNewNote creates a new lemma note", async () => {
+		const { dict, storage } = getBootedUpDumdict("en", enSerializedNotes);
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+			},
+		});
+
+		const storedSwimNote = storage
+			.loadAll()
+			.find(
+				({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim",
+			)?.lemmaEntry;
+
+		expect(result.status).toBe("applied");
+		expect(storedSwimNote?.attestations).toContain(
+			"They swim every morning.",
+		);
+		expect(storedSwimNote?.notes).toBe(
+			"Move through water by moving the body.",
+		);
+	});
+
+	test("addNewNote creates owned surfaces from the draft", async () => {
+		const { dict, storage } = getBootedUpDumdict("en", enSerializedNotes);
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+				ownedSurfaces: [
+					{
+						surface: englishSwimLemmaSurface,
+						note: {
+							attestedTranslations: ["swim"],
+							attestations: ["They swim every morning."],
+							notes: "Plain present form.",
+						},
+					},
+				],
+			},
+		});
+
+		const storedSwimNote = storage
+			.loadAll()
+			.find(
+				({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim",
+			);
+
+		expect(result.status).toBe("applied");
+		expect(storedSwimNote?.ownedSurfaceEntries).toHaveLength(1);
+		expect(
+			storedSwimNote?.ownedSurfaceEntries[0]?.surface.normalizedFullSurface,
+		).toBe("swim");
+		expect(storedSwimNote?.ownedSurfaceEntries[0]?.notes).toBe(
+			"Plain present form.",
+		);
+	});
+
+	test("addNewNote rejects duplicate lemmas", async () => {
+		const { dict } = getBootedUpDumdict("en", enSerializedNotes);
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: enSerializedNotes[0]!.lemmaEntry.lemma,
+				note: {
+					attestedTranslations: ["walk"],
+					attestations: ["We walk after dinner."],
+					notes: "Duplicate draft.",
+				},
+			},
+		});
+
+		expect(result).toMatchObject({
+			status: "rejected",
+			code: "lemmaAlreadyExists",
+		});
+	});
+
+	test("addNewNote rejects existing owned-surface collisions", async () => {
+		const existingSurfaceEntry = {
+			id: makeDumlingIdFor("en", englishSwimLemmaSurface),
+			surface: englishSwimLemmaSurface,
+			ownerLemmaId: englishWalkLemmaId,
+			attestedTranslations: ["swim"],
+			attestations: ["They swim every morning."],
+			notes: "Already stored elsewhere.",
+		} satisfies SurfaceEntry<"en">;
+		let commitCalls = 0;
+		const storage = {
+			async findStoredLemmaSenses() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadLemmaForPatch() {
+				throw new Error("Unexpected storage call");
+			},
+			async loadNewNoteContext() {
+				return {
+					revision: "stub-1" as StoreRevision,
+					existingOwnedSurfaces: [existingSurfaceEntry],
+					explicitExistingRelationTargets: [],
+					existingPendingRefsForProposedPendingTargets: [],
+					matchingPendingRefsForNewLemma: [],
+					incomingPendingRelationsForNewLemma: [],
+					incomingPendingSourceLemmas: [],
+				};
+			},
+			async commitChanges() {
+				commitCalls += 1;
+				throw new Error("Unexpected storage call");
+			},
+		} satisfies DumdictStoragePort<"en">;
+		const dict = createDumdictService({ language: "en", storage });
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+				ownedSurfaces: [
+					{
+						surface: englishSwimLemmaSurface,
+						note: {
+							attestedTranslations: ["swim"],
+							attestations: ["They swim every morning."],
+							notes: "Plain present form.",
+						},
+					},
+				],
+			},
+		});
+
+		expect(result).toMatchObject({
+			status: "rejected",
+			code: "ownedSurfaceAlreadyExists",
+		});
+		expect(commitCalls).toBe(0);
+	});
+
+	test("addNewNote adds explicit inverse-paired relations to existing lemmas", async () => {
+		const { dict, storage } = getBootedUpDumdict("en", enSerializedNotes);
+
+		const result = await dict.addNewNote({
+			draft: {
+				lemma: englishSwimLemma,
+				note: {
+					attestedTranslations: ["swim"],
+					attestations: ["They swim every morning."],
+					notes: "Move through water by moving the body.",
+				},
+				relations: [
+					{
+						relationFamily: "lexical",
+						relation: "nearSynonym",
+						target: { kind: "existing", lemmaId: englishWalkLemmaId },
+					},
+				],
+			},
+		});
+
+		const storedNotes = storage.loadAll();
+		const storedSwim = storedNotes.find(
+			({ lemmaEntry }) => lemmaEntry.lemma.canonicalLemma === "swim",
+		)?.lemmaEntry;
+		const storedWalk = storedNotes.find(
+			({ lemmaEntry }) => lemmaEntry.id === englishWalkLemmaId,
+		)?.lemmaEntry;
+
+		expect(result.status).toBe("applied");
+		expect(storedSwim?.lexicalRelations.nearSynonym).toContain(
+			englishWalkLemmaId,
+		);
+		expect(storedWalk?.lexicalRelations.nearSynonym).toContain(storedSwim?.id);
 	});
 
 	test("findStoredLemmaSenses rejects language mismatch before storage is called", async () => {

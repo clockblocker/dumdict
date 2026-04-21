@@ -11,6 +11,7 @@ import type {
 	StoredLemmaSensesSlice,
 } from "../storage";
 import type { SupportedLanguage } from "../dumling";
+import { makeDumlingIdFor } from "../dumling";
 import type { StoreRevision } from "../dto";
 import type { SerializedDictionaryNote } from "./serialized-note";
 
@@ -20,6 +21,7 @@ export type InMemoryTestStorage<L extends SupportedLanguage> =
 	};
 
 export function createInMemoryTestStorage<L extends SupportedLanguage>(
+	language: L,
 	notes: SerializedDictionaryNote<L>[] = [],
 ): InMemoryTestStorage<L> {
 	let revisionNumber = 1;
@@ -28,6 +30,10 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 	const currentRevision = () => `mem-${revisionNumber}` as StoreRevision;
 	const findStoredNoteByLemmaId = (lemmaId: string) =>
 		storedNotes.find(({ lemmaEntry }) => lemmaEntry.id === lemmaId);
+	const findStoredSurfaceById = (surfaceId: string) =>
+		storedNotes
+			.flatMap(({ ownedSurfaceEntries }) => ownedSurfaceEntries)
+			.find(({ id }) => id === surfaceId);
 
 	const preconditionFails = (
 		precondition: ChangePrecondition<L>,
@@ -40,6 +46,10 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 				return !findStoredNoteByLemmaId(precondition.lemmaId);
 			case "lemmaMissing":
 				return Boolean(findStoredNoteByLemmaId(precondition.lemmaId));
+			case "surfaceExists":
+				return !findStoredSurfaceById(precondition.surfaceId);
+			case "surfaceMissing":
+				return Boolean(findStoredSurfaceById(precondition.surfaceId));
 			case "lemmaAttestationMissing":
 				return Boolean(
 					findStoredNoteByLemmaId(
@@ -86,21 +96,32 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 		async loadNewNoteContext(
 			request: LoadNewNoteContextRequest<L>,
 		): Promise<NewNoteSlice<L>> {
-			const draftLemma = request.draft.lemma;
-			const existingLemma = storedNotes.find(
-				({ lemmaEntry }) =>
-					lemmaEntry.lemma.language === draftLemma.language &&
-					lemmaEntry.lemma.canonicalLemma === draftLemma.canonicalLemma &&
-					lemmaEntry.lemma.lemmaKind === draftLemma.lemmaKind &&
-					lemmaEntry.lemma.lemmaSubKind === draftLemma.lemmaSubKind &&
-					lemmaEntry.lemma.meaningInEmojis === draftLemma.meaningInEmojis,
-			)?.lemmaEntry;
+			const draftLemmaId = makeDumlingIdFor(language, request.draft.lemma);
+			const existingLemma =
+				findStoredNoteByLemmaId(draftLemmaId)?.lemmaEntry;
+			const draftSurfaceIds =
+				request.draft.ownedSurfaces?.map(({ surface }) =>
+					makeDumlingIdFor(language, surface),
+				) ?? [];
+			const explicitExistingRelationTargetIds =
+				request.draft.relations
+					?.filter((relation) => relation.target.kind === "existing")
+					.map((relation) =>
+						relation.target.kind === "existing"
+							? relation.target.lemmaId
+							: undefined,
+					)
+					.filter((lemmaId) => lemmaId !== undefined) ?? [];
 
 			return {
 				revision: currentRevision(),
 				existingLemma,
-				existingOwnedSurfaces: [],
-				explicitExistingRelationTargets: [],
+				existingOwnedSurfaces: draftSurfaceIds
+					.map((surfaceId) => findStoredSurfaceById(surfaceId))
+					.filter((surface) => surface !== undefined),
+				explicitExistingRelationTargets: explicitExistingRelationTargetIds
+					.map((lemmaId) => findStoredNoteByLemmaId(lemmaId)?.lemmaEntry)
+					.filter((lemmaEntry) => lemmaEntry !== undefined),
 				existingPendingRefsForProposedPendingTargets: [],
 				matchingPendingRefsForNewLemma: [],
 				incomingPendingRelationsForNewLemma: [],
@@ -123,25 +144,68 @@ export function createInMemoryTestStorage<L extends SupportedLanguage>(
 						latestRevision: currentRevision(),
 					};
 				}
-			}
+				switch (change.type) {
+					case "createLemma":
+						storedNotes.push({
+							lemmaEntry: structuredClone(change.entry),
+							ownedSurfaceEntries: [],
+							pendingRelations: [],
+						});
+						break;
+					case "createOwnedSurface": {
+						const storedNote = findStoredNoteByLemmaId(
+							change.entry.ownerLemmaId,
+						);
+						if (!storedNote) {
+							return {
+								status: "conflict",
+								code: "semanticPreconditionFailed",
+								latestRevision: currentRevision(),
+							};
+						}
+						storedNote.ownedSurfaceEntries.push(
+							structuredClone(change.entry),
+						);
+						break;
+					}
+					case "patchLemma": {
+						const storedNote = findStoredNoteByLemmaId(change.lemmaId);
+						if (!storedNote) {
+							return {
+								status: "conflict",
+								code: "semanticPreconditionFailed",
+								latestRevision: currentRevision(),
+							};
+						}
 
-			for (const change of request.changes) {
-				if (change.type !== "patchLemma") {
-					continue;
-				}
-
-				const storedNote = findStoredNoteByLemmaId(change.lemmaId);
-				if (!storedNote) {
-					return {
-						status: "conflict",
-						code: "semanticPreconditionFailed",
-						latestRevision: currentRevision(),
-					};
-				}
-
-				for (const op of change.ops) {
-					if (op.kind === "addAttestation") {
-						storedNote.lemmaEntry.attestations.push(op.value);
+						for (const op of change.ops) {
+							if (op.kind === "addAttestation") {
+								storedNote.lemmaEntry.attestations.push(op.value);
+							}
+							if (op.kind === "addRelation") {
+								if (op.family === "lexical") {
+									const existingTargets =
+										storedNote.lemmaEntry.lexicalRelations[op.relation] ?? [];
+									if (!existingTargets.includes(op.targetLemmaId)) {
+										storedNote.lemmaEntry.lexicalRelations[op.relation] = [
+											...existingTargets,
+											op.targetLemmaId,
+										];
+									}
+								} else {
+									const existingTargets =
+										storedNote.lemmaEntry.morphologicalRelations[
+											op.relation
+										] ?? [];
+									if (!existingTargets.includes(op.targetLemmaId)) {
+										storedNote.lemmaEntry.morphologicalRelations[
+											op.relation
+										] = [...existingTargets, op.targetLemmaId];
+									}
+								}
+							}
+						}
+						break;
 					}
 				}
 			}

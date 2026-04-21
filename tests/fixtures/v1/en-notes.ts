@@ -1,4 +1,4 @@
-import type { Lemma } from "../../../src/v1";
+import type { Lemma, Surface } from "../../../src/v1";
 import { makeDumlingIdFor } from "../../../src/v1";
 import type { SerializedDictionaryNote } from "../../../src/v1/testing/serialized-note";
 
@@ -12,6 +12,33 @@ export const englishWalkLemma = {
 } satisfies Lemma<"en", "Lexeme", "VERB">;
 
 export const englishWalkLemmaId = makeDumlingIdFor("en", englishWalkLemma);
+
+export const englishRunLemma = {
+	canonicalLemma: "run",
+	inherentFeatures: {},
+	language: "en",
+	lemmaKind: "Lexeme",
+	lemmaSubKind: "VERB",
+	meaningInEmojis: "run-as-motion",
+} satisfies Lemma<"en", "Lexeme", "VERB">;
+
+export const englishRunLemmaId = makeDumlingIdFor("en", englishRunLemma);
+
+export const englishSwimLemma = {
+	canonicalLemma: "swim",
+	inherentFeatures: {},
+	language: "en",
+	lemmaKind: "Lexeme",
+	lemmaSubKind: "VERB",
+	meaningInEmojis: "swim-as-motion",
+} satisfies Lemma<"en", "Lexeme", "VERB">;
+
+export const englishSwimLemmaSurface = {
+	language: "en",
+	lemma: englishSwimLemma,
+	normalizedFullSurface: "swim",
+	surfaceKind: "Lemma",
+} satisfies Surface<"en", "Lemma", "Lexeme", "VERB">;
 
 export const enSerializedNotes = [
 	{

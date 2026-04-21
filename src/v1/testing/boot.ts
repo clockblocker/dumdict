@@ -14,10 +14,9 @@ export function getBootedUpDumdict<L extends SupportedLanguage>(
 	dict: DumdictService<L>;
 	storage: InMemoryTestStorage<L>;
 } {
-	const storage = createInMemoryTestStorage(notes);
+	const storage = createInMemoryTestStorage(language, notes);
 	return {
 		dict: createDumdictService({ language, storage }),
 		storage,
 	};
 }
-

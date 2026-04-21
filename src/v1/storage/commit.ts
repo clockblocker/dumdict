@@ -1,6 +1,8 @@
 import type { DumlingId, SupportedLanguage } from "../dumling";
 import type {
 	LemmaEntry,
+	LexicalRelation,
+	MorphologicalRelation,
 	PendingLemmaId,
 	PendingLemmaRef,
 	PendingLemmaRelation,
@@ -32,8 +34,14 @@ export type LemmaPatchOp<L extends SupportedLanguage> =
 	| { kind: "addAttestation"; value: string }
 	| {
 			kind: "addRelation";
-			family: "lexical" | "morphological";
-			relation: string;
+			family: "lexical";
+			relation: LexicalRelation;
+			targetLemmaId: DumlingId<"Lemma", L>;
+	  }
+	| {
+			kind: "addRelation";
+			family: "morphological";
+			relation: MorphologicalRelation;
 			targetLemmaId: DumlingId<"Lemma", L>;
 	  };
 
@@ -92,4 +100,3 @@ export type CommitChangesResult =
 export type CommitConflictCode =
 	| "revisionConflict"
 	| "semanticPreconditionFailed";
-
