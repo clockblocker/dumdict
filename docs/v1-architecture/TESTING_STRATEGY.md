@@ -129,15 +129,23 @@ The initial v1 suite should cover:
   description
 - `addAttestation` appends to an existing lemma note
 - `addAttestation` reports a missing lemma cleanly
+- `addAttestation` reloads patch context and does not depend on stale lookup
+  revision
 - `addNewNote` creates a new lemma note
 - `addNewNote` creates owned surfaces from the draft
+- `addNewNote` rejects duplicate lemmas with `lemmaAlreadyExists`
+- `addNewNote` rejects existing owned-surface collisions with
+  `ownedSurfaceAlreadyExists`
 - `addNewNote` adds explicit relations to existing lemmas
 - `addNewNote` creates pending refs and pending relations for missing relation
   targets
 - `addNewNote` picks up existing pending refs that match the inserted lemma
 - pending pickup materializes inverse-paired resolved relations
 - consumed pending relations are removed
-- pending refs with no remaining incoming relations disappear
+- pending refs with no remaining incoming relations are removed through explicit
+  `deletePendingRef` changes
+- request DTOs and IDs with a language different from the configured service
+  language fail before storage is called
 - storage conflicts are surfaced through mutation results/errors
 
 ## Boundary Rule

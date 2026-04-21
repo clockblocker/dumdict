@@ -24,6 +24,8 @@ The intended consumers are:
   a host must implement.
 - [Testing strategy](./TESTING_STRATEGY.md): fixture and in-memory storage
   strategy for service tests.
+- [Internal layers](./INTERNAL_LAYERS.md): proposed v1 module structure,
+  contracts, planned operations, and semantic invariants.
 
 ## Intended Flow
 
@@ -94,11 +96,12 @@ const dict = createDumdictService({
 
 The service orchestrates each operation:
 
-1. ask the storage port for the required semantic context
-2. validate the loaded slice
-3. plan semantic changes with `dumdict-core`
-4. ask the storage port to commit those changes
-5. return a clean result to the UI caller
+1. validate that request DTOs and IDs match the configured service language
+2. ask the storage port for the required semantic context
+3. validate the loaded slice
+4. plan semantic changes with `dumdict-core`
+5. ask the storage port to commit those changes
+6. return a clean result to the UI caller
 
 ### Storage Port
 
@@ -164,7 +167,9 @@ Unresolved references are not fake lemma entries. They are represented as:
 
 When a real lemma is inserted, `dumdict` checks whether existing pending refs
 match the new lemma identity tuple. Matching pending relations are materialized
-as resolved inverse-paired lemma relations, then removed.
+as resolved inverse-paired lemma relations, then removed. If a pending ref has no
+remaining incoming pending relations after pickup, core emits an explicit
+`deletePendingRef` change; storage does not garbage-collect it implicitly.
 
 This pickup is deterministic. Pending ID derivation and pending pickup both use
 the `dumling` lemma identity rules. Pickup is not based on LLM judgment or

@@ -30,6 +30,13 @@ await dict.addAttestation({ lemmaId, attestation });
 await dict.addNewNote({ draft });
 ```
 
+The configured service is the runtime authority for language. Even when request
+DTOs carry their own language fields, the service must validate that every
+request language, DTO language, and `dumling` ID language matches the configured
+service language before calling storage. A mismatch is a caller/programmer error
+and should throw a typed language mismatch error rather than reaching the storage
+port.
+
 ## Find Stored Lemma Senses
 
 The UI performs lemma resolution before calling `dumdict`.
@@ -103,6 +110,14 @@ type AddAttestationRequest<L> = {
 The service hides loading patch context, planning semantic changes, and asking
 the storage port to commit.
 
+The selected candidate may come from an earlier, stale lookup result.
+`addAttestation` therefore reloads the lemma patch slice before planning. In v1,
+the planned mutation only needs semantic preconditions such as `lemmaExists` and
+`lemmaAttestationMissing`; it does not need to pin the earlier lookup revision or
+candidate set. If the lemma is missing in the loaded slice, the service rejects
+with `lemmaMissing`. If it disappears or changes before commit, storage reports a
+conflict.
+
 ## Add New Note
 
 The UI calls this when no stored sense matches and it has collected a full new
@@ -121,7 +136,7 @@ and `dumdict`/`dumling` derive the stable lemma ID from that DTO.
 
 - detecting whether the lemma already exists
 - creating the lemma if missing
-- creating or updating owned surfaces
+- creating owned surfaces
 - adding explicit existing relations
 - creating pending refs for missing relation targets
 - picking up old pending refs that match the inserted lemma
@@ -135,6 +150,14 @@ lemma.
 If the loaded slice says the lemma is missing, but commit fails because another
 writer inserted the same lemma first, the result should be `conflict`, not
 `rejected`.
+
+`addNewNote` should also reject existing owned-surface collisions. If the loaded
+storage slice already contains a surface with the ID derived from any proposed
+owned surface in the draft, return `ownedSurfaceAlreadyExists`. Do not silently
+merge or patch existing surface note data during `addNewNote`. Updating an
+existing owned surface is a separate future operation. If the loaded slice says
+the surface is missing, but commit fails because another writer inserted it
+first, the result should be `conflict`, not `rejected`.
 
 ## Entry Draft Shape
 
@@ -208,6 +231,7 @@ type MutationConflictCode =
 
 type MutationRejectedCode =
   | "lemmaAlreadyExists"
+  | "ownedSurfaceAlreadyExists"
   | "lemmaMissing"
   | "invalidDraft"
   | "selfRelation"

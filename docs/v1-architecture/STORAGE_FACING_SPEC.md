@@ -140,6 +140,10 @@ The configured service uses this slice to create the new note, add explicit
 relations, create pending refs for missing relation targets, and pick up old
 pending refs that match the inserted lemma.
 
+If `existingOwnedSurfaces` is non-empty for `addNewNote`, the service rejects
+with `ownedSurfaceAlreadyExists`. V1 `addNewNote` creates missing owned surfaces;
+it does not merge or patch existing surface entries.
+
 ## Commit Changes
 
 Used by `addAttestation(...)` and `addNewNote(...)` after semantic planning.
@@ -204,6 +208,19 @@ type PlannedChangeOp<L> = {
 };
 ```
 
+The minimum v1 planned-change vocabulary is:
+
+```ts
+type PlannedChangeOpType =
+  | "createLemma"
+  | "patchLemma"
+  | "createOwnedSurface"
+  | "createPendingRef"
+  | "deletePendingRef"
+  | "createPendingRelation"
+  | "deletePendingRelation";
+```
+
 For v1, preconditions are op-local. A future plan-level precondition list can be
 introduced if repeated preconditions, such as revision checks, become too noisy.
 
@@ -259,7 +276,7 @@ Invariants:
 - every link to an unresolved target is represented by `PendingLemmaRelation`
   from a real source lemma
 - pending refs with no incoming pending relations are invalid and should be
-  removed
+  removed by an explicit `deletePendingRef` planned change
 
 Example:
 
@@ -306,7 +323,14 @@ deletePendingRelation(sourceLemma -> pendingTarget)
 ```
 
 If that was the last pending relation pointing at the pending ref, the pending
-ref disappears automatically.
+ref is removed by an explicit `deletePendingRef` planned change. Storage does
+not invent this cleanup. It applies `deletePendingRelation` and
+`deletePendingRef` exactly as planned, atomically with their preconditions.
+
+```txt
+deletePendingRelation(sourceLemma -> pendingTarget)
+deletePendingRef(pendingTarget)
+```
 
 Pickup is deterministic. It is based on the `dumling` lemma identity, not LLM
 judgment and not spelling-only matching.
@@ -364,7 +388,7 @@ depending only on a coarse revision check.
 
 These preconditions live on each `PlannedChangeOp`.
 
-Examples:
+This is the authoritative v1 precondition union:
 
 ```ts
 type ChangePrecondition<L> =
@@ -375,6 +399,18 @@ type ChangePrecondition<L> =
   | { kind: "surfaceMissing"; surfaceId: DumlingId<"Surface", L> }
   | { kind: "pendingRefExists"; pendingId: PendingLemmaId<L> }
   | { kind: "pendingRefMissing"; pendingId: PendingLemmaId<L> }
+  | {
+      kind: "pendingRelationExists";
+      relation: PendingLemmaRelation<L>;
+    }
+  | {
+      kind: "pendingRelationMissing";
+      relation: PendingLemmaRelation<L>;
+    }
+  | {
+      kind: "pendingRefHasNoIncomingRelations";
+      pendingId: PendingLemmaId<L>;
+    }
   | {
       kind: "lemmaAttestationMissing";
       lemmaId: DumlingId<"Lemma", L>;
