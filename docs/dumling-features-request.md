@@ -1,19 +1,43 @@
 # `dumling` Export Requests From `dumdict`
 
-`dumdict` currently keeps a small adapter layer around `dumling` in
-`src/dumling.ts`. Most of that layer exists because `dumling` exposes the
-language-specific APIs, but not the generic helpers and named types that a
-consumer package needs when the language is dynamic.
+`dumdict` keeps a small adapter layer around `dumling` in `src/dumling.ts`.
+As of `dumling@0.1.5`, most of the original high-value requests here are now
+available from `dumling` itself. The adapter remains to preserve dumdict's
+existing public names, especially `makeDumlingIdFor` and `inspectDumlingId`,
+and to keep public DTO types sourced from `dumling/types`.
 
 This note records the helpers, builders, and types that would make sense to
 export from `dumling`.
+
+## Status After `dumling@0.1.5`
+
+Implemented upstream:
+
+- `DumlingId`
+- `EntityValue`
+- `EntityForKind`
+- `SelectionOptionsFor`
+- `supportedLanguages`
+- `getLanguageApi(language)`
+- `inspectId(id)`
+
+Still local or not yet exposed in the requested shape:
+
+- package-level `encodeId(language, value)`; `dumdict` still exposes
+  `makeDumlingIdFor(language, value)` as a compatibility wrapper around
+  `getLanguageApi(language).id.encode(value)`
+- named create input types
+- lemma identity descriptor including `canonicalLemma`
+- ID assertion helpers
 
 ## High Value
 
 ### `DumlingId<K, L>`
 
-`dumling.id.encode()` currently returns `string`, so `dumdict` defines its own
-branded ID type:
+Implemented in `dumling@0.1.5`.
+
+Before that, `dumling.id.encode()` returned `string`, so `dumdict` defined its
+own branded ID type:
 
 ```ts
 export type DumlingId<
@@ -30,8 +54,12 @@ cross-package contract.
 
 ### Generic ID encode helper
 
-`dumdict` wraps language-specific `id.encode` as `makeDumlingIdFor(language,
-value)`.
+Partially implemented by `dumling@0.1.5`.
+
+Language-specific `id.encode` now returns `DumlingId`, and callers can obtain a
+language-specific API through `getLanguageApi(language)`. `dumdict` still wraps
+that as `makeDumlingIdFor(language, value)` to preserve its existing public API
+and overloads.
 
 Suggested `dumling` shape:
 
@@ -55,7 +83,9 @@ the language as runtime data.
 
 ### `inspectId` / `decodeAnyId`
 
-`dumdict` currently probes each supported language to inspect an ID:
+Implemented in `dumling@0.1.5` as `inspectId(id)`.
+
+Previously, `dumdict` probed each supported language to inspect an ID:
 
 ```ts
 for (const language of supportedLanguages) {
@@ -83,7 +113,9 @@ or a fuller `decodeAnyId(id)` returning the decoded DTO as well.
 
 ### `getLanguageApi(language)`
 
-`dumdict` keeps a local language switch:
+Implemented in `dumling@0.1.5`.
+
+Previously, `dumdict` kept a local language switch:
 
 ```ts
 function getLanguageApi<L extends SupportedLanguage>(language: L) {
@@ -103,8 +135,10 @@ set or lose the `LanguageApi<L>` type relationship.
 
 ### `supportedLanguages`
 
-`dumdict` also maintains its own `["de", "en", "he"]` list. That list must track
-`dumling` exactly, so it should be exported by `dumling`.
+Implemented in `dumling@0.1.5`.
+
+Previously, `dumdict` maintained its own `["de", "en", "he"]` list. That list
+must track `dumling` exactly, so it should be exported by `dumling`.
 
 Suggested shape:
 
@@ -116,9 +150,10 @@ const supportedLanguages: readonly SupportedLanguage[];
 
 ### `EntityValue<L>` and `EntityForKind<L, K>`
 
-`dumling` appears to have these internally, but they are not exported. Downstream
-packages often need to name `Lemma<L> | Surface<L> | Selection<L>` and map
-entity kinds back to DTOs.
+Implemented in `dumling@0.1.5`.
+
+Downstream packages often need to name `Lemma<L> | Surface<L> | Selection<L>`
+and map entity kinds back to DTOs.
 
 Suggested exports:
 
@@ -140,9 +175,10 @@ type EntityForKind<
 
 ### `SelectionOptionsFor<OS>`
 
+Implemented in `dumling@0.1.5`.
+
 `convert.lemma.toSelection()` and `convert.surface.toSelection()` accept this
-shape, but the type is internal. Consumers writing wrappers cannot name it
-directly.
+shape. Consumers writing wrappers need to name it directly.
 
 Suggested export:
 

@@ -39,7 +39,7 @@ const walkSurface = {
 
 // README_BLOCK:english-walk-lemma-entry:start
 const walkEntry = {
-	id: makeDumlingIdFor("en", walkLemma) as LemmaEntry<"en">["id"],
+	id: makeDumlingIdFor("en", walkLemma),
 	lemma: walkLemma,
 	lexicalRelations: {},
 	morphologicalRelations: {},
@@ -51,7 +51,7 @@ const walkEntry = {
 
 // README_BLOCK:english-walk-surface-entry:start
 const walkSurfaceEntry = {
-	id: makeDumlingIdFor("en", walkSurface) as SurfaceEntry<"en">["id"],
+	id: makeDumlingIdFor("en", walkSurface),
 	surface: walkSurface,
 	ownerLemmaId: walkEntry.id,
 	attestedTranslations: ["walk"],

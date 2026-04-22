@@ -1,7 +1,7 @@
 import { planAddNewNote } from "../core/plan-mutation";
 import { validateNewNoteSlice } from "../core/validate-slice";
 import {
-	type Lemma,
+	getLanguageApi,
 	makeDumlingIdFor,
 	type SupportedLanguage,
 } from "../dumling";
@@ -18,6 +18,7 @@ export async function addNewNote<L extends SupportedLanguage>(
 	request: AddNewNoteRequest<L>,
 ): Promise<MutationResult<L>> {
 	assertLanguageMatches(options.language, request.draft.lemma.language);
+	const languageApi = getLanguageApi(options.language);
 	const draftLemmaId = makeDumlingIdFor(options.language, request.draft.lemma);
 	for (const ownedSurface of request.draft.ownedSurfaces ?? []) {
 		assertLanguageMatches(options.language, ownedSurface.surface.language);
@@ -28,7 +29,7 @@ export async function addNewNote<L extends SupportedLanguage>(
 		if (
 			makeDumlingIdFor(
 				options.language,
-				ownedSurface.surface.lemma as unknown as Lemma<L>,
+				languageApi.extract.lemma(ownedSurface.surface),
 			) !== draftLemmaId
 		) {
 			return {

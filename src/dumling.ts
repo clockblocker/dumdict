@@ -1,7 +1,16 @@
-import { dumling } from "dumling";
+import {
+	dumling,
+	getLanguageApi as getDumlingLanguageApi,
+	inspectId,
+	supportedLanguages,
+} from "dumling";
 import type {
-	IdDecodeError,
+	DumlingId,
+	DumlingIdInspection,
+	EntityKind,
+	EntityValue,
 	InherentFeaturesFor,
+	LanguageApi,
 	Lemma,
 	LemmaKindFor,
 	LemmaSubKindFor,
@@ -10,9 +19,13 @@ import type {
 	Surface,
 } from "dumling/types";
 
-export { dumling };
+export { dumling, inspectId, supportedLanguages };
 
 export type {
+	DumlingId,
+	DumlingIdInspection,
+	EntityKind,
+	EntityValue,
 	InherentFeaturesFor,
 	Lemma,
 	LemmaKindFor,
@@ -22,35 +35,12 @@ export type {
 	Surface,
 };
 
-export type DumlingEntityKind = "Lemma" | "Selection" | "Surface";
-
-export type DumlingId<
-	K extends DumlingEntityKind = DumlingEntityKind,
-	L extends SupportedLanguage = SupportedLanguage,
-> = string & {
-	readonly __dumlingIdKind?: K;
-	readonly __dumlingIdLanguage?: L;
-};
-
-const supportedLanguages = ["de", "en", "he"] as const satisfies readonly SupportedLanguage[];
-
-type LanguageApiFor<L extends SupportedLanguage> = L extends "de"
-	? typeof dumling.de
-	: L extends "en"
-		? typeof dumling.en
-		: typeof dumling.he;
+export type DumlingEntityKind = EntityKind;
 
 export function getLanguageApi<L extends SupportedLanguage>(
 	language: L,
-): LanguageApiFor<L> {
-	switch (language) {
-		case "de":
-			return dumling.de as LanguageApiFor<L>;
-		case "en":
-			return dumling.en as LanguageApiFor<L>;
-		case "he":
-			return dumling.he as LanguageApiFor<L>;
-	}
+): LanguageApi<L> {
+	return getDumlingLanguageApi(language) as unknown as LanguageApi<L>;
 }
 
 export function makeDumlingIdFor<L extends SupportedLanguage>(
@@ -69,41 +59,9 @@ export function makeDumlingIdFor<L extends SupportedLanguage>(
 	language: L,
 	value: Lemma<L> | Surface<L> | Selection<L>,
 ) {
-	const languageApi = getLanguageApi(language) as {
-		id: { encode(value: unknown): string };
-	};
-	return languageApi.id.encode(value) as DumlingId<DumlingEntityKind, L>;
+	return getLanguageApi(language).id.encode(value);
 }
 
-function isIdDecodeErrorWithCode(
-	error: IdDecodeError,
-	code: IdDecodeError["code"],
-) {
-	return error.code === code;
-}
-
-export function inspectDumlingId(id: string):
-	| {
-			kind: DumlingEntityKind;
-			language: SupportedLanguage;
-	  }
-	| undefined {
-	for (const language of supportedLanguages) {
-		const result = getLanguageApi(language).id.decode(id);
-		if (result.success) {
-			return {
-				kind: result.data.entityKind,
-				language,
-			};
-		}
-
-		if (
-			!isIdDecodeErrorWithCode(result.error, "LanguageMismatch") &&
-			!isIdDecodeErrorWithCode(result.error, "MalformedId")
-		) {
-			return undefined;
-		}
-	}
-
-	return undefined;
+export function inspectDumlingId(id: string): DumlingIdInspection | undefined {
+	return inspectId(id);
 }

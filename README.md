@@ -59,7 +59,7 @@ A `LemmaEntry` stores the stable lemma payload plus graph-level dictionary metad
 
 ```ts
 const walkEntry = {
-	id: makeDumlingIdFor("en", walkLemma) as LemmaEntry<"en">["id"],
+	id: makeDumlingIdFor("en", walkLemma),
 	lemma: walkLemma,
 	lexicalRelations: {},
 	morphologicalRelations: {},
@@ -73,7 +73,7 @@ A `SurfaceEntry` stores a resolved surface plus an explicit owning lemma ID:
 
 ```ts
 const walkSurfaceEntry = {
-	id: makeDumlingIdFor("en", walkSurface) as SurfaceEntry<"en">["id"],
+	id: makeDumlingIdFor("en", walkSurface),
 	surface: walkSurface,
 	ownerLemmaId: walkEntry.id,
 	attestedTranslations: ["walk"],

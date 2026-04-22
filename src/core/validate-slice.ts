@@ -6,9 +6,10 @@ import type {
 	SurfaceEntry,
 } from "../dto";
 import {
-	type DumlingEntityKind,
 	type DumlingId,
-	inspectDumlingId,
+	type EntityKind,
+	getLanguageApi,
+	inspectId,
 	type Lemma,
 	makeDumlingIdFor,
 	type SupportedLanguage,
@@ -36,11 +37,11 @@ function assertLanguage(
 
 function assertDumlingId(
 	expectedLanguage: SupportedLanguage,
-	expectedKind: DumlingEntityKind,
+	expectedKind: EntityKind,
 	id: DumlingId | string,
 	context: string,
 ) {
-	const inspected = inspectDumlingId(id);
+	const inspected = inspectId(id);
 	assertLanguage(expectedLanguage, inspected?.language);
 	if (inspected?.kind !== expectedKind) {
 		throw new Error(`${context} must be a ${expectedKind} id.`);
@@ -90,6 +91,7 @@ function validateSurfaceEntry<L extends SupportedLanguage>(
 	expectedLanguage: L,
 	entry: SurfaceEntry<L>,
 ) {
+	const languageApi = getLanguageApi(expectedLanguage);
 	assertLanguage(expectedLanguage, entry.surface.language);
 	assertLanguage(expectedLanguage, entry.surface.lemma.language);
 	assertDumlingId(expectedLanguage, "Surface", entry.id, "surface entry id");
@@ -108,7 +110,7 @@ function validateSurfaceEntry<L extends SupportedLanguage>(
 		entry.ownerLemmaId,
 		makeDumlingIdFor(
 			expectedLanguage,
-			entry.surface.lemma as unknown as Lemma<L>,
+			languageApi.extract.lemma(entry.surface),
 		),
 		"surface owner lemma id",
 	);
