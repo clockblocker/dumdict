@@ -161,6 +161,31 @@ The create API exposes inline parameter types. Named input types would make it
 easier for hosts to type LLM boundaries and builder functions without using
 `Parameters<typeof dumling.en.create...>`.
 
+Current downstream code has to derive those shapes from a concrete language API:
+
+```ts
+type EnglishLemmaInput = Parameters<typeof dumling.en.create.lemma>[0];
+type GermanTypoSelectionInput = Parameters<
+	typeof dumling.de.create.selection.typo
+>[0];
+```
+
+That works when the host has already selected a concrete runtime API. It is less
+good for generic service boundaries, test fixtures, and staged LLM outputs where
+the language is itself a type parameter:
+
+```ts
+function buildPendingLemma<L extends SupportedLanguage>(
+	language: L,
+	input: Parameters<ReturnType<typeof getLanguageApi<L>>["create"]["lemma"]>[0],
+) {
+	// ...
+}
+```
+
+The type can be forced out of the API, but the expression is noisy and ties the
+host's input vocabulary to the exact nested function layout of `LanguageApi`.
+
 Candidate names:
 
 - `LemmaInput<L, LK, LSK>`
@@ -168,6 +193,36 @@ Candidate names:
 - `InflectionSurfaceInput<L, LK, LSK>`
 - `StandardSelectionInput<L, SK, LK, LSK>`
 - `TypoSelectionInput<L, SK, LK, LSK>`
+
+Proposed usage:
+
+```ts
+type PendingLemmaInput<
+	L extends SupportedLanguage,
+	LK extends LemmaKindFor<L>,
+	LSK extends LemmaSubKindFor<L, LK>,
+> = LemmaInput<L, LK, LSK>;
+
+function createPendingLemma<
+	L extends SupportedLanguage,
+	LK extends LemmaKindFor<L>,
+	LSK extends LemmaSubKindFor<L, LK>,
+>(language: L, input: LemmaInput<L, LK, LSK>) {
+	return getLanguageApi(language).create.lemma(input);
+}
+```
+
+The exact trade-off is API stability. Exporting these names would let consumers
+depend on input DTO shapes without depending on `LanguageApi`'s nested method
+structure. But it also means `dumling` must preserve those names, defaults, and
+generic parameter order across releases. It also makes builder inputs feel more
+like first-class domain objects, even though they are still just trusted
+constructor payloads rather than parsed or normalized user input.
+
+For that reason this is useful, but not as strict a benefit as exporting
+`EntityValue` or `SelectionOptionsFor`. The stronger case is when multiple
+consumers need to type pre-parse boundaries. If only `dumdict` needs it, local
+aliases around `Parameters<...>` may be enough until the create surface settles.
 
 ### Lemma identity descriptor including `canonicalLemma`
 
