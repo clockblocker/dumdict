@@ -7,6 +7,16 @@ import type { SupportedLanguage } from "../../dumling";
 import type { DumdictStoragePort } from "../../storage";
 import type { SerializedDictionaryNote } from "../serialized-note";
 
+function dedupePendingRefs<L extends SupportedLanguage>(
+	pendingRefs: PendingLemmaRef<L>[],
+) {
+	const byId = new Map<string, PendingLemmaRef<L>>();
+	for (const pendingRef of pendingRefs) {
+		byId.set(pendingRef.pendingId, pendingRef);
+	}
+	return Array.from(byId.values());
+}
+
 export type InMemoryTestStorage<L extends SupportedLanguage> =
 	DumdictStoragePort<L> & {
 		loadAll(): SerializedDictionaryNote<L>[];
@@ -37,8 +47,8 @@ export function createInMemoryStorageState<L extends SupportedLanguage>(
 		language,
 		revisionNumber: 1,
 		storedNotes,
-		storedPendingRefs: storedNotes.flatMap(
-			({ pendingRefs }) => pendingRefs ?? [],
+		storedPendingRefs: dedupePendingRefs(
+			storedNotes.flatMap(({ pendingRefs }) => pendingRefs ?? []),
 		),
 		currentRevision() {
 			return `mem-${state.revisionNumber}` as StoreRevision;
