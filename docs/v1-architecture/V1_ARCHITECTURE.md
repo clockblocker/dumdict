@@ -22,6 +22,8 @@ The intended consumers are:
   workflows.
 - [Storage-facing spec](./STORAGE_FACING_SPEC.md): the setup-time storage port
   a host must implement.
+- [Relations cleanup spec](./RELATIONS_CLEANUP_SPEC.md): explicit
+  back-office workflow for pending-relation cleanup.
 - [Testing strategy](./TESTING_STRATEGY.md): fixture and in-memory storage
   strategy for service tests.
 - [Internal layers](./INTERNAL_LAYERS.md): proposed v1 module structure,
