@@ -1,4 +1,7 @@
-import { derivePendingLemmaId } from "../../core/pending/identity";
+import {
+	derivePendingLemmaId,
+	samePendingLemmaIdentity,
+} from "../../core/pending/identity";
 import { makeDumlingIdFor, type SupportedLanguage } from "../../dumling";
 import type {
 	CleanupRelationsSlice,
@@ -124,7 +127,13 @@ export function getInfoForRelationsCleanup<L extends SupportedLanguage>(
 	request: GetInfoForRelationsCleanupStorageRequest<L>,
 ): RelationsCleanupInfoSlice<L> {
 	const pendingRefs = state.storedPendingRefs.filter(
-		(pendingRef) => pendingRef.canonicalLemma === request.canonicalLemma,
+		(pendingRef) =>
+			samePendingLemmaIdentity(pendingRef, {
+				language: state.language,
+				canonicalLemma: request.canonicalLemma,
+				lemmaKind: pendingRef.lemmaKind,
+				lemmaSubKind: pendingRef.lemmaSubKind,
+			}),
 	);
 	const pendingIds = new Set(pendingRefs.map(({ pendingId }) => pendingId));
 
@@ -134,7 +143,20 @@ export function getInfoForRelationsCleanup<L extends SupportedLanguage>(
 		candidateLemmas: state.storedNotes
 			.filter(
 				({ lemmaEntry }) =>
-					lemmaEntry.lemma.canonicalLemma === request.canonicalLemma,
+					samePendingLemmaIdentity(
+						{
+							language: state.language,
+							canonicalLemma: lemmaEntry.lemma.canonicalLemma,
+							lemmaKind: lemmaEntry.lemma.lemmaKind,
+							lemmaSubKind: lemmaEntry.lemma.lemmaSubKind,
+						},
+						{
+							language: state.language,
+							canonicalLemma: request.canonicalLemma,
+							lemmaKind: lemmaEntry.lemma.lemmaKind,
+							lemmaSubKind: lemmaEntry.lemma.lemmaSubKind,
+						},
+					),
 			)
 			.map(({ lemmaEntry }) => lemmaEntry),
 		pendingRefs,

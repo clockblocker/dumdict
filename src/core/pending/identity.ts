@@ -49,3 +49,10 @@ export function makePendingLemmaRef<L extends SupportedLanguage>(
 		pendingId: derivePendingLemmaId(identity),
 	};
 }
+
+export function samePendingLemmaIdentity<L extends SupportedLanguage>(
+	left: PendingLemmaIdentity<L>,
+	right: PendingLemmaIdentity<L>,
+) {
+	return derivePendingLemmaId(left) === derivePendingLemmaId(right);
+}

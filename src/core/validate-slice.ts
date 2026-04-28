@@ -23,7 +23,11 @@ import type {
 	RelationsCleanupInfoSlice,
 	StoredLemmaSensesSlice,
 } from "../storage";
-import { derivePendingLemmaId, makePendingLemmaRef } from "./pending/identity";
+import {
+	derivePendingLemmaId,
+	makePendingLemmaRef,
+	samePendingLemmaIdentity,
+} from "./pending/identity";
 import { relationFamilyFor } from "./relations/family";
 
 function assertLanguage(
@@ -332,7 +336,20 @@ export function validateRelationsCleanupInfoSlice<L extends SupportedLanguage>(
 		validateLemmaEntry(expectedLanguage, entry);
 		if (
 			requestedCanonicalLemma !== undefined &&
-			entry.lemma.canonicalLemma !== requestedCanonicalLemma
+			!samePendingLemmaIdentity(
+				{
+					language: expectedLanguage,
+					canonicalLemma: entry.lemma.canonicalLemma,
+					lemmaKind: entry.lemma.lemmaKind,
+					lemmaSubKind: entry.lemma.lemmaSubKind,
+				},
+				{
+					language: expectedLanguage,
+					canonicalLemma: requestedCanonicalLemma,
+					lemmaKind: entry.lemma.lemmaKind,
+					lemmaSubKind: entry.lemma.lemmaSubKind,
+				},
+			)
 		) {
 			throw new Error(
 				"relations cleanup candidate lemma does not match the requested canonical lemma.",
@@ -344,7 +361,12 @@ export function validateRelationsCleanupInfoSlice<L extends SupportedLanguage>(
 		validatePendingRef(expectedLanguage, ref);
 		if (
 			requestedCanonicalLemma !== undefined &&
-			ref.canonicalLemma !== requestedCanonicalLemma
+			!samePendingLemmaIdentity(ref, {
+				language: expectedLanguage,
+				canonicalLemma: requestedCanonicalLemma,
+				lemmaKind: ref.lemmaKind,
+				lemmaSubKind: ref.lemmaSubKind,
+			})
 		) {
 			throw new Error(
 				"relations cleanup pending ref does not match the requested canonical lemma.",

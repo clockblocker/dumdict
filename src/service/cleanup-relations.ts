@@ -1,4 +1,5 @@
 import { planCleanupRelations } from "../core/plan-mutation";
+import { isKnownRelation } from "../core/relations/family";
 import { validateCleanupRelationsSlice } from "../core/validate-slice";
 import type { SupportedLanguage } from "../dumling";
 import type { CleanupRelationsRequest, MutationResult } from "../public";
@@ -39,6 +40,13 @@ export async function cleanupRelations<L extends SupportedLanguage>(
 	}
 
 	for (const resolution of request.resolutions) {
+		if (!isKnownRelation(resolution.relation)) {
+			return {
+				status: "rejected",
+				code: "invalidRequest",
+				message: "Cleanup relation is invalid.",
+			};
+		}
 		assertDumlingIdLanguageMatches(options.language, resolution.sourceLemmaId);
 		if (resolution.targetLemmaId) {
 			assertDumlingIdLanguageMatches(options.language, resolution.targetLemmaId);

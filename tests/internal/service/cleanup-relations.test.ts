@@ -173,6 +173,26 @@ describe("configured service", () => {
 		});
 	});
 
+	test("getInfoForRelationsCleanup uses pending-identity canonical semantics for request matching", async () => {
+		const swimId = makeDumlingIdFor("en", englishSwimLemma);
+		const { dict } = getBootedUpDumdict("en", [
+			...enSerializedNotesWithPendingSwimRelation,
+			serializedNote(englishSwimLemma, {
+				attestedTranslations: ["swim"],
+				attestations: ["They swim every morning."],
+				notes: "Move through water by moving the body.",
+			}),
+		]);
+
+		const result = await dict.getInfoForRelationsCleanup({
+			canonicalLemma: "SWIM",
+		});
+
+		expect(result.candidateLemmaIds).toEqual([swimId]);
+		expect(result.pendingRelations).toHaveLength(1);
+		expect(result.pendingRelations[0]?.pendingRef.canonicalLemma).toBe("swim");
+	});
+
 	test("getInfoForRelationsCleanup returns candidates when no pending relations exist", async () => {
 		const swimId = makeDumlingIdFor("en", englishSwimLemma);
 		const { dict } = getBootedUpDumdict("en", [
@@ -396,6 +416,48 @@ describe("configured service", () => {
 			status: "rejected",
 			code: "invalidRequest",
 		});
+	});
+
+	test("cleanupRelations rejects malformed relation input before loading cleanup storage", async () => {
+		let loadCleanupCalls = 0;
+		const storage = {
+			...withUnusedCleanupStorageMethods({
+				async findStoredLemmaSenses() {
+					throw new Error("Unexpected storage call");
+				},
+				async loadLemmaForPatch() {
+					throw new Error("Unexpected storage call");
+				},
+				async loadNewNoteContext() {
+					throw new Error("Unexpected storage call");
+				},
+				async commitChanges() {
+					throw new Error("Unexpected storage call");
+				},
+			}),
+			async loadCleanupRelationsContext() {
+				loadCleanupCalls += 1;
+				throw new Error("Unexpected storage call");
+			},
+		};
+		const dict = createDumdictService({ language: "en", storage });
+
+		const result = await dict.cleanupRelations({
+			baseRevision: "cleanup-1" as StoreRevision,
+			resolutions: [
+				{
+					sourceLemmaId: englishWalkLemmaId,
+					relation: "notARelation" as never,
+					targetPendingId: pendingRefFor(englishSwimLemma).pendingId,
+				},
+			],
+		});
+
+		expect(result).toMatchObject({
+			status: "rejected",
+			code: "invalidRequest",
+		});
+		expect(loadCleanupCalls).toBe(0);
 	});
 
 	test("cleanupRelations resolves a pending relation into inverse-paired full relations", async () => {

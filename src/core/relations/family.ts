@@ -33,3 +33,12 @@ export function relationFamilyFor(
 
 	throw new Error(`Unknown relation: ${String(relation)}`);
 }
+
+export function isKnownRelation(
+	relation: string,
+): relation is LexicalRelation | MorphologicalRelation {
+	return (
+		lexicalRelations.has(relation as LexicalRelation) ||
+		morphologicalRelations.has(relation as MorphologicalRelation)
+	);
+}
