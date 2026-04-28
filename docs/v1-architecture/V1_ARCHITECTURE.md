@@ -24,6 +24,8 @@ The intended consumers are:
   a host must implement.
 - [Relations cleanup spec](./RELATIONS_CLEANUP_SPEC.md): explicit
   back-office workflow for pending-relation cleanup.
+- [Unresolved target identity problem](./UNRESOLVED_TARGET_IDENTITY.md): why
+  pending targets should not be modeled as degraded lemmas.
 - [Testing strategy](./TESTING_STRATEGY.md): fixture and in-memory storage
   strategy for service tests.
 - [Internal layers](./INTERNAL_LAYERS.md): proposed v1 module structure,
