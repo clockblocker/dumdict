@@ -16,6 +16,11 @@ export type AddNewNoteIntent<L extends SupportedLanguage> = Extract<
 	{ type: "addNewNote" }
 >;
 
+export type CleanupRelationsIntent<L extends SupportedLanguage> = Extract<
+	DictionaryIntent<L>,
+	{ type: "cleanupRelations" }
+>;
+
 export type PlanMutationResult<L extends SupportedLanguage> = {
 	status: "planned";
 	baseRevision: StoreRevision;

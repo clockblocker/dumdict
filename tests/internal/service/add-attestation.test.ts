@@ -8,6 +8,7 @@ import {
 	enSerializedNotes,
 	getBootedUpDumdict,
 	type StoreRevision,
+	withUnusedCleanupStorageMethods,
 } from "./helpers";
 
 describe("configured service", () => {
@@ -41,7 +42,7 @@ describe("configured service", () => {
 
 	test("addAttestation rejects patch slices for a different lemma", async () => {
 		let commitCalls = 0;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -58,7 +59,7 @@ describe("configured service", () => {
 				commitCalls += 1;
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(
@@ -72,7 +73,7 @@ describe("configured service", () => {
 
 	test("addAttestation reloads patch context instead of using stale lookup revision", async () => {
 		let committedBaseRevision: StoreRevision | undefined;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				return {
 					revision: "lookup-1" as StoreRevision,
@@ -95,7 +96,7 @@ describe("configured service", () => {
 					nextRevision: "patch-3" as StoreRevision,
 				};
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await dict.findStoredLemmaSenses({
@@ -120,7 +121,7 @@ describe("configured service", () => {
 	});
 
 	test("addAttestation surfaces storage conflicts as mutation results", async () => {
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -140,7 +141,7 @@ describe("configured service", () => {
 					latestRevision: "patch-2" as StoreRevision,
 				};
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		const result = await dict.addAttestation({

@@ -1,5 +1,12 @@
 import type { DumlingId, SupportedLanguage } from "../dumling";
-import type { LemmaNoteForDisambiguation, StoreRevision } from "../dto";
+import type {
+	LemmaNoteForDisambiguation,
+	LexicalRelation,
+	MorphologicalRelation,
+	PendingLemmaRef,
+	PendingLemmaId,
+	StoreRevision,
+} from "../dto";
 import type { DumdictDiagnostic } from "./diagnostics";
 
 export type AffectedDictionaryEntities<L extends SupportedLanguage> = {
@@ -20,6 +27,22 @@ export type LemmaSenseCandidate<L extends SupportedLanguage> = {
 export type FindStoredLemmaSensesResult<L extends SupportedLanguage> = {
 	revision: StoreRevision;
 	candidates: LemmaSenseCandidate<L>[];
+	diagnostics?: DumdictDiagnostic[];
+};
+
+export type CleanupPendingRelation<L extends SupportedLanguage> = {
+	sourceLemmaId: DumlingId<"Lemma", L>;
+	pendingRef: PendingLemmaRef<L>;
+	relation: LexicalRelation | MorphologicalRelation;
+};
+
+export type GetInfoForRelationsCleanupResult<
+	L extends SupportedLanguage,
+> = {
+	revision: StoreRevision;
+	canonicalLemma: string;
+	candidateLemmaIds: DumlingId<"Lemma", L>[];
+	pendingRelations: CleanupPendingRelation<L>[];
 	diagnostics?: DumdictDiagnostic[];
 };
 
@@ -56,6 +79,6 @@ export type MutationRejectedCode =
 	| "ownedSurfaceAlreadyExists"
 	| "lemmaMissing"
 	| "invalidDraft"
+	| "invalidRequest"
 	| "selfRelation"
 	| "relationTargetMissing";
-

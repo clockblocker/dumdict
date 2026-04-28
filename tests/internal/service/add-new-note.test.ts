@@ -9,6 +9,7 @@ import {
 	makeDumlingIdFor,
 	type StoreRevision,
 	type SurfaceEntry,
+	withUnusedCleanupStorageMethods,
 } from "./helpers";
 
 describe("configured service", () => {
@@ -111,7 +112,7 @@ describe("configured service", () => {
 			notes: "Already stored elsewhere.",
 		} satisfies SurfaceEntry<"en">;
 		let commitCalls = 0;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -133,7 +134,7 @@ describe("configured service", () => {
 				commitCalls += 1;
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		const result = await dict.addNewNote({
@@ -165,7 +166,7 @@ describe("configured service", () => {
 	});
 
 	test("addNewNote surfaces insert races as conflicts", async () => {
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -191,7 +192,7 @@ describe("configured service", () => {
 					message: "Lemma was inserted concurrently.",
 				};
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		const result = await dict.addNewNote({

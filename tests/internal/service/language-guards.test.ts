@@ -11,12 +11,13 @@ import {
 	makeDumlingIdFor,
 	type StoreRevision,
 	storageRejectingNewNoteContext,
+	withUnusedCleanupStorageMethods,
 } from "./helpers";
 
 describe("configured service", () => {
 	test("findStoredLemmaSenses rejects language mismatch before storage is called", async () => {
 		let storageCalls = 0;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				storageCalls += 1;
 				return { revision: "never" as StoreRevision, candidates: [] };
@@ -30,7 +31,7 @@ describe("configured service", () => {
 			async commitChanges() {
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 
 		const dict = createDumdictService({ language: "en", storage });
 
@@ -59,7 +60,7 @@ describe("configured service", () => {
 		} satisfies Lemma<"de", "Lexeme", "VERB">;
 		const germanLemmaId = makeDumlingIdFor("de", germanGehenLemma);
 		let storageCalls = 0;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -73,7 +74,7 @@ describe("configured service", () => {
 			async commitChanges() {
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 
 		const dict = createDumdictService({ language: "en", storage });
 
@@ -98,7 +99,7 @@ describe("configured service", () => {
 		} satisfies Lemma<"de", "Lexeme", "VERB">;
 		const germanLemmaId = makeDumlingIdFor("de", germanGehenLemma);
 		let storageCalls = 0;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -120,7 +121,7 @@ describe("configured service", () => {
 			async commitChanges() {
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(

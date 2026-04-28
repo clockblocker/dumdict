@@ -13,11 +13,12 @@ import {
 	pendingSwimLemmaId,
 	type StoreRevision,
 	type SurfaceEntry,
+	withUnusedCleanupStorageMethods,
 } from "./helpers";
 
 describe("configured service", () => {
 	test("findStoredLemmaSenses rejects storage slices with mismatched lemma IDs", async () => {
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				return {
 					revision: "corrupt-1" as StoreRevision,
@@ -40,7 +41,7 @@ describe("configured service", () => {
 			async commitChanges() {
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(
@@ -56,7 +57,7 @@ describe("configured service", () => {
 	});
 
 	test("findStoredLemmaSenses rejects valid candidates outside the requested lemma description", async () => {
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				return {
 					revision: "corrupt-1" as StoreRevision,
@@ -72,7 +73,7 @@ describe("configured service", () => {
 			async commitChanges() {
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(
@@ -89,7 +90,7 @@ describe("configured service", () => {
 
 	test("addNewNote rejects storage slices whose existing lemma is not the draft lemma", async () => {
 		let commitCalls = 0;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -112,7 +113,7 @@ describe("configured service", () => {
 				commitCalls += 1;
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(
@@ -139,7 +140,7 @@ describe("configured service", () => {
 			attestations: ["They swim every morning."],
 			notes: "Stored with the wrong owner.",
 		} satisfies SurfaceEntry<"en">;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -160,7 +161,7 @@ describe("configured service", () => {
 			async commitChanges() {
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(
@@ -188,7 +189,7 @@ describe("configured service", () => {
 	});
 
 	test("addNewNote rejects storage slices with mismatched pending ref IDs", async () => {
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -217,7 +218,7 @@ describe("configured service", () => {
 			async commitChanges() {
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(
@@ -256,7 +257,7 @@ describe("configured service", () => {
 			lemmaSubKind: "VERB",
 		});
 		let commitCalls = 0;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -286,7 +287,7 @@ describe("configured service", () => {
 				commitCalls += 1;
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(
@@ -312,7 +313,7 @@ describe("configured service", () => {
 			lemmaSubKind: "VERB",
 		});
 		let commitCalls = 0;
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -360,7 +361,7 @@ describe("configured service", () => {
 				commitCalls += 1;
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(
@@ -379,7 +380,7 @@ describe("configured service", () => {
 	});
 
 	test("addNewNote rejects incoming pending relations without source lemmas", async () => {
-		const storage = {
+		const storage = withUnusedCleanupStorageMethods({
 			async findStoredLemmaSenses() {
 				throw new Error("Unexpected storage call");
 			},
@@ -415,7 +416,7 @@ describe("configured service", () => {
 			async commitChanges() {
 				throw new Error("Unexpected storage call");
 			},
-		} satisfies DumdictStoragePort<"en">;
+		});
 		const dict = createDumdictService({ language: "en", storage });
 
 		await expect(

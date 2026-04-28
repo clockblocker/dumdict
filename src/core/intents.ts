@@ -1,4 +1,4 @@
-import type { DumdictEntryDraft } from "../dto";
+import type { PendingLemmaId, StoreRevision, LexicalRelation, MorphologicalRelation, DumdictEntryDraft } from "../dto";
 import type { DumlingId, SupportedLanguage } from "../dumling";
 
 export type AppendLemmaAttestationIntent<L extends SupportedLanguage> = {
@@ -12,6 +12,22 @@ export type AddNewNoteIntent<L extends SupportedLanguage> = {
 	draft: DumdictEntryDraft<L>;
 };
 
+export type CleanupRelationResolutionIntent<
+	L extends SupportedLanguage,
+> = {
+	sourceLemmaId: DumlingId<"Lemma", L>;
+	relation: LexicalRelation | MorphologicalRelation;
+	targetPendingId: PendingLemmaId<L>;
+	targetLemmaId?: DumlingId<"Lemma", L>;
+};
+
+export type CleanupRelationsIntent<L extends SupportedLanguage> = {
+	type: "cleanupRelations";
+	baseRevision: StoreRevision;
+	resolutions: CleanupRelationResolutionIntent<L>[];
+};
+
 export type DictionaryIntent<L extends SupportedLanguage> =
 	| AppendLemmaAttestationIntent<L>
-	| AddNewNoteIntent<L>;
+	| AddNewNoteIntent<L>
+	| CleanupRelationsIntent<L>;

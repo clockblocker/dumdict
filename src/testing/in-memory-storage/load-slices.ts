@@ -1,11 +1,15 @@
 import { derivePendingLemmaId } from "../../core/pending/identity";
 import { makeDumlingIdFor, type SupportedLanguage } from "../../dumling";
 import type {
+	CleanupRelationsSlice,
 	FindStoredLemmaSensesStorageRequest,
+	GetInfoForRelationsCleanupStorageRequest,
 	LemmaPatchSlice,
+	LoadCleanupRelationsContextRequest,
 	LoadLemmaForPatchRequest,
 	LoadNewNoteContextRequest,
 	NewNoteSlice,
+	RelationsCleanupInfoSlice,
 	StoredLemmaSensesSlice,
 } from "../../storage";
 import type { InMemoryStorageState } from "./state";
@@ -111,6 +115,58 @@ export function loadNewNoteContext<L extends SupportedLanguage>(
 				(relation) =>
 					state.findStoredNoteByLemmaId(relation.sourceLemmaId)?.lemmaEntry,
 			)
+			.filter((lemmaEntry) => lemmaEntry !== undefined),
+	};
+}
+
+export function getInfoForRelationsCleanup<L extends SupportedLanguage>(
+	state: InMemoryStorageState<L>,
+	request: GetInfoForRelationsCleanupStorageRequest<L>,
+): RelationsCleanupInfoSlice<L> {
+	const pendingRefs = state.storedPendingRefs.filter(
+		(pendingRef) => pendingRef.canonicalLemma === request.canonicalLemma,
+	);
+	const pendingIds = new Set(pendingRefs.map(({ pendingId }) => pendingId));
+
+	return {
+		revision: state.currentRevision(),
+		canonicalLemma: request.canonicalLemma,
+		candidateLemmas: state.storedNotes
+			.filter(
+				({ lemmaEntry }) =>
+					lemmaEntry.lemma.canonicalLemma === request.canonicalLemma,
+			)
+			.map(({ lemmaEntry }) => lemmaEntry),
+		pendingRefs,
+		pendingRelations: state
+			.allPendingRelations()
+			.filter((relation) => pendingIds.has(relation.targetPendingId)),
+	};
+}
+
+export function loadCleanupRelationsContext<L extends SupportedLanguage>(
+	state: InMemoryStorageState<L>,
+	request: LoadCleanupRelationsContextRequest<L>,
+): CleanupRelationsSlice<L> {
+	const pendingIds = new Set(
+		request.resolutions.map(({ targetPendingId }) => targetPendingId),
+	);
+	const targetLemmaIds = new Set(
+		request.resolutions
+			.map(({ targetLemmaId }) => targetLemmaId)
+			.filter((targetLemmaId) => targetLemmaId !== undefined),
+	);
+
+	return {
+		revision: state.currentRevision(),
+		pendingRefs: state.storedPendingRefs.filter(({ pendingId }) =>
+			pendingIds.has(pendingId),
+		),
+		pendingRelations: state
+			.allPendingRelations()
+			.filter((relation) => pendingIds.has(relation.targetPendingId)),
+		targetLemmas: Array.from(targetLemmaIds)
+			.map((lemmaId) => state.findStoredNoteByLemmaId(lemmaId)?.lemmaEntry)
 			.filter((lemmaEntry) => lemmaEntry !== undefined),
 	};
 }

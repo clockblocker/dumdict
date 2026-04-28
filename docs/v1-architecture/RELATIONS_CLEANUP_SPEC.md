@@ -56,8 +56,11 @@ type DumdictService<L extends SupportedLanguage> = {
 
 ### Purpose
 
-Load all information needed by the back-office to disambiguate pending
-relations for one `canonicalLemma`.
+Load the `dumdict`-owned cleanup workset for one `canonicalLemma`.
+
+This method does not promise to return all context a host might want for LLM
+prompting or human review. It returns the cleanup data that `dumdict` owns, and
+the back-office may join that workset with host-specific context if needed.
 
 ### Request
 
@@ -114,6 +117,8 @@ type CleanupPendingRelation<L extends SupportedLanguage> = {
   `relation`, and `pendingRef.pendingId`
 - `relationFamily` remains part of internal DTOs, but is omitted from this API
   because it can be inferred from `relation`
+- this API relies on `relation` names being globally unique across relation
+  families
 
 ## Method 2: `cleanupRelations`
 
@@ -147,8 +152,8 @@ type CleanupRelationResolution<L extends SupportedLanguage> = {
   consumed and converted into a real `full-sense <-> full-sense` relation
 - if a pending relation appears in `resolutions` without `targetLemmaId`, it is
   consumed and deleted
-- if `resolutions` is empty, the method is a valid no-op and returns a normal
-  result
+- if `resolutions` is empty, the method returns an applied no-op result without
+  calling storage commit
 - cleanup is atomic for the whole request
 - the method returns a normal `MutationResult<L>`
 
@@ -162,11 +167,14 @@ type CleanupRelationsResult<L extends SupportedLanguage> = MutationResult<L>;
 
 - all requested resolutions are applied against `baseRevision`
 - rejects malformed input before planning or commit
+- rejects duplicate `resolutions` entries for the same natural key
 - if `baseRevision` is stale, the result is `conflict`
 - if a referenced pending relation tuple no longer exists, the result is
   `conflict`
 - if a `targetLemmaId` does not exist at planning or commit time, the result is
   `conflict`
+- if a `targetLemmaId` is provided, its lemma identity must match the resolved
+  pending ref identity tuple, not only the shared `canonicalLemma`
 - pending refs with no remaining incoming relations may be deleted as part of
   cleanup
 
@@ -174,8 +182,13 @@ type CleanupRelationsResult<L extends SupportedLanguage> = MutationResult<L>;
 
 If a resolution includes `targetLemmaId`:
 
+- reject the resolution as `selfRelation` if `targetLemmaId === sourceLemmaId`
+- reject the resolution if `targetLemmaId` does not match the pending ref's
+  identity tuple
 - add the forward relation from `sourceLemmaId` to `targetLemmaId`
 - add the inverse relation from `targetLemmaId` to `sourceLemmaId`
+- if either real relation already exists, treat that edge as already satisfied
+  rather than conflicting
 - delete the pending relation
 - if its `PendingLemmaRef` has no more incoming relations, delete that pending
   ref
@@ -321,13 +334,17 @@ Result:
 - returns multiple candidate lemma IDs for same `canonicalLemma`
 - returns multiple pending relations from different source lemmas into the same
   pending ref
-- returns multiple pending refs with same `canonicalLemma` separately if storage
-  still distinguishes them
+- returns multiple pending refs with the same `canonicalLemma` separately when
+  they have different `targetPendingId` values
+- treats multiple physical pending refs with the same `targetPendingId` as
+  malformed storage state rather than distinct cleanup items
 - does not mutate state
 
 ### `cleanupRelations`
 
 - rejects malformed input
+- returns an applied no-op result when `resolutions` is empty
+- rejects duplicate `resolutions` entries for the same pending relation key
 - resolves one pending relation into one existing full sense
 - resolves multiple pending relations in one atomic request
 - partially resolves a workset while leaving omitted relations pending
@@ -335,6 +352,11 @@ Result:
 - deletes a pending ref when its last incoming relation is consumed
 - keeps a pending ref when some incoming relations remain
 - adds inverse-paired full-sense relations correctly
+- rejects self-resolution as `selfRelation`
+- rejects a resolution whose `targetLemmaId` does not match the pending ref
+  identity tuple
+- consumes a pending relation even when the corresponding real relation already
+  exists
 - conflicts when `targetLemmaId` does not exist
 - conflicts on stale `baseRevision`
 - conflicts when a requested pending relation tuple no longer exists
@@ -357,6 +379,9 @@ be inferred from `relation`.
 Duplicate pending relations with the same tuple are invalid semantic state.
 They should be deduped at creation time or rejected as malformed storage state.
 
+Duplicate `resolutions` entries with the same tuple are malformed request state
+and should be rejected before planning.
+
 ## Integration Intent
 
 - pending cleanup happens only when the back-office chooses to call
@@ -364,3 +389,8 @@ They should be deduped at creation time or rejected as malformed storage state.
 - the back-office is the only place where pending-to-full-sense decisions are
   made
 - this spec does not define any `addNewNote` behavior changes
+- cleanup no-op results use:
+  - `status: "applied"`
+  - `baseRevision === nextRevision`
+  - empty `affected`
+  - summary message `"No relations cleaned up."`

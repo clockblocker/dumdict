@@ -17,11 +17,14 @@ import {
 import type { LemmaDescription } from "../public";
 import { DumdictLanguageMismatchError } from "../public";
 import type {
+	CleanupRelationsSlice,
 	LemmaPatchSlice,
 	NewNoteSlice,
+	RelationsCleanupInfoSlice,
 	StoredLemmaSensesSlice,
 } from "../storage";
 import { derivePendingLemmaId, makePendingLemmaRef } from "./pending/identity";
+import { relationFamilyFor } from "./relations/family";
 
 function assertLanguage(
 	expectedLanguage: SupportedLanguage,
@@ -51,6 +54,19 @@ function assertDumlingId(
 function assertEqualId(actual: string, expected: string, context: string) {
 	if (actual !== expected) {
 		throw new Error(`${context} does not match its derived id.`);
+	}
+}
+
+function assertNoDuplicates(
+	values: string[],
+	context: string,
+) {
+	const seen = new Set<string>();
+	for (const value of values) {
+		if (seen.has(value)) {
+			throw new Error(`${context} contains duplicates.`);
+		}
+		seen.add(value);
 	}
 }
 
@@ -134,6 +150,9 @@ function validatePendingRelation<L extends SupportedLanguage>(
 		relation.sourceLemmaId,
 		"pending relation source lemma id",
 	);
+	if (relation.relationFamily !== relationFamilyFor(relation.relation)) {
+		throw new Error("pending relation family does not match its relation.");
+	}
 }
 
 function lemmaMatchesDescription<L extends SupportedLanguage>(
@@ -290,6 +309,112 @@ export function validateNewNoteSlice<L extends SupportedLanguage>(
 		) {
 			throw new Error(
 				"matching pending ref does not match the draft lemma identity.",
+			);
+		}
+	}
+}
+
+export function validateRelationsCleanupInfoSlice<L extends SupportedLanguage>(
+	expectedLanguage: L,
+	slice: RelationsCleanupInfoSlice<L>,
+	requestedCanonicalLemma?: string,
+) {
+	if (
+		requestedCanonicalLemma !== undefined &&
+		slice.canonicalLemma !== requestedCanonicalLemma
+	) {
+		throw new Error(
+			"relations cleanup slice canonical lemma does not match the request.",
+		);
+	}
+
+	for (const entry of slice.candidateLemmas) {
+		validateLemmaEntry(expectedLanguage, entry);
+		if (
+			requestedCanonicalLemma !== undefined &&
+			entry.lemma.canonicalLemma !== requestedCanonicalLemma
+		) {
+			throw new Error(
+				"relations cleanup candidate lemma does not match the requested canonical lemma.",
+			);
+		}
+	}
+
+	for (const ref of slice.pendingRefs) {
+		validatePendingRef(expectedLanguage, ref);
+		if (
+			requestedCanonicalLemma !== undefined &&
+			ref.canonicalLemma !== requestedCanonicalLemma
+		) {
+			throw new Error(
+				"relations cleanup pending ref does not match the requested canonical lemma.",
+			);
+		}
+	}
+
+	assertNoDuplicates(
+		slice.pendingRefs.map(({ pendingId }) => pendingId),
+		"relations cleanup pending refs",
+	);
+
+	for (const relation of slice.pendingRelations) {
+		validatePendingRelation(expectedLanguage, relation);
+	}
+
+	const pendingIds = new Set(slice.pendingRefs.map(({ pendingId }) => pendingId));
+	for (const relation of slice.pendingRelations) {
+		if (!pendingIds.has(relation.targetPendingId)) {
+			throw new Error(
+				"relations cleanup pending relation target pending ref is missing from the slice.",
+			);
+		}
+	}
+
+	assertNoDuplicates(
+		slice.pendingRelations.map(
+			(relation) =>
+				`${relation.sourceLemmaId}:${relation.relation}:${relation.targetPendingId}`,
+		),
+		"relations cleanup pending relations",
+	);
+}
+
+export function validateCleanupRelationsSlice<L extends SupportedLanguage>(
+	expectedLanguage: L,
+	slice: CleanupRelationsSlice<L>,
+) {
+	for (const ref of slice.pendingRefs) {
+		validatePendingRef(expectedLanguage, ref);
+	}
+	assertNoDuplicates(
+		slice.pendingRefs.map(({ pendingId }) => pendingId),
+		"cleanup pending refs",
+	);
+
+	for (const relation of slice.pendingRelations) {
+		validatePendingRelation(expectedLanguage, relation);
+	}
+	assertNoDuplicates(
+		slice.pendingRelations.map(
+			(relation) =>
+				`${relation.sourceLemmaId}:${relation.relation}:${relation.targetPendingId}`,
+		),
+		"cleanup pending relations",
+	);
+
+	for (const entry of slice.targetLemmas) {
+		validateLemmaEntry(expectedLanguage, entry);
+	}
+	assertNoDuplicates(
+		slice.targetLemmas.map(({ id }) => id),
+		"cleanup target lemmas",
+	);
+
+	const pendingIds = new Set(slice.pendingRefs.map(({ pendingId }) => pendingId));
+	for (const relation of slice.pendingRelations) {
+		if (!pendingIds.has(relation.targetPendingId)) {
+			throw new Error(
+				"cleanup pending relation target pending ref is missing from the slice.",
 			);
 		}
 	}

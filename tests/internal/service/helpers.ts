@@ -67,9 +67,28 @@ export const englishWalkEntry = (): LemmaEntry<"en"> => {
 	return note.lemmaEntry;
 };
 
+export function withUnusedCleanupStorageMethods<
+	L extends import("../../../src").SupportedLanguage,
+>(
+	storage: Omit<
+		DumdictStoragePort<L>,
+		"getInfoForRelationsCleanup" | "loadCleanupRelationsContext"
+	>,
+): DumdictStoragePort<L> {
+	return {
+		...storage,
+		async getInfoForRelationsCleanup() {
+			throw new Error("Unexpected storage call");
+		},
+		async loadCleanupRelationsContext() {
+			throw new Error("Unexpected storage call");
+		},
+	};
+}
+
 export const storageRejectingNewNoteContext = () => {
 	let loadNewNoteContextCalls = 0;
-	const storage = {
+	const storage = withUnusedCleanupStorageMethods({
 		async findStoredLemmaSenses() {
 			throw new Error("Unexpected storage call");
 		},
@@ -91,7 +110,7 @@ export const storageRejectingNewNoteContext = () => {
 		async commitChanges() {
 			throw new Error("Unexpected storage call");
 		},
-	} satisfies DumdictStoragePort<"en">;
+	});
 
 	return {
 		storage,

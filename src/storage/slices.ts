@@ -8,7 +8,10 @@ import type {
 	SurfaceEntry,
 } from "../dto";
 import type { DumlingId } from "../dumling";
-import type { LemmaDescription } from "../public";
+import type {
+	CleanupRelationResolution,
+	LemmaDescription,
+} from "../public";
 import type { SupportedLanguage } from "../dumling";
 
 export type FindStoredLemmaSensesStorageRequest<L extends SupportedLanguage> = {
@@ -45,4 +48,31 @@ export type NewNoteSlice<L extends SupportedLanguage> = {
 	matchingPendingRefsForNewLemma: PendingLemmaRef<L>[];
 	incomingPendingRelationsForNewLemma: PendingLemmaRelation<L>[];
 	incomingPendingSourceLemmas: LemmaEntry<L>[];
+};
+
+export type GetInfoForRelationsCleanupStorageRequest<
+	L extends SupportedLanguage,
+> = {
+	canonicalLemma: string;
+};
+
+export type RelationsCleanupInfoSlice<L extends SupportedLanguage> = {
+	revision: StoreRevision;
+	canonicalLemma: string;
+	candidateLemmas: LemmaEntry<L>[];
+	pendingRefs: PendingLemmaRef<L>[];
+	pendingRelations: PendingLemmaRelation<L>[];
+};
+
+export type LoadCleanupRelationsContextRequest<
+	L extends SupportedLanguage,
+> = {
+	resolutions: CleanupRelationResolution<L>[];
+};
+
+export type CleanupRelationsSlice<L extends SupportedLanguage> = {
+	revision: StoreRevision;
+	pendingRefs: PendingLemmaRef<L>[];
+	pendingRelations: PendingLemmaRelation<L>[];
+	targetLemmas: LemmaEntry<L>[];
 };
